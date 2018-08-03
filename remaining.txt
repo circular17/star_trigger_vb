@@ -1,5 +1,7 @@
--calculs (note: optim a=b)
--conditions (when or)
--thread (for player)
--bool array
--and or xor
+- calculs (expressions)
+- conditions complexes (or xor)
+- thread (for player)
+=> fonctions thread
+=> stack //
+- bool array
+- string array (for template)

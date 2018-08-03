@@ -163,7 +163,7 @@ begin
       AOutput.Add(#9 + AActions[i] + ';');
       actionCount += 1;
     end;
-  if ANextIP > 0 then
+  if ANextIP <> -1 then
   begin
     AOutput.Add(#9 + SetNextIP(ANextIP).ToStringAndFree + ';');
     actionCount += 1;
@@ -192,6 +192,8 @@ var
     Always: boolean;
   end;
   MessageCount: integer;
+
+  BusyIP : integer;
 
 function AddMessage(AText: string; APlayers: TPlayers; AAlways: boolean): integer;
 begin
@@ -254,7 +256,7 @@ begin
     (AProg[0] is TChangeIPInstruction) and not (AProg[0] is TWaitConditionInstruction)
     and not (AProg[0] is TSplitInstruction) ) and (AIPStart > 0) and (AReturnIP <> -1) then
   begin
-    instrStr[0] := SetNextIP(0).ToStringAndFree;
+    instrStr[0] := SetNextIP(BusyIP).ToStringAndFree;
     inc(instrCount);
   end;
 
@@ -787,7 +789,6 @@ var
   nesting, elseIndex, endIfIndex: integer;
   startWhileIP, msgIdx, k: integer;
   ifInstr: TIfInstruction;
-  elseInstr: TElseInstruction;
   disp: TDisplayTextMessageInstruction;
   waitInstr: TWaitConditionInstruction;
   transf: TTransferIntegerInstruction;
@@ -1142,6 +1143,8 @@ begin
   AddToAccSysIP:= -1;
   AddFromAccSysIP:= -1;
 
+  BusyIP := NewIP;
+
   initSub := TInstructionList.Create;
   for i := 0 to IntArrayCount-1 do
   with IntArrays[i] do
@@ -1167,7 +1170,7 @@ begin
 
   mainOutput := TStringList.Create;
 
-  EndIP := NewIP;
+  EndIP := 0;
 
   ExpandInstructions(initSub, -1, [AMainThread]);
   ExpandInstructions(MainProg, -1, [AMainThread]);
@@ -1189,7 +1192,7 @@ begin
 
   DetermineStackValueSize;
 
-  mainOutput.Add('// Program //');;
+  mainOutput.Add('// Program //');
 
   if initSub.Count > 0 then
   begin

@@ -22,6 +22,16 @@ const
   MaxArraySize = 8;
 
 const
+  PlayerIdentifiers : array[TPlayer] of string =
+    ('', 'Player1', 'Player2', 'Player3', 'Player4',
+    'Player5', 'Player6', 'Player7', 'Player8',
+    'Player9', 'Player10', 'Player11', 'Player12',
+    '', 'CurrentPlayer', 'Foes', 'Allies',
+    'NeutralPlayers', 'AllPlayers',
+    'Force1', 'Force2', 'Force3', 'Force4',
+    '', '', '', '', 'NonAlliedVictoryPlayers');
+
+const
   NonKillableUnits: array[1..51] of string =
 ('Data Disc',
 'Goliath Turret',
@@ -214,9 +224,12 @@ const
      'For','To','Step','Next','Do','Loop','Until','Len','Chr','Asc','ElseIf','Select','Case','Exit','Function','LBound','UBound','Me','Now','ReDim', 'Preserve', 'Rnd','New');
 var
   i: Integer;
+  pl: TPlayer;
 begin
   for i := low(reservedWords) to high(reservedWords) do
-    if ComparetexT(reservedWords[i],AText)=0 then raise exception.Create('This is a word reserved');
+    if ComparetexT(reservedWords[i],AText)=0 then raise exception.Create('"' + reservedWords[i] + '" is a word reserved');
+  for pl := low(TPlayer) to high(TPlayer) do
+    if CompareText(PlayerIdentifiers[pl], AText)=0 then raise exception.Create('"' + PlayerIdentifiers[pl] + '" is a player identifier');
 end;
 
 function PredefineIntVar(AName: string; APlayer: TPlayer; AUnitType: string): integer;
@@ -669,7 +682,7 @@ var
   pl: TPlayer;
 begin
   for pl := succ(plNone) to high(TPlayer) do
-    if CompareText(ALine[AIndex],StringReplace(PlayerToStr(pl),' ','',[rfReplaceAll]))=0 then
+    if CompareText(ALine[AIndex],PlayerIdentifiers[pl])=0 then
     begin
       inc(AIndex);
       exit(pl);

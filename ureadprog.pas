@@ -176,6 +176,8 @@ function IsPowerOf2(ANumber: integer): boolean;
 function GetExponentOf2(AValue: integer): integer;
 function RemoveQuotes(AQuotedText: string): string;
 
+procedure CheckReservedWord(AText: string);
+
 var HyperTriggers: boolean;
 
 implementation
@@ -183,6 +185,9 @@ implementation
 type
   ArrayOfInteger = array of integer;
   TConditionOperator = (coNone, coEqual, coGreaterThan, coLowerThan, coGreaterThanOrEqual, coLowerThanOrEqual, coNotEqual);
+
+const
+  NotConditionOperator : array[TConditionOperator] of TConditionOperator = (coNone, coNotEqual, coLowerThanOrEqual, coGreaterThanOrEqual, coLowerThan, coGreaterThan, coEqual);
 
 function GetExponentOf2(AValue: integer): integer;
 begin
@@ -200,6 +205,18 @@ begin
     raise exception.Create('Quotes not found');
 
   result := StringReplace(StringReplace(StringReplace(copy(AQuotedText, 2, length(AQuotedText)-2), '\\', #0, [rfReplaceAll]), '\"', '"', [rfReplaceAll]), #0, '\', [rfReplaceAll]);
+end;
+
+procedure CheckReservedWord(AText: string);
+const
+  ReservedWords: array[1..49] of string =
+    ('Dim','As','Const','Sub','When','End','If','EndIf', 'Then','Else','Not','And','Or','Xor','While','Option','Return','On','Off','Hyper','Boolean','Byte','Integer','String','True','False',
+     'For','To','Step','Next','Do','Loop','Until','Len','Chr','Asc','ElseIf','Select','Case','Exit','Function','LBound','UBound','Me','Now','ReDim', 'Preserve', 'Rnd','New');
+var
+  i: Integer;
+begin
+  for i := low(reservedWords) to high(reservedWords) do
+    if ComparetexT(reservedWords[i],AText)=0 then raise exception.Create('This is a word reserved');
 end;
 
 function PredefineIntVar(AName: string; APlayer: TPlayer; AUnitType: string): integer;
@@ -235,6 +252,7 @@ var
 begin
   if VarNameUsed(AName) then
     raise Exception.Create('Name already in use');
+  CheckReservedWord(AName);
 
   if length(AValues)>ASize then
     raise exception.Create('Too many elements in array values');
@@ -319,6 +337,7 @@ function CreateIntVar(AName: string; AValue: integer; ARandomize: boolean;
 begin
   if VarNameUsed(AName) then
     raise Exception.Create('Name already in use');
+  CheckReservedWord(AName);
 
   if AConstant and ARandomize then
     raise exception.Create('A constant cannot be random');
@@ -382,6 +401,7 @@ function CreateBoolVar(AName: string; AValue: TSwitchValue; AConstant: boolean
 begin
   if VarNameUsed(AName) then
     raise Exception.Create('Name already in use');
+  CheckReservedWord(AName);
 
   if AConstant and (AValue = svRandomize) then
     raise exception.Create('A constant cannot be random');
@@ -797,6 +817,8 @@ begin
       result := TNeverCondition.Create
   end else
   begin
+    boolNot := TryToken(ALine,AIndex,'Not');
+
     pl := TryParsePlayer(ALine,AIndex);
     if pl <> plNone then
     begin
@@ -812,6 +834,8 @@ begin
         if op = coNone then
           raise exception.Create('Comparison expected');
 
+        if boolNot then op := NotConditionOperator[op];
+
         intVal := ExpectInteger(ALine,AIndex);
         case op of
         coEqual: result := TBringCondition.Create(pl, unitType, locStr, icmExactly, intVal);
@@ -825,7 +849,7 @@ begin
                           result := TNeverCondition.Create
                        else
                           result := TBringCondition.Create(pl, unitType, locStr, icmAtMost, intVal-1);
-        coNotEqual: result := TBringCondition.Create(pl, unitType, locStr, icmNotEqualTo, intVal);
+        coNotEqual: result := TNotCondition.Create([TBringCondition.Create(pl, unitType, locStr, icmExactly, intVal)]);
         else
           raise exception.Create('Unhandled case');
         end;
@@ -835,21 +859,30 @@ begin
         raise exception.Create('Expecting player condition');
     end;
 
-    boolNot := TryToken(ALine,AIndex,'Not');
-
     scalar := TryScalarVariable(ALine,AIndex);
     if scalar.VarType = svtNone then
-      raise exception.Create('Expecting variable name');
+    begin
+      if TryBoolean(ALine,AIndex,boolVal) then
+      begin
+        if boolVal xor boolNot then
+          result := TAlwaysCondition.Create
+        else
+          result := TNeverCondition.Create;
+        exit;
+      end else
+        raise exception.Create('Expecting variable name');
+    end;
 
     case scalar.VarType of
     svtInteger:
     begin
-      if boolNot then raise exception.Create('Not operator is invalid with integers');
       op := TryConditionOperator(ALine,AIndex);
       if op = coNone then
         raise exception.Create('Comparison expected')
       else
       begin
+        if boolNot then op := NotConditionOperator[op];
+
         intVal := ExpectInteger(ALine,AIndex);
         case op of
         coEqual: result := TIntegerCondition.Create(scalar.Player, scalar.Name, icmExactly, intVal);
@@ -863,7 +896,7 @@ begin
                           result := TNeverCondition.Create
                        else
                           result := TIntegerCondition.Create(scalar.Player, scalar.Name, icmAtMost, intVal-1);
-        coNotEqual: result := TIntegerCondition.Create(scalar.Player, scalar.Name, icmNotEqualTo, intVal);
+        coNotEqual: result := TNotCondition.Create([TIntegerCondition.Create(scalar.Player, scalar.Name, icmExactly, intVal)]);
         else
           raise exception.Create('Unhandled case');
         end;
@@ -878,6 +911,8 @@ begin
 end;
 
 function ExpectConditions(ALine: TStringList; var AIndex: integer): TConditionList;
+var
+  i, j: Integer;
 begin
   result := TConditionList.Create;
   try
@@ -891,6 +926,21 @@ begin
       raise exception.Create(ex.Message);
     end;
   end;
+  for i := result.Count-1 downto 0 do
+    if (result[i] is TAlwaysCondition) and (result.Count > 1) then
+    begin
+      result[i].Free;
+      result.Delete(i);
+    end else
+    if result[i] is TNeverCondition then
+    begin
+      for j := result.Count-1 downto 0 do
+        if j <> i then
+        begin
+          result[j].Free;
+          result.Delete(j);
+        end;
+    end;
 end;
 
 function TryUnitProperties(ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
@@ -1030,6 +1080,7 @@ function CreateUnitProp(AName: string; AValue: TUnitProperties; AConstant: boole
 begin
   if VarNameUsed(AName) then
     raise Exception.Create('Name already in use');
+  CheckReservedWord(AName);
 
   if not AConstant then
     raise Exception.Create('Unit properties must be constant');
@@ -1076,6 +1127,7 @@ function CreateString(AName: string; AValue: string; AConstant: boolean): intege
 begin
   if VarNameUsed(AName) then
     raise Exception.Create('Name already in use');
+  CheckReservedWord(AName);
 
   if not AConstant then
     raise Exception.Create('Strings must be constant');
@@ -1111,6 +1163,7 @@ function CreateProcedure(AName: string; AParamCount: integer): integer;
 begin
   if ProcedureIndexOf(AName, AParamCount)<>-1 then
     raise exception.Create('Procedure already declared with this signature');
+  CheckReservedWord(AName);
 
   if ProcedureCount >= length(Procedures) then
     setlength(Procedures, ProcedureCount*2+4);
@@ -1492,6 +1545,11 @@ begin
       end else
         raise exception.Create('Unknown option');
     end else
+    if TryToken(line,index,'EndIf') then
+    begin
+      CheckEndOfLine;
+      AProg.Add(TEndIfInstruction.Create);
+    end else
     if TryToken(line,index,'End') then
     begin
       if TryToken(line,index,'While') then
@@ -1509,6 +1567,8 @@ begin
     if TryToken(line,index,'While') then
     begin
       conds := ExpectConditions(line,index);
+      if (conds.Count = 1) and (conds[0] is TAlwaysCondition) then
+        raise exception.Create('Infinite loop not allowed. You can use When True instead');
       AProg.Add(TWhileInstruction.Create(conds));
       CheckEndOfLine;
     end else
@@ -1552,8 +1612,11 @@ begin
                   scalar2 := TryScalarVariable(line, index);
                   if scalar2.VarType = svtInteger then
                   begin
-                    AProg.Add(TTransferIntegerInstruction.Create(scalar2.Player, scalar2.Name, itCopyToAccumulator));
-                    AProg.Add(TTransferIntegerInstruction.Create(scalar.Player, scalar.Name, itCopyFromAccumulator));
+                    if (scalar2.Name <> scalar.Name) or (scalar2.Player <> scalar.Player) then
+                    begin
+                      AProg.Add(TTransferIntegerInstruction.Create(scalar2.Player, scalar2.Name, itCopyToAccumulator));
+                      AProg.Add(TTransferIntegerInstruction.Create(scalar.Player, scalar.Name, itCopyFromAccumulator));
+                    end;
                   end else
                     raise exception.Create('Expecting integer value');
                 end;
@@ -1572,28 +1635,37 @@ begin
                   raise exception.Create('Boolean can have only 2 values');
               end else
               begin
-                if TryBoolean(line,index,boolVal) then
+                conds := ExpectConditions(line,index);
+                if (conds.Count = 1) and (conds[0] is TSwitchCondition) and
+                   (TSwitchCondition(conds[0]).Switch = scalar.Index) then
                 begin
-                  CheckEndOfLine;
-                  AProg.Add(TSetSwitchInstruction.Create(scalar.Index, BoolToSwitch[boolVal]));
-                end else
-                if CompareText(line[index],'Not') = 0 then
-                begin
-                  inc(index);
-                  if TryBoolean(line,index,boolVal) then
-                  begin
-                    CheckEndOfLine;
-                    AProg.Add(TSetSwitchInstruction.Create(scalar.Index, BoolToSwitch[not boolVal]));
-                  end else
-                  if (index = line.Count-1) and (line[index] = line[0]) then
-                  begin
-                    inc(index);
-                    CheckEndOfLine;
+                  //a = Not a
+                  if not TSwitchCondition(conds[0]).Value then
                     AProg.Add(TSetSwitchInstruction.Create(scalar.Index, svToggle));
-                  end else
-                    raise exception.Create('Not handled');
+                  conds[0].Free;
+                  conds.Free;
                 end else
-                  raise exception.Create('Expecting boolean value');
+                if (conds.Count = 1) and (conds[0] is TAlwaysCondition) then
+                begin
+                  //a = True
+                  AProg.Add(TSetSwitchInstruction.Create(scalar.Index, svSet));
+                  conds[0].Free;
+                  conds.Free;
+                end else
+                if (conds.Count = 1) and (conds[0] is TNeverCondition) then
+                begin
+                  //a = False
+                  AProg.Add(TSetSwitchInstruction.Create(scalar.Index, svClear));
+                  conds[0].Free;
+                  conds.Free;
+                end else
+                begin
+                  AProg.Add(TIfInstruction.Create(conds));
+                  AProg.Add(TSetSwitchInstruction.Create(scalar.Index, svSet));
+                  AProg.Add(TElseInstruction.Create);
+                  AProg.Add(TSetSwitchInstruction.Create(scalar.Index, svClear));
+                  AProg.Add(TEndIfInstruction.Create);
+                end;
               end;
             end;
           else raise exception.Create('Unhandled case');

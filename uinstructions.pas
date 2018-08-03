@@ -41,7 +41,7 @@ type
   { TConditionList }
 
   TConditionList = class(TCustomConditionList)
-    function ToString: ansistring;
+    function ToString: ansistring; override;
     procedure FreeAll;
   end;
 
@@ -302,6 +302,16 @@ type
     function ToString: ansistring; override;
   end;
 
+  { TNotCondition }
+
+  TNotCondition = class(TCondition)
+    Conditions: TConditionList;
+    destructor Destroy; override;
+    constructor Create(AConditions: array of TCondition);
+    constructor Create(AConditions: TConditionList);
+    function ToString: ansistring; override;
+  end;
+
   { TSwitchCondition }
 
   TSwitchCondition = class(TCondition)
@@ -311,11 +321,11 @@ type
     function ToString: ansistring; override;
   end;
 
-  TIntegerConditionMode = (icmAtLeast,icmAtMost,icmExactly,icmNotEqualTo);
+  TIntegerConditionMode = (icmAtLeast,icmAtMost,icmExactly);
 
 const
   IntegerConditionModeToStr: array[TIntegerConditionMode] of string =
-    ('At least', 'At most','Exactly','Not equal to');
+    ('At least', 'At most','Exactly');
 
 type
   { TIntegerCondition }
@@ -345,6 +355,37 @@ implementation
 function AddQuotes(AText: string): string;
 begin
   result := '"' + StringReplace(StringReplace(AText, '\', '\\', [rfReplaceAll]), '"', '\"', [rfReplaceAll]) + '"';
+end;
+
+{ TNotCondition }
+
+destructor TNotCondition.Destroy;
+var
+  i: Integer;
+begin
+  for i := 0 to Conditions.Count-1 do
+    Conditions[i].Free;
+  Conditions.Free;
+  inherited Destroy;
+end;
+
+constructor TNotCondition.Create(AConditions: array of TCondition);
+var
+  i: Integer;
+begin
+  Conditions := TConditionList.Create;
+  for i := 0 to high(AConditions) do
+    Conditions.Add(AConditions[i]);
+end;
+
+constructor TNotCondition.Create(AConditions: TConditionList);
+begin
+  Conditions := AConditions;
+end;
+
+function TNotCondition.ToString: ansistring;
+begin
+  Result:= '!' + Conditions.ToString;
 end;
 
 { TOrderUnitInstruction }

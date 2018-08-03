@@ -1,4 +1,5 @@
 -calculs (note: optim a=b)
 -conditions (when or)
 -thread (for player)
--mot cles
+-bool array
+-and or xor

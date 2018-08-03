@@ -15,7 +15,7 @@ procedure WriteUnitProperties(AFilename: string);
 implementation
 
 const
-  PredefineProcedures: array[0..34] of string =
+  PredefineProcedures: array[0..33] of string =
 ('Center View', //("Location");
 'Defeat', //();
 'Draw', //();
@@ -785,13 +785,15 @@ var
   call: TCallInstruction;
   ret: TReturnInstruction;
   nesting, elseIndex, endIfIndex: integer;
-  startWhileIP, msgIdx: integer;
+  startWhileIP, msgIdx, k: integer;
   ifInstr: TIfInstruction;
   elseInstr: TElseInstruction;
   disp: TDisplayTextMessageInstruction;
   waitInstr: TWaitConditionInstruction;
   transf: TTransferIntegerInstruction;
   splitInstr: TSplitInstruction;
+  thenPart,elsePart: TInstructionList;
+  notCond: TNotCondition;
 
 begin
   expanded := TInstructionList.Create;
@@ -888,18 +890,40 @@ begin
           begin
             if elseIndex = -1 then
             begin
-              AProg.Insert(j, TSplitInstruction.Create(-1,-1));
+              splitInstr := TSplitInstruction.Create(-1,-1);
+              AProg.Insert(j, splitInstr);
               elseIndex := j;
               endIfIndex := j+1;
             end else
             begin
               AProg[elseIndex].Free;
-              AProg[elseIndex] := TSplitInstruction.Create(-1,-1);
+              splitInstr := TSplitInstruction.Create(-1,-1);
+              AProg[elseIndex] := splitInstr;
               endIfIndex := j;
             end;
 
-            nextIP := NewIP;
             ifInstr := TIfInstruction(AProg[i]);
+            //if condition is a Not, it can be done be swapping Then part and Else part
+            if (ifInstr.Conditions.Count = 1) and (ifInstr.Conditions[0] is TNotCondition) then
+            begin
+              notCond := TNotCondition(ifInstr.Conditions[0]);
+              ifInstr.Conditions := notCond.Conditions;
+              notCond.Conditions := TConditionList.Create;
+              notCond.Free;
+
+              thenPart := TInstructionList.Create;
+              for k := i+1 to elseIndex-1 do thenPart.Add(AProg[k]);
+              elsePart := TInstructionList.Create;
+              for k := elseIndex+1 to endIfIndex-1 do elsePart.Add(AProg[k]);
+              elseIndex := i+1+elsePart.Count;
+              for k := 0 to elsePart.Count-1 do AProg[i+1+k] := elsePart[k];
+              AProg[elseIndex] := splitInstr;
+              for k := 0 to thenPart.Count-1 do AProg[elseIndex+1+k] := thenPart[k];
+              thenPart.Free;
+              elsePart.Free;
+            end;
+
+            nextIP := NewIP;
             expanded.Add(TWaitConditionInstruction.Create(ifInstr.Conditions, nextIP));
             ifInstr.Conditions := nil;
             ifInstr.Free;

@@ -1,0 +1,14 @@
+
+backup/
+
+lib/x86_64-linux/
+
+*.out
+
+triggercompiler
+
+*.lps
+
+*.property
+
+*.trigger

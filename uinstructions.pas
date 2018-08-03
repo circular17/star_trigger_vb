@@ -30,14 +30,27 @@ const
   SwitchToStr : array[TSwitchValue] of string = ('clear','set','randomize','toggle');
 
 type
-  TCondition = class;
+  { TCondition }
+
+  TCondition = class
+    function ToStringAndFree: ansistring;
+  end;
+
+  TCustomConditionList = specialize TFPGList<TCondition>;
+
+  { TConditionList }
+
+  TConditionList = class(TCustomConditionList)
+    function ToString: ansistring;
+    procedure FreeAll;
+  end;
 
   { TSetSwitchInstruction }
 
   TSetSwitchInstruction = class(TInstruction)
-    SwitchName: string;
+    Switch: integer;
     Value: TSwitchValue;
-    constructor Create(ASwitchName: string; AValue: TSwitchValue);
+    constructor Create(ASwitch: integer; AValue: TSwitchValue);
     function ToString: ansistring; override;
   end;
 
@@ -52,9 +65,9 @@ type
   TPlayers = set of TPlayer;
   TSetIntegerMode = (simSetTo, simAdd, simSubtract, simRandomize);
 
-  { TSetIntInstruction }
+  { TSetIntegerInstruction }
 
-  TSetIntInstruction = class(TInstruction)
+  TSetIntegerInstruction = class(TInstruction)
     Player: TPlayer;
     UnitType: string;
     Value: integer;
@@ -63,13 +76,25 @@ type
     function ToString: ansistring; override;
   end;
 
-  { TAddDeathFromSwitchInstruction }
+  TIntegerTransfer = (itCopyToAccumulator, itAddToAccumulator, itCopyFromAccumulator, itAddFromAccumulator);
 
-  TAddDeathFromSwitchInstruction = class(TInstruction)
+  { TTransferIntegerInstruction }
+
+  TTransferIntegerInstruction = class(TInstruction)
     Player: TPlayer;
     UnitType: string;
-    Switches: array of string;
-    constructor Create(APlayer: TPlayer; AUnitType: string; ASwitches: array of string);
+    Action: TIntegerTransfer;
+    constructor Create(APlayer: TPlayer; AUnitType: string; AAction: TIntegerTransfer);
+    function ToString: ansistring; override;
+  end;
+
+  { TAddIntegerFromSwitchesInstruction }
+
+  TAddIntegerFromSwitchesInstruction = class(TInstruction)
+    Player: TPlayer;
+    UnitType: string;
+    Switches: array of integer;
+    constructor Create(APlayer: TPlayer; AUnitType: string; ASwitches: array of integer);
     function ToString: ansistring; override;
   end;
 
@@ -105,9 +130,8 @@ type
 
   TPushInstruction = class(TInstruction)
     Value: integer;
-    SwitchName: string;
     NextIP: integer;
-    constructor Create(AValue: integer; ASwitchName: string; ANextIP: integer);
+    constructor Create(AValue: integer; ANextIP: integer);
     function ToString: ansistring; override;
   end;
 
@@ -129,18 +153,19 @@ type
   { TIfInstruction }
 
   TIfInstruction = class(TInstruction)
-    Condition: TCondition;
+    Conditions: TConditionList;
     destructor Destroy; override;
-    constructor Create(ACondition: TCondition);
+    constructor Create(AConditions: TConditionList);
     function ToString: ansistring; override;
   end;
 
   { TWaitConditionInstruction }
 
   TWaitConditionInstruction = class(TInstruction)
-    Condition: TCondition;
+    Conditions: TConditionList;
     IP: integer;
     destructor Destroy; override;
+    constructor Create(AConditions: TConditionList; AIP: Integer);
     constructor Create(ACondition: TCondition; AIP: Integer);
     function ToString: ansistring; override;
   end;
@@ -148,8 +173,15 @@ type
   { TElseInstruction }
 
   TElseInstruction = class(TInstruction)
-    ThenElseIP, EndIP: integer;
     constructor Create;
+    function ToString: ansistring; override;
+  end;
+
+  { TSplitInstruction }
+
+  TSplitInstruction = class(TInstruction)
+    ResumeIP, EndIP: integer;
+    constructor Create(AResumeIP, AEndIP: integer);
     function ToString: ansistring; override;
   end;
 
@@ -164,17 +196,17 @@ type
 
   TChangeIPInstruction = class(TInstruction)
     IP: integer;
-    Preserve: boolean;
-    constructor Create(AIP: Integer; APreserve: boolean);
+    Preserve: Integer;
+    constructor Create(AIP: Integer; APreserve: Integer);
     function ToString: ansistring; override;
   end;
 
   { TWhileInstruction }
 
   TWhileInstruction = class(TInstruction)
-    Condition: TCondition;
+    Conditions: TConditionList;
     destructor Destroy; override;
-    constructor Create(ACondition: TCondition);
+    constructor Create(AConditions: TConditionList);
     function ToString: ansistring; override;
   end;
 
@@ -185,18 +217,78 @@ type
     function ToString: ansistring; override;
   end;
 
+  { TCreateUnitInstruction }
+
+  TCreateUnitInstruction = class(TInstruction)
+    Player: TPlayer;
+    Quantity: integer;
+    UnitType, Location: string;
+    Properties: integer;
+    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType, ALocation: string; AProperties: integer = -1);
+    function ToString: ansistring; override;
+  end;
+
+  TSetUnitProperty = (supLife, supShield, supEnergy, supResource, supHangarCount, supInvincible, supDoodadState);
+
+  { TSetUnitPropertyInstruction }
+
+  TSetUnitPropertyInstruction = class(TInstruction)
+    Player: TPlayer;
+    Quantity: integer;
+    UnitType, Location: string;
+    UnitProperty: TSetUnitProperty;
+    Value: integer;
+    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType, ALocation: string; AProperty: TSetUnitProperty; AValue: integer);
+    function ToString: ansistring; override;
+  end;
+
+  { TKillUnitInstruction }
+
+  TKillUnitInstruction = class(TInstruction)
+    Player: TPlayer;
+    Quantity: integer;
+    UnitType, Location: string;
+    DeathAnimation: boolean;
+    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: string; ALocation: string = ''; ADeathAnimation: boolean = true);
+    function ToString: ansistring; override;
+  end;
+
+  { TGiveUnitInstruction }
+
+  TGiveUnitInstruction = class(TInstruction)
+    Player, DestPlayer: TPlayer;
+    Quantity: integer;
+    UnitType, Location: string;
+    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType, ALocation: string; ADestPlayer: TPlayer);
+    function ToString: ansistring; override;
+  end;
+
+  { TTeleportUnitInstruction }
+
+  TTeleportUnitInstruction = class(TInstruction)
+    Player: TPlayer;
+    Quantity: integer;
+    UnitType, Location: string;
+    DestLocation: string;
+    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType, ALocation: string; ADestLocation: string);
+    function ToString: ansistring; override;
+  end;
+
+  { TOrderUnitInstruction }
+
+  TOrderUnitInstruction = class(TInstruction)
+    Player: TPlayer;
+    UnitType, Location: string;
+    DestLocation: string;
+    Order: string;
+    constructor Create(APlayer: TPlayer; AUnitType, ALocation: string; ADestLocation: string; AOrder: string);
+    function ToString: ansistring; override;
+  end;
+
 function PlayerToStr(APlayer: TPlayer): string;
 function IntToPlayer(APlayer: integer): TPlayer;
 
 type
-
-  { TCondition }
-
-  TCondition = class
-    function ToStringAndFree: ansistring;
-  end;
-
-  TConditionList = specialize TFPGList<TCondition>;
 
   { TAlwaysCondition }
 
@@ -213,14 +305,19 @@ type
   { TSwitchCondition }
 
   TSwitchCondition = class(TCondition)
-    SwitchName: string;
+    Switch: integer;
     Value: boolean;
-    constructor Create(ASwitchName: string; AValue: boolean);
+    constructor Create(ASwitch: integer; AValue: boolean);
     function ToString: ansistring; override;
   end;
 
-  TIntegerConditionMode = (dcmAtLeast,dcmAtMost,dcmExactly,dcmNotEqualTo);
+  TIntegerConditionMode = (icmAtLeast,icmAtMost,icmExactly,icmNotEqualTo);
 
+const
+  IntegerConditionModeToStr: array[TIntegerConditionMode] of string =
+    ('At least', 'At most','Exactly','Not equal to');
+
+type
   { TIntegerCondition }
 
   TIntegerCondition = class(TCondition)
@@ -232,30 +329,301 @@ type
     function ToString: ansistring; override;
   end;
 
+  { TBringCondition }
+
+  TBringCondition = class(TCondition)
+    Player: TPlayer;
+    UnitType, Location: string;
+    Value: integer;
+    Mode: TIntegerConditionMode;
+    constructor Create(APlayer: TPlayer; AUnitType, ALocation: string; AMode: TIntegerConditionMode; AValue: integer);
+    function ToString: ansistring; override;
+  end;
+
 implementation
+
+function AddQuotes(AText: string): string;
+begin
+  result := '"' + StringReplace(StringReplace(AText, '\', '\\', [rfReplaceAll]), '"', '\"', [rfReplaceAll]) + '"';
+end;
+
+{ TOrderUnitInstruction }
+
+constructor TOrderUnitInstruction.Create(APlayer: TPlayer; AUnitType,
+  ALocation: string; ADestLocation: string; AOrder: string);
+begin
+  Player:= APlayer;
+  UnitType:= AUnitType;
+  Location:= ALocation;
+  DestLocation:= ADestLocation;
+  Order := AOrder;
+end;
+
+function TOrderUnitInstruction.ToString: ansistring;
+begin
+  result := 'Order(' + AddQuotes(PlayerToStr(Player)) + ', '+AddQuotes(UnitType);
+  result += ', '+AddQuotes(Location)+', '+AddQuotes(DestLocation)+', ' + Order + ')';
+end;
+
+{ TTeleportUnitInstruction }
+
+constructor TTeleportUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer; AUnitType,
+  ALocation: string; ADestLocation: string);
+begin
+  if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
+  Player:= APlayer;
+  Quantity := AQuantity;
+  UnitType:= AUnitType;
+  Location:= ALocation;
+  DestLocation:= ADestLocation;
+end;
+
+function TTeleportUnitInstruction.ToString: ansistring;
+begin
+  Result:= 'Move Unit(' + AddQuotes(PlayerToStr(Player)) + ', '+AddQuotes(UnitType)+', ';
+  if Quantity = -1 then result +='All' else result += inttostr(Quantity);
+  result += ', '+AddQuotes(Location)+', '+AddQuotes(DestLocation)+')';
+end;
+
+{ TSetUnitPropertyInstruction }
+
+constructor TSetUnitPropertyInstruction.Create(APlayer: TPlayer;
+  AQuantity: integer; AUnitType, ALocation: string;
+  AProperty: TSetUnitProperty; AValue: integer);
+begin
+  if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
+  Player := APlayer;
+  Quantity := AQuantity;
+  UnitType := AUnitType;
+  Location := ALocation;
+  UnitProperty := AProperty;
+  Value := AValue;
+  if (AProperty = supResource) and (CompareText(AUnitType, 'Any unit')<>0) then
+    raise exception.Create('Setting resource amount cannot be applied to a specific unit');
+  if (AProperty in[supInvincible,supDoodadState]) and (AQuantity <> -1) then
+    raise exception.Create('This property can only be applied with quantity All');
+  if (AProperty in [supLife, supShield, supEnergy]) and ((AValue < 0) or (AValue > 100)) then
+    raise exception.Create('Property value out of bounds (0 to 100)');
+end;
+
+function TSetUnitPropertyInstruction.ToString: ansistring;
+begin
+  case UnitProperty of
+  supLife: result := 'Modify Unit Hit Points';
+  supShield: result := 'Modify Unit Shield Points';
+  supEnergy: result := 'Modify Unit Energy';
+  supResource:
+    begin
+      result := 'Modify Unit Resource Amount';
+      result += '(' + AddQuotes(PlayerToStr(Player))+', '+inttostr(Value)+', ';
+      result += inttostr(Quantity)+', '+AddQuotes(Location)+')';
+      exit;
+    end;
+  supHangarCount: result := 'Modify Unit Hanger Count';
+  supInvincible, supDoodadState:
+    begin
+      if UnitProperty = supInvincible then
+        result := 'Set Invincibility'
+      else
+        result := 'Set Doodad State';
+
+      result += '(' + AddQuotes(PlayerToStr(Player))+', '+AddQuotes(UnitType)+', '+AddQuotes(Location)+', ';
+      case Value of
+      0: result += 'disabled';
+      1: result += 'enabled';
+      else result += 'toggle';
+      end;
+      result += ')';
+      exit;
+    end
+  else
+    raise exception.Create('Case not handled');
+  end;
+  result += '(' + AddQuotes(PlayerToStr(Player))+', '+AddQuotes(UnitType)+', '+inttostr(Value)+', ';
+  if Quantity = -1 then result += 'All' else result += inttostr(Quantity);
+  result += ', '+AddQuotes(Location)+')';
+end;
+
+{ TGiveUnitInstruction }
+
+constructor TGiveUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
+  AUnitType, ALocation: string; ADestPlayer: TPlayer);
+begin
+  if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
+  Player := APlayer;
+  Quantity := AQuantity;
+  UnitType := AUnitType;
+  Location := ALocation;
+  DestPlayer := ADestPlayer;
+end;
+
+function TGiveUnitInstruction.ToString: ansistring;
+begin
+  result := 'Give Units to Player(' + AddQuotes(PlayerToStr(Player))+', '+ AddQuotes(PlayerToStr(DestPlayer))+ ', ' +
+    AddQuotes(UnitType)+', ';
+  if Quantity = -1 then result += 'All' else result += IntToStr(Quantity);
+  result += ', ' + AddQuotes(Location) + ')';
+end;
+
+{ TKillUnitInstruction }
+
+constructor TKillUnitInstruction.Create(APlayer: TPlayer;
+  AQuantity: integer; AUnitType, ALocation: string; ADeathAnimation: boolean);
+begin
+  if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
+  Player:= APlayer;
+  Quantity:= AQuantity;
+  UnitType:= AUnitType;
+  Location:= ALocation;
+  DeathAnimation:= ADeathAnimation;
+end;
+
+function TKillUnitInstruction.ToString: ansistring;
+begin
+  if DeathAnimation then result := 'Kill Unit' else result := 'Remove Unit';
+  if (Location<>'') or (Quantity <> -1) then
+  begin
+    Result += ' At Location';
+    result += '("'+ PlayerToStr(Player)+'", ' + AddQuotes(UnitType)+', ';
+    if Quantity = -1 then result += 'All' else result += inttostr(Quantity);
+    result += ', '+AddQuotes(Location) + ')';
+  end
+  else
+    Result += '(' + AddQuotes(PlayerToStr(Player))+', '+AddQuotes(UnitType)+')';
+end;
+
+{ TSplitInstruction }
+
+constructor TSplitInstruction.Create(AResumeIP, AEndIP: integer);
+begin
+  ResumeIP:= AResumeIP;
+  EndIP := AEndIP;
+end;
+
+function TSplitInstruction.ToString: ansistring;
+begin
+  Result:= '}{';
+end;
+
+{ TBringCondition }
+
+constructor TBringCondition.Create(APlayer: TPlayer; AUnitType, ALocation: string;
+  AMode: TIntegerConditionMode; AValue: integer);
+begin
+  Player := APlayer;
+  UnitType := AUnitType;
+  Mode := AMode;
+  Value := AValue;
+  Location:= ALocation;
+end;
+
+function TBringCondition.ToString: ansistring;
+begin
+  Result:= 'Bring("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' + AddQuotes(Location) + ', ' +
+       IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')';
+end;
+
+{ TCreateUnitInstruction }
+
+constructor TCreateUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
+  AUnitType, ALocation: string; AProperties: integer);
+begin
+  if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
+  Player:= APlayer;
+  Quantity:= AQuantity;
+  UnitType:= AUnitType;
+  Location:= ALocation;
+  Properties:= AProperties;
+end;
+
+function TCreateUnitInstruction.ToString: ansistring;
+begin
+  Result:= 'Create Unit';
+
+  if Properties >= 0 then result += ' with Properties';
+
+  result += '("'+ PlayerToStr(Player)+'", ' + AddQuotes(UnitType)+', ';
+  if Quantity = -1 then result += 'All' else result += inttostr(Quantity);
+  result += ', '+AddQuotes(Location);
+  if Properties >=0 then result += ', ' + inttostr(Properties+1);
+
+  result += ')';
+end;
+
+{ TTransferIntegerInstruction }
+
+constructor TTransferIntegerInstruction.Create(APlayer: TPlayer;
+  AUnitType: string; AAction: TIntegerTransfer);
+begin
+  Player:= APlayer;
+  UnitType:= AUnitType;
+  Action:= AAction;
+end;
+
+function TTransferIntegerInstruction.ToString: ansistring;
+var modeStr: string;
+begin
+  case Action of
+  itAddToAccumulator: modeStr := 'Add to acc';
+  itCopyFromAccumulator: modeStr := 'Copy from acc';
+  else modeStr := 'Copy to acc';
+  end;
+  Result:= 'TransferInteger("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' + modeStr + ')';
+end;
+
+{ TConditionList }
+
+function TConditionList.ToString: ansistring;
+var i: integer;
+begin
+  result := '';
+  for i := 0 to Count-1 do
+  begin
+    if i > 0 then result += ' And ';
+    result += Items[i].ToString;
+  end;
+end;
+
+procedure TConditionList.FreeAll;
+var i: integer;
+begin
+  if self = nil then exit;
+
+  for i := 0 to Count-1 do
+    Items[i].Free;
+  Free;
+end;
 
 { TWaitConditionInstruction }
 
 destructor TWaitConditionInstruction.Destroy;
 begin
-  Condition.Free;
+  Conditions.FreeAll;
   inherited Destroy;
 end;
 
-constructor TWaitConditionInstruction.Create(ACondition: TCondition; AIP: Integer);
+constructor TWaitConditionInstruction.Create(AConditions: TConditionList; AIP: Integer);
 begin
-  Condition := ACondition;
+  Conditions := AConditions;
+  IP := AIP;
+end;
+
+constructor TWaitConditionInstruction.Create(ACondition: TCondition;
+  AIP: Integer);
+begin
+  Conditions := TConditionList.Create;
+  Conditions.Add(ACondition);
   IP := AIP;
 end;
 
 function TWaitConditionInstruction.ToString: ansistring;
 begin
-  Result:='Wait(' + Condition.ToString + ')';
+  Result:='Wait(' + Conditions.ToString + ')';
 end;
 
 { TChangeIPInstruction }
 
-constructor TChangeIPInstruction.Create(AIP: Integer; APreserve: boolean);
+constructor TChangeIPInstruction.Create(AIP: Integer; APreserve: Integer);
 begin
   IP := AIP;
   Preserve := APreserve;
@@ -289,7 +657,7 @@ end;
 
 constructor TElseInstruction.Create;
 begin
-  EndIP := -1;
+  //nothing
 end;
 
 function TElseInstruction.ToString: ansistring;
@@ -301,36 +669,36 @@ end;
 
 destructor TIfInstruction.Destroy;
 begin
-  Condition.Free;
+  Conditions.FreeAll;
   inherited Destroy;
 end;
 
-constructor TIfInstruction.Create(ACondition: TCondition);
+constructor TIfInstruction.Create(AConditions: TConditionList);
 begin
-  Condition := ACondition;
+  Conditions := AConditions;
 end;
 
 function TIfInstruction.ToString: ansistring;
 begin
-  Result:= 'If ('+ Condition.ToString+'){';
+  Result:= 'If ('+ Conditions.ToString+'){';
 end;
 
 { TWhileInstruction }
 
 destructor TWhileInstruction.Destroy;
 begin
-  Condition.Free;
+  Conditions.FreeAll;
   inherited Destroy;
 end;
 
-constructor TWhileInstruction.Create(ACondition: TCondition);
+constructor TWhileInstruction.Create(AConditions: TConditionList);
 begin
-  Condition := ACondition;
+  Conditions := AConditions;
 end;
 
 function TWhileInstruction.ToString: ansistring;
 begin
-  Result:= 'While ('+ Condition.ToString+')';
+  Result:= 'While ('+ Conditions.ToString+')';
 end;
 
 { TEndWhileInstruction }
@@ -347,10 +715,9 @@ end;
 
 { TPushInstruction }
 
-constructor TPushInstruction.Create(AValue: integer; ASwitchName: string; ANextIP: integer);
+constructor TPushInstruction.Create(AValue: integer; ANextIP: integer);
 begin
   Value := AValue;
-  SwitchName:= ASwitchName;
   NextIP:= ANextIP;
 end;
 
@@ -444,13 +811,13 @@ end;
 function TDisplayTextMessageInstruction.ToString: ansistring;
 begin
   Result := 'Display Text Message(' + BoolToStr(Always, 'Always Display', 'Don''t Always Display') +
-            ', "' + StringReplace(StringReplace(Text, '\', '\\', [rfReplaceAll]), '"', '\"', [rfReplaceAll]) + '")';
+            ', ' + AddQuotes(Text) + ')';
 end;
 
-{ TAddDeathFromSwitchInstruction }
+{ TAddIntegerFromSwitchesInstruction }
 
-constructor TAddDeathFromSwitchInstruction.Create(APlayer: TPlayer;
-  AUnitType: string; ASwitches: array of string);
+constructor TAddIntegerFromSwitchesInstruction.Create(APlayer: TPlayer;
+  AUnitType: string; ASwitches: array of integer);
 var
   i: Integer;
 begin
@@ -461,9 +828,9 @@ begin
     Switches[i] := ASwitches[i];
 end;
 
-function TAddDeathFromSwitchInstruction.ToString: ansistring;
+function TAddIntegerFromSwitchesInstruction.ToString: ansistring;
 begin
-  Result:= 'Set Deaths("' + PlayerToStr(Player) + '", "' + UnitType + '", Add, switches)'; //not a real instruction
+  Result:= 'Set Deaths("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', Add, switches)'; //not a real instruction
 end;
 
 { TCondition }
@@ -497,13 +864,7 @@ function TIntegerCondition.ToString: ansistring;
 var
   modeStr: string;
 begin
-  case Mode of
-  dcmAtLeast: modeStr := 'At least';
-  dcmAtMost: modeStr := 'At most';
-  dcmNotEqualTo: modeStr := 'Not equal to';
-  else
-    {dcmExactly: }modeStr := 'Exactly';
-  end;
+  modeStr := IntegerConditionModeToStr[Mode];
   if (CompareText(UnitType,'Ore')=0) or (CompareText(UnitType,'Gas')=0) or (CompareText(UnitType,'Ore And Gas')=0) then
       Result:= 'Accumulate("' + PlayerToStr(Player) + '", ' + modeStr + ', ' + IntToStr(Value) + ', ' + LowerCase(UnitType) + ')'
   else
@@ -512,7 +873,7 @@ begin
   or (CompareText(UnitType,'Custom Score')=0) then
     result := 'Score("' + PlayerToStr(Player) + '", ' + copy(UnitType,1,length(UnitType)-6) + ', ' + modeStr + ', ' + IntToStr(Value) + ')'
   else
-    Result:= 'Deaths("' + PlayerToStr(Player) + '", "' + UnitType + '", ' + modeStr + ', ' + IntToStr(Value) + ')';
+    Result:= 'Deaths("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' + modeStr + ', ' + IntToStr(Value) + ')';
 end;
 
 { TAlwaysCondition }
@@ -524,20 +885,20 @@ end;
 
 { TSwitchCondition }
 
-constructor TSwitchCondition.Create(ASwitchName: string; AValue: boolean);
+constructor TSwitchCondition.Create(ASwitch: integer; AValue: boolean);
 begin
-  SwitchName := ASwitchName;
+  Switch := ASwitch;
   Value := AValue;
 end;
 
 function TSwitchCondition.ToString: ansistring;
 begin
-  Result:= 'Switch("' + SwitchName + '", ' + BoolToStr(Value, 'set', 'not set') + ')';
+  Result:= 'Switch("Switch' + IntToStr(Switch) + '", ' + BoolToStr(Value, 'set', 'not set') + ')';
 end;
 
-{ TSetIntInstruction }
+{ TSetIntegerInstruction }
 
-constructor TSetIntInstruction.Create(APlayer: TPlayer; AUnitType: string;
+constructor TSetIntegerInstruction.Create(APlayer: TPlayer; AUnitType: string;
   AMode: TSetIntegerMode; AValue: integer);
 begin
   Player := APlayer;
@@ -546,7 +907,7 @@ begin
   Value := AValue;
 end;
 
-function TSetIntInstruction.ToString: ansistring;
+function TSetIntegerInstruction.ToString: ansistring;
 var
   modeStr: string;
 begin
@@ -565,7 +926,7 @@ begin
   or (CompareText(UnitType,'Custom Score')=0) then
     result := 'Set Score("' + PlayerToStr(Player) + '", ' + modeStr + ', ' + IntToStr(Value) + ', ' + copy(UnitType,1,length(UnitType)-6) + ')'
   else
-    Result:= 'Set Deaths("' + PlayerToStr(Player) + '", "' + UnitType + '", ' + modeStr + ', ' + IntToStr(Value) + ')';
+    Result:= 'Set Deaths("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' + modeStr + ', ' + IntToStr(Value) + ')';
 end;
 
 { TEmptyInstruction }
@@ -577,21 +938,22 @@ end;
 
 { TSetSwitchInstruction }
 
-constructor TSetSwitchInstruction.Create(ASwitchName: string;
+constructor TSetSwitchInstruction.Create(ASwitch: integer;
   AValue: TSwitchValue);
 begin
-  SwitchName:= ASwitchName;
+  Switch:= ASwitch;
   Value:= AValue;
 end;
 
 function TSetSwitchInstruction.ToString: ansistring;
 begin
-  Result:= 'Set Switch("' + SwitchName+ '", ' + SwitchToStr[Value] + ')';
+  Result:= 'Set Switch("Switch' + IntToStr(Switch) + '", ' + SwitchToStr[Value] + ')';
 end;
 
 function PlayerToStr(APlayer: TPlayer): string;
 begin
   case APlayer of
+  plNone: result := 'None';
   plPlayer1..plPlayer12: result := 'Player ' + IntToStr(ord(APlayer) - ord(plPlayer1)+1);
   plCurrentPlayer: result := 'Current Player';
   plFoes: result := 'Foes';
@@ -600,7 +962,7 @@ begin
   plAllPlayers: result := 'All players';
   plForce1..plForce4: result := 'Force ' + IntToStr(ord(APlayer) - ord(plForce1)+1);
   plNonAlliedVictoryPlayers: result := 'Non Allied Victory Players';
-  else result := 'unknown/unused';
+  else result := 'Unknown';
   end;
 end;
 

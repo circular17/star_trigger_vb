@@ -5,23 +5,20 @@ unit uwritetriggers;
 interface
 
 uses
-  Classes, SysUtils, ureadprog, uinstructions;
+  Classes, SysUtils, fgl, ureadprog, uinstructions;
+
+const ArithmeticMaxBits = 8;
 
 procedure WriteTriggers(AFilename: string; AMainThread: TPlayer);
-procedure WriteSwitches(AFilename: string);
+procedure WriteUnitProperties(AFilename: string);
 
 implementation
 
 const
-  PredefineProcedures: array[0..50] of string =
+  PredefineProcedures: array[0..34] of string =
 ('Center View', //("Location");
-'Create Unit', //("Players", "Unit Name", Unit Amount(#), "Location");
-'Create Unit with Properties', //("Players", "Unit Name", Unit Amount(#), "Location", CUWP Slot(#));
 'Defeat', //();
-'Display Text Message', //(Always Display, "Text here");
 'Draw', //();
-'Give Units to Player', //("Units owned by Players", "Given to Players", "Unit Name", Unit Amount(#), "Location");
-'Kill Unit', //("Players", "Unit Name");
 'Leader Board Control At Location', //("Label", "Unit Name", "Location");
 'Leader Board Control', //("Label", "Unit Name");
 'Leaderboard Greed', //(Resource Amount(#));
@@ -35,27 +32,15 @@ const
 'Leaderboard Goal Resources', //("Label", Goal Amount(#), Resource Type);
 'Leaderboard Computer Players', //(State);
 'Minimap Ping', //("Location");
-'Modify Unit Energy', //("Players", "Unit Name", Energy%, Unit Amount(#), "Location");
-'Modify Unit Hanger Count', //("Players", "Unit Name", Hanger Amount(#) Added, Unit Amount(#), "Location");
-'Modify Unit Hit Points', //("Players", "Unit Name", Health%, Unit Amount(#), "Anywhere");
-'Modify Unit Resource Amount', //(#)("Players", Resource Amount(#), Unit Amount(#), "Location");
-'Modify Unit Shield Points', //("Players", "Unit Name", Shield%, Unit Amount(#), "Location");
-'Move Location', //("Players", "Unit Name", "Location moved", "Location");
-'Move Unit', //("Players", "Unit Name", Unit Amount(#), "Location from", "Location to");
 'Mute Unit Speech', //();
-'Order', //("Players", "Unit Name", "Location from", "Location to", Movement Type);
 'Pause Game', //();
 'Pause Timer', //();
 'Play WAV', //("WAV path", WAV length in ms);
 'Preserve Trigger', //();
-'Remove Unit', //("Players", "Unit Name");
-'Remove Unit At Location', //("Players", "Unit Name", Unit Amount(#), "Location");
 'Run AI Script', //("Script Name");
 'Run AI Script At Location', //("Script Name", "Location");
 'Set Alliance Status', //("Players", Alliance Status);
 'Set Countdown Timer', //(Edit Type, Time in Seconds);
-'Set Doodad State', //("Players", "Unit Name", "Location", State);
-'Set Invincibility', //("Players", "Unit Name", "Location", State);
 'Set Mission Objectives', //("Text here");
 'Set Next Scenario', //("Scenario name");
 'Set Switch', //("Switch Name", set/clear/toggle/randomize);
@@ -79,17 +64,49 @@ end;
 //instruction pointer
 
 var
-  IPVar, CurIPValue: integer;
+  IPVar, CurIPValue, SysIPVar, CurSysIPValue: integer;
 
 function SetNextIP(AValue: integer): TInstruction;
 begin
-  result := TSetIntInstruction.Create(plCurrentPlayer, IntArrays[IPVar].UnitType, simSetTo, AValue);
+  result := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[IPVar].UnitType, simSetTo, AValue);
+end;
+
+function CheckIP(AValue: integer): TCondition;
+begin
+  result := TIntegerCondition.Create(plCurrentPlayer, IntArrays[IPVar].UnitType, icmExactly, AValue);
 end;
 
 function NewIP: integer;
 begin
   Inc(CurIPValue);
   result := CurIPValue;
+end;
+
+function GetSysIPVar: integer;
+begin
+  if SysIPVar = -1 then
+  begin
+    SysIPVar := IntArrayIndexOf('_sysIp');
+    if SysIPVar = -1 then
+      SysIPVar := CreateIntArray('_sysIp', MaxArraySize, []);
+  end;
+  result := SysIPVar;
+end;
+
+function SetNextSysIP(AValue: integer): TInstruction;
+begin
+  result := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[GetSysIPVar].UnitType, simSetTo, AValue);
+end;
+
+function CheckSysIP(AValue: integer): TCondition;
+begin
+  result := TIntegerCondition.Create(plCurrentPlayer, IntArrays[GetSysIPVar].UnitType, icmExactly, AValue);
+end;
+
+function NewSysIP: integer;
+begin
+  Inc(CurSysIPValue);
+  result := CurSysIPValue;
 end;
 
 function UniquePlayer(APlayers: TPlayers): boolean;
@@ -120,6 +137,7 @@ var
   pl: TPlayer;
   firstPl: boolean;
   s: string;
+  actionCount: integer;
 begin
   s := 'Trigger(';
   firstPl:= true;
@@ -138,21 +156,34 @@ begin
   if length(AConditions) = 0 then
     AOutput.Add(#9 + 'Always();');
   AOutput.Add('Actions:');
+  actionCount := 0;
   for i := 0 to high(AActions) do
     if AActions[i] <> '' then
+    begin
       AOutput.Add(#9 + AActions[i] + ';');
+      actionCount += 1;
+    end;
   if ANextIP > 0 then
+  begin
     AOutput.Add(#9 + SetNextIP(ANextIP).ToStringAndFree + ';');
+    actionCount += 1;
+  end;
   if APreserve then
+  begin
     AOutput.Add(#9 + 'Preserve Trigger();');
+    actionCount += 1;
+  end;
   AOutput.Add('}');
   AOutput.Add('');
+  if actionCount > 64 then raise exception.Create('Too many actions in trigger');
 end;
 
 // output instructions that have already been expanded
 
 var
   MaxStackBits: integer;  //number of bits for one value on the stack (max is 32)
+  ReturnSysIP, PushSysIP, SysParamArray: integer;
+
   PrintedBoolVar: integer;
   PrintingMessageIntVar: integer;
   Messages: array of record
@@ -186,18 +217,22 @@ begin
   end;
 end;
 
+procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: TConditionList; AProg: TInstructionList;
+                    AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer = 0); forward;
+
 procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: array of TCondition; AProg: TInstructionList;
-                    AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: boolean = false);
+                    AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer = 0);
 var
   i,j: Integer;
   condStr, instrStr: array of string;
   instrCount: integer;
 
-  addFromSwitch: TAddDeathFromSwitchInstruction;
+  addFromSwitch: TAddIntegerFromSwitchesInstruction;
   NextIP: integer;
-  add2: TSetIntInstruction;
+  add2: TSetIntegerInstruction;
   add2prog, remain: TInstructionList;
-  switchCheck, waitPush: TSwitchCondition;
+  waitPush: TCondition;
+  switchCheck: TSwitchCondition;
   jumpRet: TJumpReturnInstruction;
   push: TPushInstruction;
   waitCond: TWaitConditionInstruction;
@@ -210,14 +245,14 @@ begin
   if AIPStart <> -1 then
   begin
     setlength(condStr, length(condStr) + 1);
-    condStr[High(condStr)] := TIntegerCondition.Create(plCurrentPlayer, IntArrays[IPVar].UnitType, dcmExactly, AIPStart).ToStringAndFree;
+    condStr[High(condStr)] := CheckIP(AIPStart).ToStringAndFree;
   end;
 
   setlength(instrStr, AProg.Count+1);
   instrCount := 0;
   if ((AProg.Count > 0) and not (AProg[0] is TJumpReturnInstruction) and not
-    (AProg[0] is TChangeIPInstruction) and not (AProg[0] is TIfInstruction)
-    and not (AProg[0] is TElseInstruction) ) and (AIPStart > 0) and (AReturnIP <> -1) then
+    (AProg[0] is TChangeIPInstruction) and not (AProg[0] is TWaitConditionInstruction)
+    and not (AProg[0] is TSplitInstruction) ) and (AIPStart > 0) and (AReturnIP <> -1) then
   begin
     instrStr[0] := SetNextIP(0).ToStringAndFree;
     inc(instrCount);
@@ -225,25 +260,25 @@ begin
 
   for i := 0 to AProg.Count-1 do
   begin
-    if AProg[i] is TAddDeathFromSwitchInstruction then
+    if AProg[i] is TAddIntegerFromSwitchesInstruction then
     begin
       if not UniquePlayer(APlayers) then
         raise exception.Create('You cannot use implicit switches for multiple players at once');
 
-      addFromSwitch := TAddDeathFromSwitchInstruction(AProg[i]);
+      addFromSwitch := TAddIntegerFromSwitchesInstruction(AProg[i]);
 
       NextIP:= NewIP;
 
-      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), NextIP, APreserve or ATempPreserve);
+      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), NextIP, APreserve or (ATempPreserve > 0));
 
       //add powers of 2
-      switchCheck := TSwitchCondition.Create('?', true);
+      switchCheck := TSwitchCondition.Create(0, true);
       add2prog := TInstructionList.Create;
-      add2 := TSetIntInstruction.Create(addFromSwitch.Player, addFromSwitch.UnitType, simAdd, 0);
+      add2 := TSetIntegerInstruction.Create(addFromSwitch.Player, addFromSwitch.UnitType, simAdd, 0);
       add2prog.add(add2);
       for j := 0 to high(addFromSwitch.Switches) do
       begin
-        switchCheck.SwitchName:= addFromSwitch.Switches[j];
+        switchCheck.Switch:= addFromSwitch.Switches[j];
         add2.Value := 1 shl j;
         WriteProg(AOutput, APlayers, [switchCheck], add2prog, NextIP, -1, APreserve, ATempPreserve);
       end;
@@ -264,7 +299,7 @@ begin
     begin
       jumpRet := TJumpReturnInstruction(AProg[i]);
 
-      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), jumpRet.DestIP, APreserve or ATempPreserve);
+      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), jumpRet.DestIP, APreserve or (ATempPreserve > 0));
 
       //carry on with the rest of the prog
       remain := TInstructionList.Create;
@@ -279,21 +314,14 @@ begin
     begin
       push := TPushInstruction(AProg[i]);
 
-      setlength(instrStr, instrCount + MaxStackBits + 1);
-      for j := 0 to MaxStackBits-1 do
-      begin
-        if push.Value and (1 shl j) = 0 then
-          instrStr[instrCount] := TSetSwitchInstruction.Create(BoolVars[TempBools[j]].Name, svClear).ToStringAndFree
-        else
-          instrStr[instrCount] := TSetSwitchInstruction.Create(BoolVars[TempBools[j]].Name, svSet).ToStringAndFree;
-        inc(instrCount);
-      end;
-      instrStr[instrCount] := TSetSwitchInstruction.Create(push.SwitchName, svSet).ToStringAndFree;
+      setlength(instrStr, instrCount + 2);
+      instrStr[instrCount] := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[SysParamArray].UnitType, simSetTo, push.Value).ToStringAndFree;
+      instrStr[instrCount+1] := SetNextSysIP(PushSysIP).ToStringAndFree;
 
-      WriteTrigger(AOutput, APlayers, condStr, instrStr, push.NextIP, APreserve or ATempPreserve);
+      WriteTrigger(AOutput, APlayers, condStr, instrStr, push.NextIP, APreserve or (ATempPreserve > 0));
 
       //carry on with the rest of the prog after the push
-      waitPush := TSwitchCondition.Create(push.SwitchName, False);
+      waitPush := CheckSysIP(0);
       remain := TInstructionList.Create;
       for j := i+1 to AProg.Count-1 do
         remain.Add(AProg[j]);
@@ -306,39 +334,41 @@ begin
     if AProg[i] is TWaitConditionInstruction then
     begin
       waitCond := TWaitConditionInstruction(AProg[i]);
-      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), waitCond.IP, APreserve or ATempPreserve);
+      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), waitCond.IP, APreserve or (ATempPreserve > 0));
 
       //carry on with the rest of the prog
       remain := TInstructionList.Create;
       for j := i+1 to AProg.Count-1 do
         remain.Add(AProg[j]);
-      WriteProg(AOutput, APlayers, [waitCond.Condition], remain, waitCond.IP, AReturnIP, APreserve, ATempPreserve);
+      WriteProg(AOutput, APlayers, waitCond.Conditions, remain, waitCond.IP, AReturnIP, APreserve, ATempPreserve);
       remain.Free;
 
       exit;
     end else
-    if AProg[i] is TElseInstruction then
+    if AProg[i] is TSplitInstruction then
     begin
-      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), TElseInstruction(AProg[i]).EndIP, APreserve or ATempPreserve);
+      if TSplitInstruction(AProg[i]).EndIP = -1 then TSplitInstruction(AProg[i]).EndIP := AReturnIP;
+
+      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), TSplitInstruction(AProg[i]).EndIP, APreserve or (ATempPreserve > 0));
 
       //carry on with the rest of the prog
       remain := TInstructionList.Create;
       for j := i+1 to AProg.Count-1 do
         remain.Add(AProg[j]);
-      WriteProg(AOutput, APlayers, [], remain, TElseInstruction(AProg[i]).ThenElseIP, AReturnIP, APreserve, ATempPreserve);
+      WriteProg(AOutput, APlayers, [], remain, TSplitInstruction(AProg[i]).ResumeIP, AReturnIP, APreserve, ATempPreserve);
       remain.Free;
 
       exit;
     end else
     if AProg[i] is TChangeIPInstruction then
     begin
-      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), TChangeIPInstruction(AProg[i]).IP, APreserve or ATempPreserve);
+      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), TChangeIPInstruction(AProg[i]).IP, APreserve or (ATempPreserve > 0));
 
       //carry on with the rest of the prog
       remain := TInstructionList.Create;
       for j := i+1 to AProg.Count-1 do
         remain.Add(AProg[j]);
-      WriteProg(AOutput, APlayers, [], remain, TChangeIPInstruction(AProg[i]).IP, AReturnIP, APreserve, TChangeIPInstruction(AProg[i]).Preserve);
+      WriteProg(AOutput, APlayers, [], remain, TChangeIPInstruction(AProg[i]).IP, AReturnIP, APreserve, ATempPreserve + TChangeIPInstruction(AProg[i]).Preserve);
       remain.Free;
 
       exit;
@@ -347,19 +377,25 @@ begin
     inc(instrCount);
   end;
 
-  WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), AReturnIP, APreserve or ATempPreserve);
+  WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), AReturnIP, APreserve or (ATempPreserve > 0));
 end;
 
 procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: TConditionList; AProg: TInstructionList;
-                    AIPStart: integer; AReturnIP: integer; APreserve: boolean);
-
+                    AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer = 0);
 var cond: array of TCondition;
   i: Integer;
 begin
   setlength(cond,AConditions.Count);
   for i := 0 to AConditions.Count-1 do
     cond[i] := AConditions[i];
-  WriteProg(AOutput, APlayers, cond, AProg, AIPStart, AReturnIP, APreserve);
+  WriteProg(AOutput, APlayers, cond, AProg, AIPStart, AReturnIP, APreserve, ATempPreserve);
+end;
+
+procedure NeedSysParam;
+begin
+  SysParamArray:= IntArrayIndexOf('_sysParam');
+  if SysParamArray = -1 then
+    SysParamArray := CreateIntArray('_sysParam', MaxArraySize, []);
 end;
 
 //stack
@@ -367,7 +403,6 @@ end;
 var
   SPVar: integer;
   StackArray: integer;
-  ReturningBoolVar, PushingBoolVar: Integer;
   StackSize: integer;     //number of values that can be on the stack (max is MaxArraySize)
 
 procedure NeedStack;
@@ -382,13 +417,10 @@ begin
     if StackArray = -1 then
       StackArray := CreateIntArray('_stack', MaxArraySize, []);
 
-    ReturningBoolVar := BoolVarIndexOf('_return');
-    if ReturningBoolVar = -1 then
-      ReturningBoolVar := CreateBoolVar('_return', svClear);
+    NeedSysParam;
 
-    PushingBoolVar := BoolVarIndexOf('_push');
-    if PushingBoolVar = -1 then
-      PushingBoolVar := CreateBoolVar('_push', svClear);
+    ReturnSysIP := NewSysIP;
+    PushSysIP:= NewSysIP;
   end;
 end;
 
@@ -423,18 +455,15 @@ begin
   end;
 
   if StackArray <> -1 then
-  begin
     IntArrays[StackArray].Size:= StackSize;
-    NeedTempBools(MaxStackBits);
-  end;
 end;
 
-procedure WriteStackTriggers(AOutput: TStringList; AMainThread: TPlayer);
+procedure WriteStackTriggers(AOutput: TStringList);
 var proc: TInstructionList;
   cond: TConditionList;
   spCond, valCond: TIntegerCondition;
-  switchCond, pushCond, returnCond: TSwitchCondition;
-  subStackVal,addIP,addStackVal: TSetIntInstruction;
+  returnCond, pushCond: TCondition;
+  subStackVal,addIP,addStackVal, subVal: TSetIntegerInstruction;
   sp, bit: integer;
 
   procedure EmptyProc;
@@ -461,27 +490,28 @@ begin
   proc := TInstructionList.Create;
   cond := TConditionList.Create;
 
+  AOutput.Add('// Return //');
   //return handler
 
   //SP -= 1, IP := 0
-  returnCond := TSwitchCondition.Create(BoolVars[ReturningBoolVar].Name, True);
+  returnCond := CheckSysIP(ReturnSysIP);
   cond.Add(returnCond);
-  proc.Add(TSetIntInstruction.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, simSubtract, 1));
-  proc.Add(TSetIntInstruction.Create(AMainThread, IntArrays[IPVar].UnitType, simSetTo, 0));
-  WriteProg(AOutput, [AMainThread], cond, proc, -1, -1, True);
+  proc.Add(TSetIntegerInstruction.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, simSubtract, 1));
+  proc.Add(SetNextIP(0));
+  WriteProg(AOutput, [plAllPlayers], cond, proc, -1, -1, True);
   EmptyProc;
 
   //copy stack value to IP
-  spCond := TIntegerCondition.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, dcmExactly, 0);
-  valCond := TIntegerCondition.Create(plNone, IntArrays[StackArray].UnitType, dcmAtLeast, 0);
+  spCond := TIntegerCondition.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, icmExactly, 0);
+  valCond := TIntegerCondition.Create(plNone, IntArrays[StackArray].UnitType, icmAtLeast, 0);
   cond.Add(spCond);
   cond.Add(valCond);
   for sp := 0 to StackSize-1 do
   begin
     valCond.Player := IntToPlayer(sp+1);
 
-    subStackVal := TSetIntInstruction.Create(plNone, IntArrays[StackArray].UnitType, simSubtract, 0);
-    addIP := TSetIntInstruction.Create(AMainThread, IntArrays[IPVar].UnitType, simAdd, 0);
+    subStackVal := TSetIntegerInstruction.Create(plNone, IntArrays[StackArray].UnitType, simSubtract, 0);
+    addIP := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[IPVar].UnitType, simAdd, 0);
     proc.Add(subStackVal);
     proc.Add(addIP);
 
@@ -494,19 +524,21 @@ begin
       subStackVal.Value := valCond.Value;
       addIP.Value := valCond.Value;
 
-      WriteProg(AOutput, [AMainThread], cond, proc, -1, -1, True);
+      WriteProg(AOutput, [plAllPlayers], cond, proc, -1, -1, True);
     end;
 
     EmptyProc;
-    proc.Add(TSetSwitchInstruction.Create(BoolVars[ReturningBoolVar].Name, svClear));
-    WriteProg(AOutput, [AMainThread], [returnCond,spCond], proc, -1, -1, True);
+    proc.Add(SetNextSysIP(0));
+    WriteProg(AOutput, [plAllPlayers], [returnCond,spCond], proc, -1, -1, True);
     EmptyProc;
   end;
   EmptyCond;
 
+  AOutput.Add('// Push //');
+
   //stack overflow handler
-  cond.Add(TSwitchCondition.Create(BoolVars[PushingBoolVar].Name, true));
-  cond.Add(TIntegerCondition.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, dcmAtLeast, StackSize));
+  cond.Add(CheckSysIP(PushSysIP));
+  cond.Add(TIntegerCondition.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, icmAtLeast, StackSize));
   proc.Add(TDisplayTextMessageInstruction.Create(True, 'Stack overflow', [plAllPlayers]));
   proc.Add(TWaitInstruction.Create(4000));
   WriteProg(AOutput, [plAllPlayers], cond, proc, -1, -1, True);
@@ -514,30 +546,32 @@ begin
   EmptyProc;
 
   //push handler
-  NeedTempBools(MaxStackBits);
-  pushCond := TSwitchCondition.Create(BoolVars[PushingBoolVar].Name, true);
-  spCond := TIntegerCondition.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, dcmExactly, 0);
-  switchCond := TSwitchCondition.Create('?', true);
+  pushCond := CheckSysIP(PushSysIP);
+  spCond := TIntegerCondition.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, icmExactly, 0);
+  valCond := TIntegerCondition.Create(plCurrentPlayer, IntArrays[SysParamArray].UnitType, icmAtLeast, 0);
   cond.Add(pushCond);
   cond.Add(spCond);
-  cond.Add(switchCond);
+  cond.Add(valCond);
   for sp := 0 to StackSize-1 do
   begin
     spCond.Value:= sp;
-    addStackVal := TSetIntInstruction.Create(IntToPlayer(sp+1), IntArrays[StackArray].UnitType, simAdd, 0);
+    addStackVal := TSetIntegerInstruction.Create(IntToPlayer(sp+1), IntArrays[StackArray].UnitType, simAdd, 0);
     proc.Add(addStackVal);
-    for bit := 0 to MaxStackBits-1 do
+    subVal := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[SysParamArray].UnitType, simSubtract, 0);
+    proc.Add(subVal);
+    for bit := MaxStackBits-1 downto 0 do
     begin
-      switchCond.SwitchName := BoolVars[TempBools[bit]].Name;
-      addStackVal.Value := 1 shl bit;
+      valCond.Value := 1 shl bit;
+      addStackVal.Value := valCond.Value;
+      subVal.Value := valCond.Value;
 
-      WriteProg(AOutput, [AMainThread], cond, proc, -1, -1, True);
+      WriteProg(AOutput, [plAllPlayers], cond, proc, -1, -1, True);
     end;
     EmptyProc;
 
-    proc.add(TSetIntInstruction.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, simAdd, 1));
-    proc.Add(TSetSwitchInstruction.Create(BoolVars[PushingBoolVar].Name, svClear));
-    WriteProg(AOutput, [AMainThread], [pushCond, spCond], proc, -1, -1, True);
+    proc.add(TSetIntegerInstruction.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, simAdd, 1));
+    proc.Add(SetNextSysIP(0));
+    WriteProg(AOutput, [plAllPlayers], [pushCond, spCond], proc, -1, -1, True);
     EmptyProc;
   end;
 
@@ -545,12 +579,209 @@ begin
   proc.Free;
 end;
 
+var
+  HyperWaitVar: integer;
+
+procedure ConfigureHyperWait;
+begin
+  if HyperTriggers then
+  begin
+    if HyperWaitVar = -1 then
+    begin
+      HyperWaitVar := IntArrayIndexOf('_hyperwait');
+      if HyperWaitVar = -1 then
+        HyperWaitVar := CreateIntArray('_hyperwait', MaxArraySize, []);
+    end;
+  end;
+end;
+
+var
+  AddToAccSysIP, AddFromAccSysIP, AccArray: integer;
+  TransferProcs: array of record
+    AddToAcc,AddFromAcc: boolean;
+  end;
+
+procedure NeedTransfer;
+begin
+  if AddToAccSysIP = -1 then
+  begin
+    AddToAccSysIP:= NewSysIP;
+    AddFromAccSysIP:= NewSysIP;
+
+    AccArray := IntArrayIndexOf('_accumulator');
+    if AccArray = -1 then
+      AccArray := CreateIntArray('_accumulator', MaxArraySize, []);
+
+    NeedSysParam;
+
+    TransferProcs := nil;
+    setlength(TransferProcs, IntVarCount);
+  end;
+end;
+
+function GetTransferParam(APlayer: TPlayer; AUnitType: string; ASysIP: integer): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to IntVarCount-1 do
+    if (IntVars[i].Player = APlayer) and (IntVars[i].UnitType = AUnitType) then
+    begin
+      if ASysIP = AddToAccSysIP then TransferProcs[i].AddToAcc:= true;
+      if ASysIP = AddFromAccSysIP then TransferProcs[i].AddFromAcc:= true;
+      exit(i);
+    end;
+  raise exception.Create('Unable to find variable');
+end;
+
+procedure WriteTransferTriggers(AOutput: TStringList);
+var
+  condIP: TCondition;
+  proc: TInstructionList;
+
+  procedure EmptyProc;
+  var
+    i: Integer;
+  begin
+    for i := 0 to proc.Count-1 do
+      proc[i].Free;
+    proc.Clear;
+  end;
+
+var
+  i, j: integer;
+  condSwitch, condRestore: TSwitchCondition;
+  addAcc: TSetIntegerInstruction;
+  condValue, condVar: TIntegerCondition;
+  setSw: TSetSwitchInstruction;
+  switchRestore: integer;
+begin
+  if AddToAccSysIP = -1 then exit;
+
+  NeedTempBools(ArithmeticMaxBits+1);
+  switchRestore := BoolVars[TempBools[ArithmeticMaxBits]].Switch;
+
+  AOutput.Add('// Add To Accumulator //');;
+
+  //clear temp bits
+  condIP := CheckSysIP(AddToAccSysIP);
+  proc := TInstructionList.Create;
+  for i := 0 to ArithmeticMaxBits-1 do
+    proc.Add(TSetSwitchInstruction.Create(BoolVars[TempBools[i]].Switch, svClear));
+  proc.Add(TSetSwitchInstruction.Create(switchRestore, svSet)); //restore done in "Add From Accumulator"
+  WriteProg(AOutput, [plAllPlayers], [condIP], proc, -1, -1, True);
+  EmptyProc;
+
+  for i := 0 to high(TransferProcs) do
+  if TransferProcs[i].AddToAcc then
+  begin
+    //transfer to bools
+    condVar := TIntegerCondition.Create(plCurrentPlayer, IntArrays[SysParamArray].UnitType, icmExactly, i);
+    condValue := TIntegerCondition.Create(IntVars[i].Player, IntVars[i].UnitType, icmAtLeast, 0);
+    addAcc := TSetIntegerInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simSubtract, 0);
+    setSw := TSetSwitchInstruction.Create(0, svSet);
+    proc.Add(addAcc);
+    proc.Add(setSw);
+    for j := ArithmeticMaxBits-1 downto 0 do
+    begin
+      condValue.Value := 1 shl j;
+      addAcc.Value := condValue.Value;
+      setSw.Switch := BoolVars[TempBools[j]].Switch;
+      WriteProg(AOutput, [plAllPlayers], [condIP, condVar, condValue], proc, -1,-1, True);
+    end;
+    EmptyProc;
+    condValue.Free;
+  end;
+
+  // add from temp bits
+  condSwitch := TSwitchCondition.Create(0,true);
+  addAcc := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simAdd, 0);
+  proc.Add(addAcc);
+  for i := ArithmeticMaxBits-1 downto 0 do
+  begin
+    condSwitch.Switch := BoolVars[TempBools[i]].Switch;
+    addAcc.Value := 1 shl i;
+    WriteProg(AOutput, [plAllPlayers], [condIP, condSwitch], proc, -1,-1, True);
+  end;
+  EmptyProc;
+  condSwitch.Free;
+
+  // return
+  proc.Add(SetNextSysIP(0));
+  WriteProg(AOutput, [plAllPlayers], [condIP], proc, -1, -1, True);
+  EmptyProc;
+  condIP.Free;
+
+  AOutput.Add('// Add From Accumulator //');;
+
+  // clear temp bits
+  condIP := CheckSysIP(AddFromAccSysIP);
+  proc := TInstructionList.Create;
+  for i := 0 to ArithmeticMaxBits-1 do
+    proc.Add(TSetSwitchInstruction.Create(BoolVars[TempBools[i]].Switch, svClear));
+  proc.Add(TSetSwitchInstruction.Create(switchRestore, svSet));
+  WriteProg(AOutput, [plAllPlayers], [condIP], proc, -1, -1, True);
+  EmptyProc;
+
+  //transfer to bools
+  condValue := TIntegerCondition.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, icmAtLeast, 0);
+  addAcc := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simSubtract, 0);
+  setSw := TSetSwitchInstruction.Create(0, svSet);
+  proc.Add(addAcc);
+  proc.Add(setSw);
+  for j := ArithmeticMaxBits-1 downto 0 do
+  begin
+    condValue.Value := 1 shl j;
+    addAcc.Value := condValue.Value;
+    setSw.Switch := BoolVars[TempBools[j]].Switch;
+    WriteProg(AOutput, [plAllPlayers], [condIP, condValue], proc, -1,-1, True);
+  end;
+  EmptyProc;
+  condValue.Free;
+
+  //add or restore
+  condRestore := TSwitchCondition.Create(switchRestore,true);
+  for i := 0 to high(TransferProcs) do
+  if TransferProcs[i].AddFromAcc or TransferProcs[i].AddToAcc then
+  begin
+    //add to dest (or restore source)
+    condVar := TIntegerCondition.Create(plCurrentPlayer, IntArrays[SysParamArray].UnitType, icmExactly, i);
+    condSwitch := TSwitchCondition.Create(0,true);
+    addAcc := TSetIntegerInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simAdd, 0);
+    proc.Add(addAcc);
+    for j := ArithmeticMaxBits-1 downto 0 do
+    begin
+      condSwitch.Switch := BoolVars[TempBools[j]].Switch;
+      addAcc.Value := 1 shl j;
+      WriteProg(AOutput, [plAllPlayers], [condRestore, condVar, condSwitch], proc, -1,-1, True);
+    end;
+    EmptyProc;
+    condSwitch.Free;
+    condVar.Free;
+  end;
+
+  // clear restore switch
+  proc.Add(TSetSwitchInstruction.Create(switchRestore, svClear));
+  WriteProg(AOutput, [plAllPlayers], [condRestore], proc, -1,-1, True);
+  EmptyProc;
+  condRestore.Free;
+
+  // return
+  proc.Add(SetNextSysIP(0));
+  WriteProg(AOutput, [plAllPlayers], [condIP], proc, -1, -1, True);
+  EmptyProc;
+
+  condIP.Free;
+
+  proc.Free;
+
+end;
+
 procedure ExpandInstructions(AProg: TInstructionList; AInProc: integer; APlayers: TPlayers);
 var
   i, expo, j, nextIP, procIdx: Integer;
-  sdi: TSetIntInstruction;
+  sdi: TSetIntegerInstruction;
   expanded: TInstructionList;
-  switches: array of string;
+  switches: array of integer;
   call: TCallInstruction;
   ret: TReturnInstruction;
   nesting, elseIndex, endIfIndex: integer;
@@ -559,6 +790,8 @@ var
   elseInstr: TElseInstruction;
   disp: TDisplayTextMessageInstruction;
   waitInstr: TWaitConditionInstruction;
+  transf: TTransferIntegerInstruction;
+  splitInstr: TSplitInstruction;
 
 begin
   expanded := TInstructionList.Create;
@@ -567,6 +800,50 @@ begin
   begin
     inc(i);
 
+    if AProg[i] is TTransferIntegerInstruction then
+    begin
+      NeedTransfer;
+      transf := TTransferIntegerInstruction(AProg[i]);
+      case transf.Action of
+      itCopyToAccumulator: expanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simSetTo, 0));
+      itCopyFromAccumulator: expanded.Add(TSetIntegerInstruction.Create(transf.Player, transf.UnitType, simSetTo, 0));
+      end;
+      nextIP := -1;
+      case transf.Action of
+      itCopyToAccumulator, itAddToAccumulator: nextIP := AddToAccSysIP;
+      itCopyFromAccumulator, itAddFromAccumulator: nextIP := AddFromAccSysIP;
+      end;
+      if nextIP <> -1 then
+      begin
+        expanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[SysParamArray].UnitType, simSetTo, GetTransferParam(transf.Player,transf.UnitType,nextIP)));
+        expanded.Add(SetNextSysIP(nextIP));
+        expanded.Add(TWaitConditionInstruction.Create(CheckSysIP(0), NewIP));
+      end;
+      transf.Free;
+      Continue;
+    end else
+    if HyperTriggers and (AProg[i] is TWaitInstruction) then
+    begin
+      ConfigureHyperWait;
+
+      expanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, simSetTo, TWaitInstruction(AProg[i]).DelayMs));
+      AProg[i].Free;
+
+      startWhileIP:= NewIP;
+      expanded.Add(TChangeIPInstruction.Create(startWhileIP, 1));
+
+      waitInstr := TWaitConditionInstruction.Create(TIntegerCondition.Create(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, icmAtLeast, 1), NewIP);
+      expanded.Add(waitInstr);
+
+      expanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, simSubtract, 80));
+
+      splitInstr := TSplitInstruction.Create(waitInstr.IP, startWhileIP);
+
+      expanded.Add(splitInstr);
+      expanded.Add(TChangeIPInstruction.Create(NewIP, -1));
+
+      continue;
+    end else
     if AProg[i] is TWhileInstruction then
     begin
       nesting := 1;
@@ -579,18 +856,16 @@ begin
           if nesting = 0 then
           begin
             startWhileIP:= NewIP;
-            expanded.Add(TChangeIPInstruction.Create(startWhileIP, true));
-            waitInstr := TWaitConditionInstruction.Create(TWhileInstruction(AProg[i]).Condition, NewIP);
-            TWhileInstruction(AProg[i]).Condition := nil;
+            expanded.Add(TChangeIPInstruction.Create(startWhileIP, 1));
+            waitInstr := TWaitConditionInstruction.Create(TWhileInstruction(AProg[i]).Conditions, NewIP);
+            TWhileInstruction(AProg[i]).Conditions := nil;
             expanded.Add(waitInstr);
 
             AProg[j].Free;
-            elseInstr := TElseInstruction.Create;
-            elseInstr.ThenElseIP:= waitInstr.IP;
-            elseInstr.EndIP:= startWhileIP;
-            AProg[j] := elseInstr;
+            splitInstr := TSplitInstruction.Create(waitInstr.IP, startWhileIP);
+            AProg[j] := splitInstr;
 
-            AProg.Insert(j+1, TChangeIPInstruction.Create(NewIP, false) );
+            AProg.Insert(j+1, TChangeIPInstruction.Create(NewIP, -1) );
             break;
           end;
         end;
@@ -613,24 +888,28 @@ begin
           begin
             if elseIndex = -1 then
             begin
-              AProg.Insert(j, TElseInstruction.Create);
+              AProg.Insert(j, TSplitInstruction.Create(-1,-1));
               elseIndex := j;
               endIfIndex := j+1;
             end else
+            begin
+              AProg[elseIndex].Free;
+              AProg[elseIndex] := TSplitInstruction.Create(-1,-1);
               endIfIndex := j;
+            end;
 
             nextIP := NewIP;
             ifInstr := TIfInstruction(AProg[i]);
-            expanded.Add(TWaitConditionInstruction.Create(ifInstr.Condition, nextIP));
-            ifInstr.Condition := nil;
+            expanded.Add(TWaitConditionInstruction.Create(ifInstr.Conditions, nextIP));
+            ifInstr.Conditions := nil;
             ifInstr.Free;
 
-            TElseInstruction(AProg[elseIndex]).ThenElseIP:= nextIP;
+            TSplitInstruction(AProg[elseIndex]).ResumeIP:= nextIP;
 
             nextIP := NewIP;
-            TElseInstruction(AProg[elseIndex]).EndIP:= nextIP;
+            TSplitInstruction(AProg[elseIndex]).EndIP:= nextIP;
             AProg[endIfIndex].Free;
-            AProg[endIfIndex] := TChangeIPInstruction.Create(nextIP, false);
+            AProg[endIfIndex] := TChangeIPInstruction.Create(nextIP, 0);
             break;
           end;
         end;
@@ -640,19 +919,18 @@ begin
     end else
     if AProg[i] is TElseInstruction then
     begin
-      if TElseInstruction(AProg[i]).EndIP = -1 then
-        raise exception.Create('Else instruction does not match an If instruction');
+      raise exception.Create('Else instruction does not match an If instruction');
     end else
     if AProg[i] is TEndIfInstruction then
     begin
       raise exception.Create('End If instruction does not match an If instruction');
     end else
-    if AProg[i] is TSetIntInstruction then
+    if AProg[i] is TSetIntegerInstruction then
     begin
-      sdi := TSetIntInstruction(AProg[i]);
+      sdi := TSetIntegerInstruction(AProg[i]);
       if sdi.Mode = simRandomize then
       begin
-        expanded.Add(TSetIntInstruction.Create(sdi.Player, sdi.UnitType, simSetTo, 0));
+        expanded.Add(TSetIntegerInstruction.Create(sdi.Player, sdi.UnitType, simSetTo, 0));
 
         //insert randomize instruction
         expo := GetExponentOf2(sdi.Value);
@@ -660,11 +938,11 @@ begin
         setlength(switches, expo);
         for j := 0 to expo-1 do
         begin
-          switches[j] := BoolVars[TempBools[j]].Name;
+          switches[j] := BoolVars[TempBools[j]].Switch;
           expanded.Add( TSetSwitchInstruction.Create(switches[j], svRandomize) );
         end;
 
-        expanded.Add( TAddDeathFromSwitchInstruction.Create(sdi.Player, sdi.UnitType, switches) );
+        expanded.Add( TAddIntegerFromSwitchesInstruction.Create(sdi.Player, sdi.UnitType, switches) );
 
         sdi.Free;
         continue;
@@ -692,7 +970,7 @@ begin
       end;
       NeedStack;
       nextIP := NewIP;
-      expanded.Add( TPushInstruction.Create(nextIP, BoolVars[PushingBoolVar].Name, NewIP) );
+      expanded.Add( TPushInstruction.Create(nextIP, NewIP) );
 
       if Procedures[procIdx].StartIP = -1 then Procedures[procIdx].StartIP:= NewIP;
       expanded.Add( TJumpReturnInstruction.Create(Procedures[procIdx].StartIP, nextIP) );
@@ -703,7 +981,12 @@ begin
     if AProg[i] is TReturnInstruction then
     begin
       ret := TReturnInstruction(AProg[i]);
-      expanded.Add( TSetSwitchInstruction.Create(BoolVars[ReturningBoolVar].Name, svSet) );
+      if AInProc<>-1 then
+      begin
+        NeedStack;
+        expanded.Add( SetNextSysIP(ReturnSysIP) );
+      end;
+      expanded.Add( TSplitInstruction.Create(NewIP, -1));
       ret.Free;
       continue;
     end else
@@ -714,15 +997,15 @@ begin
       begin
         msgIdx := AddMessage(disp.Text, disp.Players, disp.Always);
         expanded.Add( TWaitConditionInstruction.Create(
-                         TIntegerCondition.Create(IntVars[PrintingMessageIntVar].Player, IntVars[PrintingMessageIntVar].UnitType, dcmExactly, 0), NewIP ) );
-        expanded.Add( TSetIntInstruction.Create(IntVars[PrintingMessageIntVar].Player, IntVars[PrintingMessageIntVar].UnitType, simSetTo, msgIdx+1) );
+                         TIntegerCondition.Create(IntVars[PrintingMessageIntVar].Player, IntVars[PrintingMessageIntVar].UnitType, icmExactly, 0), NewIP ) );
+        expanded.Add( TSetIntegerInstruction.Create(IntVars[PrintingMessageIntVar].Player, IntVars[PrintingMessageIntVar].UnitType, simSetTo, msgIdx+1) );
         expanded.Add( TWaitConditionInstruction.Create(
-                         TSwitchCondition.Create(BoolVars[PrintedBoolVar].Name, true), NewIP ) );
-        expanded.Add( TSetIntInstruction.Create(IntVars[PrintingMessageIntVar].Player, IntVars[PrintingMessageIntVar].UnitType, simSetTo, 0) );
-        expanded.Add( TSetSwitchInstruction.Create(BoolVars[PrintedBoolVar].Name, svClear) );
+                         TSwitchCondition.Create(BoolVars[PrintedBoolVar].Switch, true), NewIP ) );
+        expanded.Add( TSetIntegerInstruction.Create(IntVars[PrintingMessageIntVar].Player, IntVars[PrintingMessageIntVar].UnitType, simSetTo, 0) );
+        expanded.Add( TSetSwitchInstruction.Create(BoolVars[PrintedBoolVar].Switch, svClear) );
         disp.Free;
+        Continue;
       end;
-      Continue;
     end;
     expanded.Add(AProg[i]);
   end;
@@ -740,10 +1023,14 @@ begin
   AssignFile(t, AFilename);
   Rewrite(t);
   for i := 0 to IntArrayCount-1 do
-    if not IntArrays[i].Predefined then
+    if not IntArrays[i].Predefined and not IntArrays[i].Constant then
       writeln(t, '// ', IntArrays[i].Name, '('+ intToStr(IntArrays[i].Size)+') stored in "', IntArrays[i].UnitType, '" //');
   for i := 0 to IntVarCount-1 do
-    writeln(t, '// ', IntVars[i].Name, ' stored in "', IntVars[i].UnitType, '" of "', PlayerToStr(IntVars[i].Player),'" //');
+    if not IntVars[i].Predefined and not IntVars[i].Constant then
+      writeln(t, '// ', IntVars[i].Name, ' stored in "', IntVars[i].UnitType, '" of "', PlayerToStr(IntVars[i].Player),'" //');
+  for i := 0 to BoolVarCount-1 do
+    if not BoolVars[i].Constant then
+      writeln(t, '// ', BoolVars[i].Name, ' stored in "Switch', BoolVars[i].Switch, '" //');
   writeln(t);
   for i := 0 to ALines.Count-1 do
     writeln(t,ALines[i]);
@@ -757,10 +1044,13 @@ var
   setFlag: TSetSwitchInstruction;
   i: Integer;
 begin
+  If MessageCount = 0 then exit;
+  AOutput.Add('// Messages //');
+
   msgIdxCond := TIntegerCondition.Create(IntVars[PrintingMessageIntVar].Player, IntVars[PrintingMessageIntVar].UnitType,
-                dcmExactly, 0);
+                icmExactly, 0);
   msgInstr := TDisplayTextMessageInstruction.Create(True,'',[plCurrentPlayer]);
-  setFlag := TSetSwitchInstruction.Create(BoolVars[PrintedBoolVar].Name, svSet);
+  setFlag := TSetSwitchInstruction.Create(BoolVars[PrintedBoolVar].Switch, svSet);
   for i := 0 to MessageCount-1 do
   begin
     msgIdxCond.Value := i+1;
@@ -771,6 +1061,28 @@ begin
   msgIdxCond.Free;
   msgInstr.Free;
   setFlag.Free;
+end;
+
+procedure WriteHyperTriggers(AOutput: TStringList);
+var
+  wait: TWaitInstruction;
+  actions: array of string;
+  i: Integer;
+begin
+  if not HyperTriggers then exit;
+
+  AOutput.Add('// Hyper Triggers //');
+
+  wait := TWaitInstruction.Create(15);
+
+  setlength(actions,63);
+  for i := 0 to high(actions) do
+    actions[i] := wait.tostring;
+
+  for i := 1 to 4 do
+    WriteTrigger(AOutput, [plAllPlayers], [], actions, -1, true);
+
+  wait.Free;
 end;
 
 procedure WriteTriggers(AFilename: string; AMainThread: TPlayer);
@@ -787,34 +1099,47 @@ begin
   if IPVar = -1 then
     IPVar := CreateIntArray('_ip', MaxArraySize, []);
 
+  //IntArrays[IPVar].UnitType:= 'Gas'; //debug
+
+  CurSysIPValue:= 0;
+  SysIPVar := -1;
+
   SPVar := -1;
-  ReturningBoolVar := -1;
+  ReturnSysIP := -1;
+  PushSysIP:= -1;
+  SysParamArray := -1;
+
   StackArray:= -1;
   PrintedBoolVar:= -1;
   PrintingMessageIntVar:= -1;
   MessageCount := 0;
+  HyperWaitVar := -1;
+
+  AddToAccSysIP:= -1;
+  AddFromAccSysIP:= -1;
 
   initSub := TInstructionList.Create;
   for i := 0 to IntArrayCount-1 do
   with IntArrays[i] do
+  if not Constant then
   begin
     for j := 1 to Size do
       if Values[j] <> 0 then
-        initSub.Add(TSetIntInstruction.Create(IntToPlayer(j), UnitType, simSetTo, Values[j]))
+        initSub.Add(TSetIntegerInstruction.Create(IntToPlayer(j), UnitType, simSetTo, Values[j]))
   end;
 
   for i := 0 to IntVarCount-1 do
-    if IntVars[i].Value <> 0 then
+    if (IntVars[i].Value <> 0) and not IntVars[i].Constant then
     begin
       if IntVars[i].Randomize then
-        initSub.Add(TSetIntInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simRandomize, IntVars[i].Value))
+        initSub.Add(TSetIntegerInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simRandomize, IntVars[i].Value))
       else
-        initSub.Add(TSetIntInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simSetTo, IntVars[i].Value));
+        initSub.Add(TSetIntegerInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simSetTo, IntVars[i].Value));
     end;
 
   for i := 0 to BoolVarCount-1 do
-    if BoolVars[i].Value in [svSet,svRandomize] then
-      initSub.Add(TSetSwitchInstruction.Create(BoolVars[i].Name, BoolVars[i].Value));
+    if (BoolVars[i].Value in [svSet,svRandomize]) and not BoolVars[i].Constant then
+      initSub.Add(TSetSwitchInstruction.Create(BoolVars[i].Switch, BoolVars[i].Value));
 
   mainOutput := TStringList.Create;
 
@@ -835,7 +1160,12 @@ begin
       end;
   until allProcDone;
 
+  for i := 0 to EventCount-1 do
+    ExpandInstructions(Events[i].Instructions, -1, [AMainThread]);
+
   DetermineStackValueSize;
+
+  mainOutput.Add('// Program //');;
 
   if initSub.Count > 0 then
   begin
@@ -858,26 +1188,55 @@ begin
 
   for i := 0 to ProcedureCount-1 do
     if Procedures[i].StartIP <> -1 then
+    begin
+      mainOutput.Add('// Sub ' + Procedures[i].Name + ' //');
       WriteProg(mainOutput, [AMainThread], [], Procedures[i].Instructions, Procedures[i].StartIP, EndIP, true);
+    end;
 
+  for i := 0 to EventCount-1 do
+  begin
+    mainOutput.Add('// When //');
+    WriteProg(mainOutput, [AMainThread], Events[i].Conditions, Events[i].Instructions, EndIP, EndIP, Events[i].Preserve);
+  end;
+
+  //write generated code at the end of the file
   WriteMessages(mainOutput);
+  WriteStackTriggers(mainOutput);
+  WriteTransferTriggers(mainOutput);
 
-  //write stack code at the end of the file
-  WriteStackTriggers(mainOutput, AMainThread);
+  //it is recommended to put hyper triggers at the end
+  WriteHyperTriggers(mainOutput);
 
   WriteFile(AFilename, mainOutput);
   mainOutput.Free;
 end;
 
-procedure WriteSwitches(AFilename: string);
-var t: TextFile;
+procedure WriteUnitProperties(AFilename: string);
+var
+  t: TextFile;
   i: Integer;
 begin
   AssignFile(t, AFilename);
   Rewrite(t);
-  for i := 0 to BoolVarCount-1 do
-    writeln(t, BoolVars[i].Switch, #9, '"', BoolVars[i].Name, '"');
-  writeln(t);
+  for i := 0 to UnitPropCount-1 do
+  with UnitPropVars[i].Value do
+  begin
+    writeln(t,'Unit Property ' + inttostr(i) + ' // ' + UnitPropVars[i].Name);
+    writeln(t);
+    writeln(t,'HP: ' + inttostr(Life));
+    writeln(t,'SP: ' + inttostr(Shield));
+    writeln(t,'EP: ' + inttostr(Energy));
+    writeln(t,'Res: ' + inttostr(Resource));
+    writeln(t,'Hangar Units: ' + inttostr(HangarCount));
+    write(t,'Flags: ');
+    if Hallucinated then write(t,'HALLUCINATED');
+    if Invincible then write(t,'INVINCIBLE');
+    if Burrowed then write(t,'BURROWED');
+    if Lifted then write(t,'INTRANSIT');
+    if Cloaked then write(t,'CLOAKED');
+    writeln(t);
+    writeln(t);
+  end;
   CloseFile(t);
 end;
 

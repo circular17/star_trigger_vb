@@ -43,10 +43,10 @@ begin
     Exit;
   end;
 
-  if ureadprog.ReadProg('prog.txt') then
+  if ureadprog.ReadProg('prog.vb') then
   begin
-    uwritetriggers.WriteTriggers('triggers.out', plPlayer8);
-    uwritetriggers.WriteSwitches('switches.out');
+    uwritetriggers.WriteTriggers('prog.trigger', plPlayer8);
+    uwritetriggers.WriteUnitProperties('prog.property');
   end;
 
   // stop program loop

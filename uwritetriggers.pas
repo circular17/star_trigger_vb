@@ -7,7 +7,9 @@ interface
 uses
   Classes, SysUtils, fgl, ureadprog, uinstructions;
 
-const ArithmeticMaxBits = 8;
+const
+  ArithmeticMaxBits = 8;
+  MaxStackSize = 6;
 
 procedure WriteTriggers(AFilename: string; AMainThread: TPlayer);
 procedure WriteUnitProperties(AFilename: string);
@@ -181,7 +183,6 @@ end;
 // output instructions that have already been expanded
 
 var
-  MaxStackBits: integer;  //number of bits for one value on the stack (max is 32)
   ReturnSysIP, PushSysIP, SysParamArray: integer;
 
   PrintedBoolVar: integer;
@@ -404,8 +405,9 @@ end;
 
 var
   SPVar: integer;
-  StackArray: integer;
+  StackArrays: array[1..MaxArraySize] of integer;
   StackSize: integer;     //number of values that can be on the stack (max is MaxArraySize)
+  MaxStackBits: integer;  //number of bits for one value on the stack (max is 32)
 
 procedure NeedStack;
 begin
@@ -414,10 +416,6 @@ begin
     SPVar := IntVarIndexOf('_sp');
     if SPVar = -1 then
       SPVar := CreateIntVar('_sp', 0);
-
-    StackArray:= IntArrayIndexOf('_stack');
-    if StackArray = -1 then
-      StackArray := CreateIntArray('_stack', MaxArraySize, []);
 
     NeedSysParam;
 
@@ -434,7 +432,7 @@ var
   var j,sub: integer;
   begin
     result := ADepth;
-    if ADepth = MaxArraySize then exit;
+    if ADepth = MaxStackSize then exit;
 
     with Procedures[AProc] do
       for j := 0 to Calls.Count-1 do
@@ -456,8 +454,15 @@ begin
     if depth > StackSize then StackSize:= depth;
   end;
 
-  if StackArray <> -1 then
-    IntArrays[StackArray].Size:= StackSize;
+  if SPVar <> -1 then
+  begin
+    for i := 1 to StackSize do
+    begin
+      StackArrays[i]:= IntArrayIndexOf('_stackValue'+inttostr(i));
+      if StackArrays[i] = -1 then
+        StackArrays[i] := CreateIntArray('_stackValue'+inttostr(i), MaxArraySize, []);
+    end;
+  end;
 end;
 
 procedure WriteStackTriggers(AOutput: TStringList);
@@ -505,14 +510,14 @@ begin
 
   //copy stack value to IP
   spCond := TIntegerCondition.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, icmExactly, 0);
-  valCond := TIntegerCondition.Create(plNone, IntArrays[StackArray].UnitType, icmAtLeast, 0);
+  valCond := TIntegerCondition.Create(plCurrentPlayer, '', icmAtLeast, 0);
   cond.Add(spCond);
   cond.Add(valCond);
   for sp := 0 to StackSize-1 do
   begin
-    valCond.Player := IntToPlayer(sp+1);
+    valCond.UnitType := IntArrays[StackArrays[sp+1]].UnitType;
 
-    subStackVal := TSetIntegerInstruction.Create(plNone, IntArrays[StackArray].UnitType, simSubtract, 0);
+    subStackVal := TSetIntegerInstruction.Create(plCurrentPlayer, valCond.UnitType, simSubtract, 0);
     addIP := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[IPVar].UnitType, simAdd, 0);
     proc.Add(subStackVal);
     proc.Add(addIP);
@@ -522,7 +527,6 @@ begin
     begin
       valCond.Value := 1 shl bit;
 
-      subStackVal.Player := valCond.Player;
       subStackVal.Value := valCond.Value;
       addIP.Value := valCond.Value;
 
@@ -557,7 +561,7 @@ begin
   for sp := 0 to StackSize-1 do
   begin
     spCond.Value:= sp;
-    addStackVal := TSetIntegerInstruction.Create(IntToPlayer(sp+1), IntArrays[StackArray].UnitType, simAdd, 0);
+    addStackVal := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[StackArrays[sp+1]].UnitType, simAdd, 0);
     proc.Add(addStackVal);
     subVal := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[SysParamArray].UnitType, simSubtract, 0);
     proc.Add(subVal);
@@ -1134,7 +1138,6 @@ begin
   PushSysIP:= -1;
   SysParamArray := -1;
 
-  StackArray:= -1;
   PrintedBoolVar:= -1;
   PrintingMessageIntVar:= -1;
   MessageCount := 0;

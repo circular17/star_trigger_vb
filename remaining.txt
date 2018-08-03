@@ -2,6 +2,5 @@
 - conditions complexes (or xor)
 - thread (for player)
 => fonctions thread
-=> stack //
 - bool array
 - string array (for template)

@@ -265,13 +265,21 @@ begin
     if pl <> plNone then
     begin
       ExpectToken(ALine,AIndex,'.');
-      if TryToken(ALine,AIndex,'Bring') then
+      if TryToken(ALine,AIndex,'UnitCount') then
       begin
-        ExpectToken(ALine,AIndex,'(');
-        unitType := ExpectString(ALine,AIndex);
-        ExpectToken(ALine,AIndex,',');
-        locStr := ExpectString(ALine,AIndex);
-        ExpectToken(ALine,AIndex,')');
+        if TryToken(ALine,AIndex,'(') then
+        begin
+          unitType := ExpectString(ALine,AIndex);
+          if TryToken(ALine,AIndex,',') then
+            locStr := ExpectString(ALine,AIndex)
+          else
+            locStr := '';
+          ExpectToken(ALine,AIndex,')');
+        end else
+        begin
+          unitType := 'Any unit';
+          locStr := '';
+        end;
         op := TryConditionOperator(ALine,AIndex);
         if op = coNone then
           raise exception.Create('Comparison expected');
@@ -296,6 +304,69 @@ begin
           raise exception.Create('Unhandled case');
         end;
         exit;
+      end else
+      if TryToken(ALine,AIndex,'KillCount') then
+      begin
+        if TryToken(ALine,AIndex,'(') then
+        begin
+          unitType := ExpectString(ALine,AIndex);
+          ExpectToken(ALine,AIndex,')');
+        end else
+        begin
+          unitType := 'Any unit';
+        end;
+        op := TryConditionOperator(ALine,AIndex);
+        if op = coNone then
+          raise exception.Create('Comparison expected');
+
+        if boolNot then op := NotConditionOperator[op];
+
+        intVal := ExpectInteger(ALine,AIndex);
+        case op of
+        coEqual: result := TKillCountCondition.Create(pl, unitType, icmExactly, intVal);
+        coGreaterThanOrEqual: result := TKillCountCondition.Create(pl, unitType, icmAtLeast, intVal);
+        coLowerThanOrEqual: result := TKillCountCondition.Create(pl, unitType, icmAtMost, intVal);
+        coGreaterThan: if intVal = maxLongint then
+                          result := TNeverCondition.Create
+                       else
+                          result := TKillCountCondition.Create(pl, unitType, icmAtLeast, intVal+1);
+        coLowerThan: if intVal = 0 then
+                          result := TNeverCondition.Create
+                       else
+                          result := TKillCountCondition.Create(pl, unitType, icmAtMost, intVal-1);
+        coNotEqual: result := TNotCondition.Create([TKillCountCondition.Create(pl, unitType, icmExactly, intVal)]);
+        else
+          raise exception.Create('Unhandled case');
+        end;
+        exit;
+      end
+      else
+      if TryToken(ALine,AIndex,'OpponentCount') then
+      begin
+        op := TryConditionOperator(ALine,AIndex);
+        if op = coNone then
+          raise exception.Create('Comparison expected');
+
+        if boolNot then op := NotConditionOperator[op];
+
+        intVal := ExpectInteger(ALine,AIndex);
+        case op of
+        coEqual: result := TOpponentCountCondition.Create(pl, icmExactly, intVal);
+        coGreaterThanOrEqual: result := TOpponentCountCondition.Create(pl, icmAtLeast, intVal);
+        coLowerThanOrEqual: result := TOpponentCountCondition.Create(pl, icmAtMost, intVal);
+        coGreaterThan: if intVal = maxLongint then
+                          result := TNeverCondition.Create
+                       else
+                          result := TOpponentCountCondition.Create(pl, icmAtLeast, intVal+1);
+        coLowerThan: if intVal = 0 then
+                          result := TNeverCondition.Create
+                       else
+                          result := TOpponentCountCondition.Create(pl, icmAtMost, intVal-1);
+        coNotEqual: result := TNotCondition.Create([TOpponentCountCondition.Create(pl, icmExactly, intVal)]);
+        else
+          raise exception.Create('Unhandled case');
+        end;
+        exit;
       end
       else
         raise exception.Create('Expecting player condition');
@@ -312,7 +383,7 @@ begin
           result := TNeverCondition.Create;
         exit;
       end else
-        raise exception.Create('Expecting variable name');
+        raise exception.Create('Expecting variable name or player identifier');
     end;
 
     case scalar.VarType of
@@ -1235,16 +1306,31 @@ begin
               if TryToken(line,index,'DoodadState') then prop := supDoodadState else
                 raise exception.Create('Expecting property name');
               ExpectToken(line,index,'=');
-              if prop in[supInvincible,supDoodadState] then
-              begin
-                if not TryBoolean(line,index,boolVal) then
-                  raise exception.Create('Expecting boolean');
-                propVal := integer(boolVal);
-              end
-              else propVal:= ExpectInteger(line,index);
+
+              scalar := TryScalarVariable(line,index);
               CheckEndOfLine;
 
-              AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, prop, propVal));
+              if prop in[supInvincible,supDoodadState] then
+              begin
+                if scalar.VarType <> svtSwitch then
+                  raise exception.Create('Expecting boolean');
+
+                if scalar.Constant then
+                  AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, prop, integer(scalar.BoolValue)))
+                else
+                begin
+                  AProg.Add(TIfInstruction.Create(TSwitchCondition.Create(scalar.Index, true)));
+                  AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, prop, 1));
+                  AProg.Add(TElseInstruction.Create);
+                  AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, prop, 0));
+                  AProg.Add(TEndIfInstruction.Create);
+                end;
+              end
+              else
+              begin
+                propVal:= ExpectInteger(line,index);
+                AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, prop, propVal));
+              end;
             end;
 
           end else

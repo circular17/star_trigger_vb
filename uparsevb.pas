@@ -215,6 +215,7 @@ function TryParsePlayer(ALine: TStringList; var AIndex: integer): TPlayer;
 var
   pl: TPlayer;
 begin
+  if AIndex >= ALine.Count then exit(plNone);
   for pl := succ(plNone) to high(TPlayer) do
     if CompareText(ALine[AIndex],PlayerIdentifiers[pl])=0 then
     begin

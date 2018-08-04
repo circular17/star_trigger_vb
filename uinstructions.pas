@@ -134,6 +134,7 @@ type
   TIfInstruction = class(TInstruction)
     Conditions: TConditionList;
     destructor Destroy; override;
+    constructor Create(ACondition: TCondition);
     constructor Create(AConditions: TConditionList);
     function ToString: ansistring; override;
   end;
@@ -326,6 +327,27 @@ type
     function ToString: ansistring; override;
   end;
 
+  { TKillCountCondition }
+
+  TKillCountCondition = class(TCondition)
+    Player: TPlayer;
+    UnitType: string;
+    Value: integer;
+    Mode: TIntegerConditionMode;
+    constructor Create(APlayer: TPlayer; AUnitType: string; AMode: TIntegerConditionMode; AValue: integer);
+    function ToString: ansistring; override;
+  end;
+
+  { TOpponentCountCondition }
+
+  TOpponentCountCondition = class(TCondition)
+    Player: TPlayer;
+    Value: integer;
+    Mode: TIntegerConditionMode;
+    constructor Create(APlayer: TPlayer; AMode: TIntegerConditionMode; AValue: integer);
+    function ToString: ansistring; override;
+  end;
+
 function PlayerToStr(APlayer: TPlayer): string;
 
 implementation
@@ -349,6 +371,39 @@ begin
   plNonAlliedVictoryPlayers: result := 'Non Allied Victory Players';
   else result := 'Unknown';
   end;
+end;
+
+{ TOpponentCountCondition }
+
+constructor TOpponentCountCondition.Create(APlayer: TPlayer;
+  AMode: TIntegerConditionMode; AValue: integer);
+begin
+  Player := APlayer;
+  Mode := AMode;
+  Value := AValue;
+end;
+
+function TOpponentCountCondition.ToString: ansistring;
+begin
+  Result:= 'Opponents("' + PlayerToStr(Player) + '", ' +
+       IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')';
+end;
+
+{ TKillCountCondition }
+
+constructor TKillCountCondition.Create(APlayer: TPlayer; AUnitType: string;
+  AMode: TIntegerConditionMode; AValue: integer);
+begin
+  Player := APlayer;
+  UnitType := AUnitType;
+  Mode := AMode;
+  Value := AValue;
+end;
+
+function TKillCountCondition.ToString: ansistring;
+begin
+  Result:= 'Kill("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' +
+       IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')';
 end;
 
 { TNotCondition }
@@ -554,8 +609,12 @@ end;
 
 function TBringCondition.ToString: ansistring;
 begin
-  Result:= 'Bring("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' + AddQuotes(Location) + ', ' +
-       IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')';
+  if Location = '' then
+    Result:= 'Command("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' +
+         IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')'
+  else
+    Result:= 'Bring("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' + AddQuotes(Location) + ', ' +
+         IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')';
 end;
 
 { TCreateUnitInstruction }
@@ -706,6 +765,12 @@ destructor TIfInstruction.Destroy;
 begin
   Conditions.FreeAll;
   inherited Destroy;
+end;
+
+constructor TIfInstruction.Create(ACondition: TCondition);
+begin
+  Conditions := TConditionList.Create;
+  Conditions.Add(ACondition);
 end;
 
 constructor TIfInstruction.Create(AConditions: TConditionList);

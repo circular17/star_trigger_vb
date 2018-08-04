@@ -305,6 +305,7 @@ begin
 
     for i := 1 to Size do
       PredefineIntVar(Name+'('+IntToStr(i)+')', IntToPlayer(i), UnitType);
+    PredefineIntVar(Name+'(Me)', plCurrentPlayer, UnitType);
   end;
 
 end;
@@ -334,6 +335,7 @@ begin
       Values[i] := 0;
       PredefineIntVar(Name+'('+IntToStr(i)+')', IntToPlayer(i), UnitType);
     end;
+    PredefineIntVar(Name+'(Me)', plCurrentPlayer, UnitType);
   end;
 end;
 
@@ -705,6 +707,7 @@ type
 
 function TryScalarVariable(ALine: TStringList; var AIndex: integer): TScalarVariable;
 var varIdx, arrayIndex: integer;
+  pl: TPlayer;
 begin
   result.VarType := svtNone;
   if (AIndex < ALine.Count) and IsValidVariableName(ALine[AIndex]) then
@@ -741,16 +744,27 @@ begin
           Inc(AIndex);
           if TryToken(ALine,AIndex,'(') then
           begin
-            arrayIndex := ExpectInteger(ALine, AIndex);
-            if (arrayIndex < 1) or (arrayIndex > IntArrays[varIdx].Size) then
-              raise exception.Create('Array index out of bounds');
+            if TryToken(ALine,AIndex,'Me') then
+            begin
+              pl := plCurrentPlayer;
+              if IntArrays[varIdx].Constant then
+                raise exception.Create('Cannot access a constant via Me');
+              result.IntValue:= 0;
+            end
+            else
+            begin
+              arrayIndex := ExpectInteger(ALine, AIndex);
+              if (arrayIndex < 1) or (arrayIndex > IntArrays[varIdx].Size) then
+                raise exception.Create('Array index out of bounds');
+              pl := IntToPlayer(arrayIndex);
+              result.IntValue:= IntArrays[varIdx].Values[arrayIndex];
+            end;
             ExpectToken(ALine, AIndex, ')');
             result.VarType := svtInteger;
-            result.Player := IntToPlayer(arrayIndex);
+            result.Player := pl;
             result.Name := IntArrays[varIdx].UnitType;
             result.Index := -1;
             result.Constant:= IntArrays[varIdx].Constant;
-            result.IntValue:= IntArrays[varIdx].Values[arrayIndex];
             result.BoolValue:= result.IntValue<>0;
           end else
           begin

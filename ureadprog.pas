@@ -9,81 +9,6 @@ uses
 
 function ReadProg(AFilename: string): boolean;
 
-const
-  MaxTempBools = 32;
-  MaxArraySize = MaxTriggerPlayers;
-
-var
-  IntArrays: array of record
-    Predefined, Constant: boolean;
-    Name: string;
-    Size: integer;
-    UnitType: string;
-    Values: array[1..MaxArraySize] of integer;
-  end;
-  IntArrayCount: integer;
-  CurIntArrayUnitNameIndex: integer;
-
-function CreateIntArray(AName: string; ASize: integer; AValues: array of integer; AConstant: boolean = false): integer;
-function IntArrayIndexOf(AName: string): integer;
-
-var
-  IntVars: array of record
-    Predefined, Constant: boolean;
-    Name: string;
-    Player: TPlayer;
-    UnitType: string;
-    Value: integer;
-    Randomize: boolean;
-    AddToAcc,AddFromAcc: boolean;
-  end;
-  IntVarCount: integer;
-  CurIntVarPlayer: TPlayer;
-  CurIntVarUnitNameIndex: integer;
-
-function CreateIntVar(AName: string; AValue: integer; ARandomize: boolean = false; AConstant: boolean = false): integer;
-function IntVarIndexOf(AName: string): integer;
-
-var
-  BoolVars: array of record
-    Constant: boolean;
-    Name: string;
-    Switch: integer;
-    Value: TSwitchValue;
-  end;
-  BoolVarCount: integer;
-  CurBoolVarSwitch: integer;
-
-  TempBools: array[0..MaxTempBools-1] of integer;
-  TempBoolCount: integer;
-
-function CreateBoolVar(AName: string; AValue: TSwitchValue; AConstant: boolean = false): integer;
-function BoolVarIndexOf(AName: string): integer;
-procedure NeedTempBools(AQuantity: integer);
-
-var
-  UnitPropVars: array of record
-    Name: string;
-    Value: TUnitProperties;
-  end;
-  UnitPropCount: integer;
-
-function CreateUnitProp(AName: string; AValue: TUnitProperties; AConstant: boolean): integer;
-function UnitPropIndexOf(AName: string): integer;
-function FindOrCreateUnitProperty(AProp: TUnitProperties): integer;
-
-var
-  StringVars: array of record
-    Name: string;
-    Value: string;
-  end;
-  StringCount: integer;
-
-function CreateString(AName: string; AValue: string; AConstant: boolean): integer;
-function StringIndexOf(AName: string): integer;
-
-function VarNameUsed(AName: string): boolean;
-
 type
   TIntegerList = specialize TFPGList<Integer>;
 
@@ -113,408 +38,11 @@ var
 
 function CreateEvent(APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
 
-function ParseRandom(ALine: TStringList; var AIndex: integer): integer;
-function IsPowerOf2(ANumber: integer): boolean;
-function GetExponentOf2(AValue: integer): integer;
-function RemoveQuotes(AQuotedText: string): string;
-
-procedure CheckReservedWord(AText: string);
-
 var HyperTriggers: boolean;
 
 implementation
 
-type
-  ArrayOfInteger = array of integer;
-  TConditionOperator = (coNone, coEqual, coGreaterThan, coLowerThan, coGreaterThanOrEqual, coLowerThanOrEqual, coNotEqual);
-
-const
-  NotConditionOperator : array[TConditionOperator] of TConditionOperator = (coNone, coNotEqual, coLowerThanOrEqual, coGreaterThanOrEqual, coLowerThan, coGreaterThan, coEqual);
-
-function GetExponentOf2(AValue: integer): integer;
-begin
-  result := 0;
-  while AValue > 1 do
-  begin
-    AValue := AValue shr 1;
-    inc(result);
-  end;
-end;
-
-function RemoveQuotes(AQuotedText: string): string;
-begin
-  if (length(AQuotedText)<2) or (AQuotedText[1]<>'"') or (AQuotedText[length(AQuotedText)]<>'"') then
-    raise exception.Create('Quotes not found');
-
-  result := StringReplace(StringReplace(StringReplace(copy(AQuotedText, 2, length(AQuotedText)-2), '\\', #0, [rfReplaceAll]), '\"', '"', [rfReplaceAll]), #0, '\', [rfReplaceAll]);
-end;
-
-procedure CheckReservedWord(AText: string);
-const
-  ReservedWords: array[1..49] of string =
-    ('Dim','As','Const','Sub','When','End','If','EndIf', 'Then','Else','Not','And','Or','Xor','While','Option','Return','On','Off','Hyper','Boolean','Byte','Integer','String','True','False',
-     'For','To','Step','Next','Do','Loop','Until','Len','Chr','Asc','ElseIf','Select','Case','Exit','Function','LBound','UBound','Me','Now','ReDim', 'Preserve', 'Rnd','New');
-var
-  i: Integer;
-  pl: TPlayer;
-begin
-  for i := low(reservedWords) to high(reservedWords) do
-    if ComparetexT(reservedWords[i],AText)=0 then raise exception.Create('"' + reservedWords[i] + '" is a word reserved');
-  for pl := low(TPlayer) to high(TPlayer) do
-    if CompareText(PlayerIdentifiers[pl], AText)=0 then raise exception.Create('"' + PlayerIdentifiers[pl] + '" is a player identifier');
-end;
-
-function PredefineIntVar(AName: string; APlayer: TPlayer; AUnitType: string): integer;
-begin
-  if IntVarCount = 0 then
-  begin
-    CurIntVarPlayer:= succ(IntToPlayer(MaxArraySize));
-    CurIntVarUnitNameIndex:= 1;
-  end;
-
-  if IntVarCount >= length(IntVars) then
-    setlength(IntVars, IntVarCount*2+4);
-
-  result := IntVarCount;
-  inc(IntVarCount);
-
-  with IntVars[result] do
-  begin
-    Predefined := true;
-    Name := AName;
-    Player := APlayer;
-    UnitType := AUnitType;
-    Value := 0;
-    Randomize:= false;
-  end;
-end;
-
-
-function CreateIntArray(AName: string; ASize: integer;
-  AValues: array of integer; AConstant: boolean): integer;
-var
-  i: Integer;
-begin
-  if VarNameUsed(AName) then
-    raise Exception.Create('Name already in use');
-  CheckReservedWord(AName);
-
-  if length(AValues)>ASize then
-    raise exception.Create('Too many elements in array values');
-
-  if IntArrayCount = 0 then
-    CurIntArrayUnitNameIndex:= high(NonKillableUnits)+1;
-
-  if not AConstant then
-  begin
-    if (CurIntArrayUnitNameIndex = 1) or
-      ((IntVarCount > 0) and (CurIntArrayUnitNameIndex = CurIntVarUnitNameIndex+1)) then
-      raise exception.Create('Too many integer variables');
-
-    dec(CurIntArrayUnitNameIndex);
-  end;
-
-  if IntArrayCount >= length(IntArrays) then
-    setlength(IntArrays, IntArrayCount*2+4);
-
-  result := IntArrayCount;
-  inc(IntArrayCount);
-
-  with IntArrays[result] do
-  begin
-    Constant := AConstant;
-    Predefined := false;
-    Name := AName;
-    Size:= ASize;
-    if AConstant then UnitType := 'Const'
-    else UnitType := NonKillableUnits[CurIntArrayUnitNameIndex];
-
-    for i := 0 to high(AValues) do
-      Values[i+1] := AValues[i];
-    for i := high(AValues)+1 to MaxArraySize-1 do
-      Values[i+1] := 0;
-
-    for i := 1 to Size do
-      PredefineIntVar(Name+'('+IntToStr(i)+')', IntToPlayer(i), UnitType);
-    PredefineIntVar(Name+'(Me)', plCurrentPlayer, UnitType);
-  end;
-
-end;
-
-function PredefineIntArray(AName: string; AUnitType: string): integer;
-var
-  i: Integer;
-begin
-  if IntArrayCount = 0 then
-    CurIntArrayUnitNameIndex:= high(NonKillableUnits)+1;
-
-  if IntArrayCount >= length(IntArrays) then
-    setlength(IntArrays, IntArrayCount*2+4);
-
-  result := IntArrayCount;
-  inc(IntArrayCount);
-
-  with IntArrays[result] do
-  begin
-    Constant := false;
-    Predefined := true;
-    Name := AName;
-    Size:= MaxArraySize;
-    UnitType := AUnitType;
-    for i := 1 to MaxArraySize do
-    begin
-      Values[i] := 0;
-      PredefineIntVar(Name+'('+IntToStr(i)+')', IntToPlayer(i), UnitType);
-    end;
-    PredefineIntVar(Name+'(Me)', plCurrentPlayer, UnitType);
-  end;
-end;
-
-function IntArrayIndexOf(AName: string): integer;
-var
-  i: Integer;
-begin
-  for i := 0 to IntArrayCount-1 do
-    if CompareText(IntArrays[i].Name, AName)=0 then exit(i);
-  exit(-1);
-end;
-
-function CreateIntVar(AName: string; AValue: integer; ARandomize: boolean;
-  AConstant: boolean): integer;
-begin
-  if VarNameUsed(AName) then
-    raise Exception.Create('Name already in use');
-  CheckReservedWord(AName);
-
-  if AConstant and ARandomize then
-    raise exception.Create('A constant cannot be random');
-
-  if IntVarCount = 0 then
-  begin
-    CurIntVarPlayer:= succ(IntToPlayer(MaxArraySize));
-    CurIntVarUnitNameIndex:= 1;
-  end;
-
-  if not AConstant then
-  begin
-    if CurIntVarPlayer = plPlayer1 then
-    begin
-      If (CurIntVarUnitNameIndex = high(NonKillableUnits)) or
-        ((IntArrayCount > 0) and (CurIntVarUnitNameIndex = CurIntArrayUnitNameIndex-1)) then
-        raise exception.Create('Too many integer variables');
-
-      CurIntVarPlayer:= IntToPlayer(MaxArraySize);
-      Inc(CurIntVarUnitNameIndex);
-    end else
-      CurIntVarPlayer:= Pred(CurIntVarPlayer);
-  end;
-
-  if IntVarCount >= length(IntVars) then
-    setlength(IntVars, IntVarCount*2+4);
-
-  result := IntVarCount;
-  inc(IntVarCount);
-
-  with IntVars[result] do
-  begin
-    Constant := AConstant;
-    Predefined := false;
-    Name := AName;
-    if AConstant then
-    begin
-      Player := plNone;
-      UnitType := 'Const';
-    end else
-    begin
-      Player := CurIntVarPlayer;
-      UnitType := NonKillableUnits[CurIntVarUnitNameIndex];
-    end;
-    Value := AValue;
-    Randomize:= ARandomize;
-  end;
-end;
-
-function IntVarIndexOf(AName: string): integer;
-var
-  i: Integer;
-begin
-  for i := 0 to IntVarCount-1 do
-    if CompareText(IntVars[i].Name, AName)=0 then exit(i);
-  exit(-1);
-end;
-
-function CreateBoolVar(AName: string; AValue: TSwitchValue; AConstant: boolean
-  ): integer;
-begin
-  if VarNameUsed(AName) then
-    raise Exception.Create('Name already in use');
-  CheckReservedWord(AName);
-
-  if AConstant and (AValue = svRandomize) then
-    raise exception.Create('A constant cannot be random');
-
-  if BoolVarCount = 0 then
-  begin
-    CurBoolVarSwitch:= 256;
-  end;
-
-  if not AConstant then
-  begin
-    if CurBoolVarSwitch = 0 then
-      raise Exception.Create('Too many boolean variables');
-  end;
-
-
-  if BoolVarCount >= length(BoolVars) then
-    setlength(BoolVars, BoolVarCount*2+4);
-
-  result := BoolVarCount;
-  inc(BoolVarCount);
-
-  with BoolVars[result] do
-  begin
-    Constant := AConstant;
-    Name := AName;
-    if AConstant then Switch := 0 else Switch:= CurBoolVarSwitch;
-    Value := AValue;
-  end;
-
-  Dec(CurBoolVarSwitch);
-end;
-
-function BoolVarIndexOf(AName: string): integer;
-var
-  i: Integer;
-begin
-  for i := 0 to BoolVarCount-1 do
-    if CompareText(BoolVars[i].Name, AName)=0 then exit(i);
-  exit(-1);
-end;
-
-procedure NeedTempBools(AQuantity: integer);
-var
-  idx: Integer;
-begin
-  if AQuantity > MaxTempBools then
-    raise exception.Create('Too many temporary booleans');
-
-  while TempBoolCount < AQuantity do
-  begin
-    idx := CreateBoolVar('_bool'+intToStr(TempBoolCount+1), svClear);
-    TempBools[TempBoolCount] := idx;
-    inc(TempBoolCount);
-  end;
-end;
-
-function ParseLine(ALine: string): TStringList;
-var
-  p,start: Integer;
-  inSpace, inStr, prevBackslash: boolean;
-  token: string;
-  i,j: Integer;
-begin
-  result := TStringList.Create;
-
-  p := 1;
-  start := 1;
-  inSpace := true;
-  inStr := false;
-  prevBackslash := false;
-  while p <= length(ALine) do
-  begin
-    if inStr or not (ALine[p] in[#0..' ']) then
-    begin
-      if not inStr and not inSpace and not (ALine[p] in['A'..'Z','a'..'z','_','0'..'9']) then
-      begin
-        token := copy(ALine, start, p-start);
-        result.Add(token);
-        start := p;
-      end;
-
-      if inSpace then
-      begin
-        inSpace := false;
-        start := p;
-      end;
-      if (ALine[p] = '"') and not inStr then inStr := true else
-      if (ALine[p] = '"') and inStr then
-      begin
-        if not prevBackslash then
-        begin
-          inStr := false;
-          token := copy(ALine, start, p-start+1);
-          result.Add(token);
-          inSpace := true;
-        end;
-      end;
-      if not prevBackslash and inStr and (ALine[p]='\') then prevBackslash:= true
-      else prevBackslash:= false;
-
-      if not inStr and not inSpace and not (ALine[p] in['A'..'Z','a'..'z','_','0'..'9']) then
-      begin
-        token := copy(ALine, start, p-start+1);
-        result.Add(token);
-        inSpace := true;
-      end;
-    end else
-    begin
-      if not inSpace then
-      begin
-        token := copy(ALine, start, p-start);
-        result.Add(token);
-        inSpace := true;
-        start := p;
-      end;
-    end;
-
-    inc(p);
-  end;
-  if inStr then
-    raise Exception.Create('String over end of line');
-  if not inSpace then
-  begin
-    token := copy(ALine,start,length(ALine)-start+1);
-    result.Add(token);
-  end;
-  for i := 0 to result.Count-1 do
-  begin
-    if result[i] = '''' then
-    begin
-      for j := result.Count-1 downto i do
-        result.Delete(j);
-      break;
-    end;
-  end;
-end;
-
-function IsValidVariableName(AText: string): boolean;
-begin
-  if AText = '' then exit(false);
-  if not (AText[1] in['A'..'Z','a'..'z']) then exit(false);
-  if pos('"', AText)<>0 then exit(false);
-  exit(true);
-end;
-
-function TryToken(ALine: TStringList; var AIndex: integer; AToken: string): boolean;
-begin
-  if (AIndex < ALine.Count) and (CompareText(ALine[AIndex],AToken) = 0) then
-  begin
-    inc(AIndex);
-    exit(true);
-  end else
-    exit(false);
-end;
-
-procedure ExpectToken(ALine: TStringList; var AIndex: integer; AToken: string);
-begin
-  if not TryToken(ALine,AIndex,AToken) then
-  begin
-    if AIndex >= ALine.Count then
-      raise exception.Create('"'+AToken+'" expected but end of line found')
-    else
-      raise exception.Create('"'+AToken+'" expected but "' + ALine[AIndex] + '" found');
-  end;
-end;
+uses uparsevb, uvariables;
 
 function TryInteger(ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
 var errPos, idxVar: integer;
@@ -577,51 +105,6 @@ begin
       raise exception.Create('Integer expected but end of line found') else
       raise exception.Create('Integer expected but "' + ALine[AIndex] + '" found');
   end;
-end;
-
-function TryConditionOperator(ALine: TStringList; var AIndex: integer): TConditionOperator;
-begin
-  result := coNone;
-  if TryToken(ALine,AIndex,'<') then result := coLowerThan;
-  if TryToken(ALine,AIndex,'>') then
-  begin
-    case result of
-    coLowerThan: result := coNotEqual;
-    else result := coGreaterThan;
-    end;
-  end;
-  if (result <> coNotEqual) and TryToken(ALine,AIndex,'=') then
-  begin
-    case result of
-    coLowerThan: result := coLowerThanOrEqual;
-    coGreaterThan: result := coGreaterThanOrEqual;
-    else result := coEqual;
-    end;
-  end;
-end;
-
-function IsPowerOf2(ANumber: integer): boolean;
-begin
-  if ANumber <= 0 then exit(false);
-  while ANumber > 1 do
-  begin
-    if (ANumber and 1) <> 0 then exit(false);
-    ANumber := ANumber shr 1;
-  end;
-  exit(ANumber = 1);
-end;
-
-function TryParsePlayer(ALine: TStringList; var AIndex: integer): TPlayer;
-var
-  pl: TPlayer;
-begin
-  for pl := succ(plNone) to high(TPlayer) do
-    if CompareText(ALine[AIndex],PlayerIdentifiers[pl])=0 then
-    begin
-      inc(AIndex);
-      exit(pl);
-    end;
-  exit(plNone);
 end;
 
 type
@@ -1035,87 +518,10 @@ begin
     exit(-1);
 end;
 
-function CreateUnitProp(AName: string; AValue: TUnitProperties; AConstant: boolean): integer;
-begin
-  if VarNameUsed(AName) then
-    raise Exception.Create('Name already in use');
-  CheckReservedWord(AName);
-
-  if not AConstant then
-    raise Exception.Create('Unit properties must be constant');
-
-  if UnitPropCount >= length(UnitPropVars) then
-    setlength(UnitPropVars, UnitPropCount*2+4);
-  result := UnitPropCount;
-  inc(UnitPropCount);
-
-  with UnitPropVars[result] do
-  begin
-    Name := AName;
-    Value := AValue;
-  end;
-end;
-
-function UnitPropIndexOf(AName: string): integer;
-var
-  i: Integer;
-begin
-  for i := 0 to UnitPropCount-1 do
-    if CompareText(AName, UnitPropVars[i].Name) = 0 then exit(i);
-  exit(-1);
-end;
-
-function FindOrCreateUnitProperty(AProp: TUnitProperties): integer;
-var
-  i: Integer;
-begin
-  result := -1;
-  for i := 0 to UnitPropCount-1 do
-  begin
-    if CompareMem(@UnitPropVars[i].Value, @AProp, sizeof(TUnitProperties)) then
-    begin
-      result := i;
-      break;
-    end;
-  end;
-  if result = -1 then
-    result := CreateUnitProp('_prop'+inttostr(UnitPropCount+1), AProp, True);
-end;
-
-function CreateString(AName: string; AValue: string; AConstant: boolean): integer;
-begin
-  if VarNameUsed(AName) then
-    raise Exception.Create('Name already in use');
-  CheckReservedWord(AName);
-
-  if not AConstant then
-    raise Exception.Create('Strings must be constant');
-
-  if StringCount >= length(StringVars) then
-    setlength(StringVars, StringCount*2+4);
-  result := StringCount;
-  inc(StringCount);
-
-  with StringVars[result] do
-  begin
-    Name := AName;
-    Value := AValue;
-  end;
-end;
-
-function StringIndexOf(AName: string): integer;
-var
-  i: Integer;
-begin
-  for i := 0 to StringCount-1 do
-    if CompareText(StringVars[i].Name,AName)=0 then exit(i);
-  exit(-1);
-end;
-
-function VarNameUsed(AName: string): boolean;
+function IsVarNameUsed(AName: string; AParamCount: integer): boolean;
 begin
   result := (IntVarIndexOf(AName)<>-1) or (BoolVarIndexOf(AName)<>-1) or (IntArrayIndexOf(AName)<>-1) or
-    (ProcedureIndexOf(AName,0)<>-1) or (UnitPropIndexOf(AName) <> -1) or (StringIndexOf(AName)<>-1);
+    (ProcedureIndexOf(AName,AParamCount)<>-1) or (UnitPropIndexOf(AName) <> -1) or (StringIndexOf(AName)<>-1);
 end;
 
 function CreateProcedure(AName: string; AParamCount: integer): integer;
@@ -1169,33 +575,6 @@ begin
   end;
 end;
 
-function ParseRandom(ALine: TStringList; var AIndex: integer): integer;
-var errPos: integer;
-begin
-  if (AIndex < ALine.Count) and (CompareText(ALine[AIndex], 'Rnd') = 0) then
-  begin
-    inc(AIndex);
-    if (AIndex < ALine.Count) and (ALine[AIndex] = '*') then
-    begin
-      inc(AIndex);
-      if AIndex >= ALine.Count then
-        raise exception.Create('Expecting integer value');
-      val(ALine[AIndex], result, errPos);
-      if errPos > 0 then
-        raise exception.Create('Expecting integer value');
-      inc(AIndex);
-
-      if not IsPowerOf2(result) then
-        raise exception.Create('Expecting power of 2');
-
-      if result < 2 then
-        raise Exception.Create('Value must be greated or equal to 2');
-    end else
-      exit(2);
-  end else
-    exit(-1);
-end;
-
 function ParseIntArray(ALine: TStringList; var AIndex: integer): ArrayOfInteger;
 var count: integer;
 begin
@@ -1213,29 +592,6 @@ begin
     inc(count);
   end;
   setlength(result, count);
-end;
-
-function ParsePlayers(ALine: TStringList; var AIndex: integer): TPlayers;
-var
-  pl: TPlayer;
-begin
-  result := [];
-  if TryToken(ALine, AIndex, '{') then
-  begin
-    repeat
-      pl := TryParsePlayer(ALine,AIndex);
-      if pl = plNone then raise exception.Create('Expecting player but "' + ALine[AIndex] + '" found');
-      result += [pl];
-
-      if TryToken(ALine, aIndex, '}') then break
-      else ExpectToken(ALine,AIndex,',');
-    until false;
-  end else
-  begin
-    pl := TryParsePlayer(ALine,AIndex);
-    if pl = plNone then raise exception.Create('Expecting player but "' + ALine[AIndex] + '" found');
-    result := [pl];
-  end;
 end;
 
 function ProcessSub(ADeclaration: string): integer;
@@ -1324,6 +680,7 @@ begin
       arraySize := 0;
       if not IsValidVariableName(varName) then
         raise exception.Create('Invalid variable name');
+
       inc(index);
 
       if TryToken(line,index,'(') then
@@ -1358,6 +715,9 @@ begin
         end;
       end else
         varType := '?';
+
+      if IsVarNameUsed(varName, integer(isArray)) then
+        raise exception.Create('This name is already in use');
 
       if TryToken(line,index,'=') then
       begin
@@ -1953,19 +1313,6 @@ begin
   end;
 end;
 
-function ParseAs(AText: string): TPlayers;
-var
-  line: TStringList;
-  index: Integer;
-begin
-  line := ParseLine(AText);
-  index := 0;
-  ExpectToken(line,index,'As');
-  result := ParsePlayers(line,index);
-  if index < line.Count then
-    raise exception.Create('Unexpected end of line');
-end;
-
 function ReadProg(AFilename: string): boolean;
 var t: TextFile;
   s: string;
@@ -1977,7 +1324,6 @@ begin
   BoolVarCount:= 0;
   IntVarCount:= 0;
   IntArrayCount:= 0;
-  TempBoolCount:= 0;
   StringCount := 0;
   MainProg.Clear;
 

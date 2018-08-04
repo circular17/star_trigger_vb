@@ -24,6 +24,8 @@ type
              plNonAlliedVictoryPlayers);
   TPlayers = set of TPlayer;
 
+function IntToPlayer(APlayer: integer): TPlayer;
+
 const
   MaxTriggerPlayers = 8;
   PlayerIdentifiers : array[TPlayer] of string =
@@ -99,6 +101,11 @@ type
 function IsUniquePlayer(APlayers: TPlayers): boolean;
 
 implementation
+
+function IntToPlayer(APlayer: integer): TPlayer;
+begin
+  result := TPlayer(ord(plPlayer1)+APlayer-1);
+end;
 
 function IsUniquePlayer(APlayers: TPlayers): boolean;
 var count: integer;

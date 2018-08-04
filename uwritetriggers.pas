@@ -5,14 +5,14 @@ unit uwritetriggers;
 interface
 
 uses
-  Classes, SysUtils, fgl, ureadprog, uinstructions, usctypes;
+  Classes, SysUtils, fgl, usctypes;
 
 procedure WriteTriggers(AFilename: string; AMainThread: TPlayer);
 procedure WriteUnitProperties(AFilename: string);
 
 implementation
 
-uses utriggercode, uarithmetic;
+uses utriggercode, uarithmetic, ureadprog, uinstructions, uvariables;
 
 const
   PredefineProcedures: array[0..33] of string =
@@ -126,7 +126,6 @@ var
   ifInstr: TIfInstruction;
   disp: TDisplayTextMessageInstruction;
   waitInstr: TWaitConditionInstruction;
-  transf: TTransferIntegerInstruction;
   splitInstr: TSplitInstruction;
   thenPart,elsePart: TInstructionList;
   notCond: TNotCondition;

@@ -9,14 +9,59 @@ uses
 
 const
   ArithmeticMaxBits = 8;
+  MaxTempBools = 32;
 
 procedure ExpandIntegerTransfer(ATransfer: TTransferIntegerInstruction; AExpanded: TInstructionList);
 procedure InitArithmetic;
 procedure WriteArithmeticTriggers(AOutput: TStringList);
+function GetExponentOf2(AValue: integer): integer;
+function IsPowerOf2(ANumber: integer): boolean;
+
+var
+  TempBools: array[0..MaxTempBools-1] of integer;
+  TempBoolCount: integer;
+
+procedure NeedTempBools(AQuantity: integer);
 
 implementation
 
-uses utriggercode, ureadprog, usctypes;
+uses utriggercode, uvariables, usctypes;
+
+procedure NeedTempBools(AQuantity: integer);
+var
+  idx: Integer;
+begin
+  if AQuantity > MaxTempBools then
+    raise exception.Create('Too many temporary booleans');
+
+  while TempBoolCount < AQuantity do
+  begin
+    idx := CreateBoolVar('_bool'+intToStr(TempBoolCount+1), svClear);
+    TempBools[TempBoolCount] := idx;
+    inc(TempBoolCount);
+  end;
+end;
+
+function GetExponentOf2(AValue: integer): integer;
+begin
+  result := 0;
+  while AValue > 1 do
+  begin
+    AValue := AValue shr 1;
+    inc(result);
+  end;
+end;
+
+function IsPowerOf2(ANumber: integer): boolean;
+begin
+  if ANumber <= 0 then exit(false);
+  while ANumber > 1 do
+  begin
+    if (ANumber and 1) <> 0 then exit(false);
+    ANumber := ANumber shr 1;
+  end;
+  exit(ANumber = 1);
+end;
 
 var
   AddToAccSysIP, AddFromAccSysIP, AccArray: integer;
@@ -222,6 +267,7 @@ end;
 
 procedure InitArithmetic;
 begin
+  TempBoolCount:= 0;
   AddToAccSysIP:= -1;
   AddFromAccSysIP:= -1;
 end;

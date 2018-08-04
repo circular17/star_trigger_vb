@@ -264,9 +264,6 @@ type
     function ToString: ansistring; override;
   end;
 
-function PlayerToStr(APlayer: TPlayer): string;
-function IntToPlayer(APlayer: integer): TPlayer;
-
 type
 
   { TAlwaysCondition }
@@ -329,11 +326,29 @@ type
     function ToString: ansistring; override;
   end;
 
+function PlayerToStr(APlayer: TPlayer): string;
+
 implementation
 
 function AddQuotes(AText: string): string;
 begin
   result := '"' + StringReplace(StringReplace(AText, '\', '\\', [rfReplaceAll]), '"', '\"', [rfReplaceAll]) + '"';
+end;
+
+function PlayerToStr(APlayer: TPlayer): string;
+begin
+  case APlayer of
+  plNone: result := 'None';
+  plPlayer1..plPlayer12: result := 'Player ' + IntToStr(ord(APlayer) - ord(plPlayer1)+1);
+  plCurrentPlayer: result := 'Current Player';
+  plFoes: result := 'Foes';
+  plAllies: result := 'Allies';
+  plNeutralPlayers: result := 'Neutral players';
+  plAllPlayers: result := 'All players';
+  plForce1..plForce4: result := 'Force ' + IntToStr(ord(APlayer) - ord(plForce1)+1);
+  plNonAlliedVictoryPlayers: result := 'Non Allied Victory Players';
+  else result := 'Unknown';
+  end;
 end;
 
 { TNotCondition }
@@ -955,27 +970,6 @@ end;
 function TSetSwitchInstruction.ToString: ansistring;
 begin
   Result:= 'Set Switch("Switch' + IntToStr(Switch) + '", ' + SwitchToStr[Value] + ')';
-end;
-
-function PlayerToStr(APlayer: TPlayer): string;
-begin
-  case APlayer of
-  plNone: result := 'None';
-  plPlayer1..plPlayer12: result := 'Player ' + IntToStr(ord(APlayer) - ord(plPlayer1)+1);
-  plCurrentPlayer: result := 'Current Player';
-  plFoes: result := 'Foes';
-  plAllies: result := 'Allies';
-  plNeutralPlayers: result := 'Neutral players';
-  plAllPlayers: result := 'All players';
-  plForce1..plForce4: result := 'Force ' + IntToStr(ord(APlayer) - ord(plForce1)+1);
-  plNonAlliedVictoryPlayers: result := 'Non Allied Victory Players';
-  else result := 'Unknown';
-  end;
-end;
-
-function IntToPlayer(APlayer: integer): TPlayer;
-begin
-  result := TPlayer(ord(plPlayer1)+APlayer-1);
 end;
 
 end.

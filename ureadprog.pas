@@ -5,85 +5,13 @@ unit ureadprog;
 interface
 
 uses
-  Classes, SysUtils, uinstructions, fgl;
-
-type
-  TIntegerList = specialize TFPGList<Integer>;
-  TUnitProperties = record
-    Life, Shield, Energy: byte;
-    Resource, HangarCount: integer;
-    Invincible, Burrowed, Lifted, Hallucinated, Cloaked: boolean;
-  end;
+  Classes, SysUtils, uinstructions, fgl, usctypes;
 
 function ReadProg(AFilename: string): boolean;
 
 const
   MaxTempBools = 32;
-  MaxArraySize = 8;
-
-const
-  PlayerIdentifiers : array[TPlayer] of string =
-    ('', 'Player1', 'Player2', 'Player3', 'Player4',
-    'Player5', 'Player6', 'Player7', 'Player8',
-    'Player9', 'Player10', 'Player11', 'Player12',
-    '', 'CurrentPlayer', 'Foes', 'Allies',
-    'NeutralPlayers', 'AllPlayers',
-    'Force1', 'Force2', 'Force3', 'Force4',
-    '', '', '', '', 'NonAlliedVictoryPlayers');
-
-const
-  NonKillableUnits: array[1..51] of string =
-('Data Disc',
-'Goliath Turret',
-'Tank Turret(Tank Mode)',
-'Nuclear Missile',
-'Alan Schezar Turret',
-'Edmund Duke Turret',
-'Tank Turret (Siege Mode)',
-'Scanner Sweep',
-'Unused - Cargo Ship',
-'Unused - Mercenary Gunship',
-'Map Revealer',
-'Disruption Web',
-'Unused Zerg Building1',
-'Unused Zerg Building2',
-'Unused Protoss Building1',
-'Unused Protoss Building2',
-'Khaydarin Crystal Formation',
-'Mineral Field (Type 1)',
-'Mineral Field (Type 2)',
-'Mineral Field (Type 3)',
-'Cave-in',
-'Cantina',
-'Mining Platform',
-'Independant Command Center',
-'Independant Starport',
-'Independant Jump Gate',
-'Ruins',
-'Kyadarin Crystal Formation',
-'Vespene Geyser',
-'Zerg Marker',
-'Terran Marker',
-'Protoss Marker',
-'Zerg Beacon',
-'Terran Beacon',
-'Protoss Beacon',
-'Zerg Flag Beacon',
-'Terran Flag Beacon',
-'Protoss Flag Beacon',
-'Dark Swarm',
-'Floor Hatch',
-'Left Upper Level Door',
-'Right Upper Level Door',
-'Left Pit Door',
-'Right Pit Door',
-'Start Location',
-'Flag',
-'Uraj Crystal',
-'Khalis Crystal',
-'Psi Emitter',
-'Khaydarin Crystal',
-'Cave');
+  MaxArraySize = MaxTriggerPlayers;
 
 var
   IntArrays: array of record
@@ -155,6 +83,9 @@ function CreateString(AName: string; AValue: string; AConstant: boolean): intege
 function StringIndexOf(AName: string): integer;
 
 function VarNameUsed(AName: string): boolean;
+
+type
+  TIntegerList = specialize TFPGList<Integer>;
 
 var
   MainProg: TInstructionList;

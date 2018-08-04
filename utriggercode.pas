@@ -5,7 +5,7 @@ unit utriggercode;
 interface
 
 uses
-  Classes, SysUtils, uinstructions;
+  Classes, SysUtils, uinstructions, usctypes;
 
 const
   MaxStackSize = 6;

@@ -5,7 +5,7 @@ unit uinstructions;
 interface
 
 uses
-  Classes, SysUtils, fgl;
+  Classes, SysUtils, fgl, usctypes;
 
 type
   { TInstruction }
@@ -22,11 +22,7 @@ type
 
   TInstructionList = specialize TFPGList<TInstruction>;
 
-type
-  TSwitchValue = (svClear, svSet, svRandomize, svToggle);
-
 const
-  BoolToSwitch : array[Boolean] of TSwitchValue = (svClear, svSet);
   SwitchToStr : array[TSwitchValue] of string = ('clear','set','randomize','toggle');
 
 type
@@ -53,18 +49,6 @@ type
     constructor Create(ASwitch: integer; AValue: TSwitchValue);
     function ToString: ansistring; override;
   end;
-
-  TPlayer = (plNone, plPlayer1, plPlayer2, plPlayer3, plPlayer4,
-             plPlayer5, plPlayer6, plPlayer7, plPlayer8,
-             plPlayer9, plPlayer10, plPlayer11, plPlayer12,
-             plUnknown13, plCurrentPlayer, plFoes, plAllies,
-             plNeutralPlayers, plAllPlayers,
-             plForce1, plForce2, plForce3, plForce4,
-             plUnknown23, plUnknown24, plUnknown25, plUnknown26,
-             plNonAlliedVictoryPlayers);
-  TPlayers = set of TPlayer;
-
-function UniquePlayer(APlayers: TPlayers): boolean;
 
 type
   TSetIntegerMode = (simSetTo, simAdd, simSubtract, simRandomize);
@@ -971,22 +955,6 @@ end;
 function TSetSwitchInstruction.ToString: ansistring;
 begin
   Result:= 'Set Switch("Switch' + IntToStr(Switch) + '", ' + SwitchToStr[Value] + ')';
-end;
-
-function UniquePlayer(APlayers: TPlayers): boolean;
-var count: integer;
-  pl: TPlayer;
-begin
-  count := 0;
-  for pl := succ(plNone) to high(TPlayer) do
-  begin
-    if pl in APlayers then
-    begin
-      if pl > plPlayer12 then exit(false);
-      inc(count);
-    end;
-  end;
-  exit(count=1);
 end;
 
 function PlayerToStr(APlayer: TPlayer): string;

@@ -348,12 +348,40 @@ type
     function ToString: ansistring; override;
   end;
 
+  { TElapsedTimeCondition }
+
+  TElapsedTimeCondition = class(TCondition)
+    Value: integer;
+    Mode: TIntegerConditionMode;
+    constructor Create(AMode: TIntegerConditionMode; AValue: integer);
+    function ToString: ansistring; override;
+  end;
+
   { TCompareUnitCountCondition }
 
   TCompareUnitCountCondition = class(TCondition)
     UnitType, Location: string;
     Highest: boolean;
     constructor Create(AUnitType, ALocation: string; AHighest: boolean);
+    function ToString: ansistring; override;
+  end;
+
+  { TCompareKillCountCondition }
+
+  TCompareKillCountCondition = class(TCondition)
+    UnitType: string;
+    Highest: boolean;
+    constructor Create(AUnitType: string; AHighest: boolean);
+    function ToString: ansistring; override;
+  end;
+
+  { TCompareIntegerCondition }
+
+  TCompareIntegerCondition = class(TCondition)
+    ValueType: string;
+    Highest: boolean;
+    IsScore, IsResource: boolean;
+    constructor Create(AValueType: string; AHighest: boolean);
     function ToString: ansistring; override;
   end;
 
@@ -380,6 +408,61 @@ begin
   plNonAlliedVictoryPlayers: result := 'Non Allied Victory Players';
   else result := 'Unknown';
   end;
+end;
+
+{ TCompareIntegerCondition }
+
+constructor TCompareIntegerCondition.Create(AValueType: string; AHighest: boolean);
+begin
+  ValueType := AValueType;
+  Highest:= AHighest;
+  IsScore := (CompareText(copy(ValueType,length(ValueType)-5,6),' Score')=0);
+  IsResource := (CompareText(ValueType,'ore')=0) or (CompareText(ValueType,'gas')=0) or (CompareText(ValueType,'ore and gas')=0);
+  if not IsScore and not IsResource then raise exception.Create('Unknown value type');
+end;
+
+function TCompareIntegerCondition.ToString: ansistring;
+begin
+  if IsScore then
+  begin
+    if Highest then result := 'Highest' else result := 'Lowest';
+    result += ' Score(' + copy(ValueType,1,length(ValueType)-6) + ')'
+  end else
+  if IsResource then
+  begin
+    if Highest then result := 'Most' else result := 'Least';
+    result += ' Resource(' + ValueType + ')'
+  end;
+end;
+
+{ TCompareKillCountCondition }
+
+constructor TCompareKillCountCondition.Create(AUnitType: string;
+  AHighest: boolean);
+begin
+  UnitType := AUnitType;
+  Highest:= AHighest;
+end;
+
+function TCompareKillCountCondition.ToString: ansistring;
+begin
+  if Highest then result := 'Most' else result := 'Least';
+  Result += ' Kills';
+  result += '(' + AddQuotes(UnitType) + ')';
+end;
+
+{ TElapsedTimeCondition }
+
+constructor TElapsedTimeCondition.Create(AMode: TIntegerConditionMode;
+  AValue: integer);
+begin
+  Mode := AMode;
+  Value := AValue;
+end;
+
+function TElapsedTimeCondition.ToString: ansistring;
+begin
+  Result:= 'Elapsed Time(' + IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')';
 end;
 
 { TOpponentCountCondition }
@@ -979,12 +1062,10 @@ var
   modeStr: string;
 begin
   modeStr := IntegerConditionModeToStr[Mode];
-  if (CompareText(UnitType,'Ore')=0) or (CompareText(UnitType,'Gas')=0) or (CompareText(UnitType,'Ore And Gas')=0) then
+  if (CompareText(UnitType,'ore')=0) or (CompareText(UnitType,'gas')=0) or (CompareText(UnitType,'ore and gas')=0) then
       Result:= 'Accumulate("' + PlayerToStr(Player) + '", ' + modeStr + ', ' + IntToStr(Value) + ', ' + LowerCase(UnitType) + ')'
   else
-  if (CompareText(UnitType,'Units Score')=0) or (CompareText(UnitType,'Buildings Score')=0)
-  or (CompareText(UnitType,'Kills Score')=0) or (CompareText(UnitType,'Razings Score')=0)
-  or (CompareText(UnitType,'Custom Score')=0) then
+  if CompareText(copy(UnitType,length(UnitType)-5,6),' Score')=0 then
     result := 'Score("' + PlayerToStr(Player) + '", ' + copy(UnitType,1,length(UnitType)-6) + ', ' + modeStr + ', ' + IntToStr(Value) + ')'
   else
   if CompareText(UnitType,'Countdown')=0 then
@@ -1038,9 +1119,7 @@ begin
   if (CompareText(UnitType,'Ore')=0) or (CompareText(UnitType,'Gas')=0) or (CompareText(UnitType,'Ore And Gas')=0) then
     Result:= 'Set Resources("' + PlayerToStr(Player) + '", ' + modeStr + ', ' + IntToStr(Value) + ', ' + LowerCase(UnitType) + ')'
   else
-  if (CompareText(UnitType,'Units Score')=0) or (CompareText(UnitType,'Buildings Score')=0)
-  or (CompareText(UnitType,'Kills Score')=0) or (CompareText(UnitType,'Razings Score')=0)
-  or (CompareText(UnitType,'Custom Score')=0) then
+  if CompareText(copy(UnitType,length(UnitType)-5,6),' Score')=0 then
     result := 'Set Score("' + PlayerToStr(Player) + '", ' + modeStr + ', ' + IntToStr(Value) + ', ' + copy(UnitType,1,length(UnitType)-6) + ')'
   else
   if CompareText(UnitType,'Countdown')= 0 then

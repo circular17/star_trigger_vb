@@ -292,7 +292,42 @@ begin
   until not TryToken(ALine,AIndex,'&');
 end;
 
-function TryConditionFonction(ALine: TStringList; var AIndex: Integer; APlayer: TPlayer; ANegation: boolean): TCondition;
+function TryNeutralConditionFunction(ALine: TStringList; var AIndex: Integer; ANegation: boolean): TCondition;
+var
+  op: TConditionOperator;
+  intVal: Integer;
+begin
+  result := nil;
+  if TryToken(ALine,AIndex,'ElapsedTime') then
+  begin
+    op := TryConditionOperator(ALine,AIndex);
+    if op = coNone then
+      raise exception.Create('Comparison expected');
+
+    if ANegation then op := NotConditionOperator[op];
+
+    intVal := ExpectInteger(ALine,AIndex);
+    case op of
+    coEqual: result := TElapsedTimeCondition.Create(icmExactly, intVal);
+    coGreaterThanOrEqual: result := TElapsedTimeCondition.Create(icmAtLeast, intVal);
+    coLowerThanOrEqual: result := TElapsedTimeCondition.Create(icmAtMost, intVal);
+    coGreaterThan: if intVal = maxLongint then
+                      result := TNeverCondition.Create
+                   else
+                      result := TElapsedTimeCondition.Create(icmAtLeast, intVal+1);
+    coLowerThan: if intVal = 0 then
+                      result := TNeverCondition.Create
+                   else
+                      result := TElapsedTimeCondition.Create(icmAtMost, intVal-1);
+    coNotEqual: result := TNotCondition.Create([TElapsedTimeCondition.Create(icmExactly, intVal)]);
+    else
+      raise exception.Create('Unhandled case');
+    end;
+    exit;
+  end;
+end;
+
+function TryPlayerConditionFunction(ALine: TStringList; var AIndex: Integer; APlayer: TPlayer; ANegation: boolean): TCondition;
 var
   unitType, locStr: String;
   op: TConditionOperator;
@@ -319,23 +354,58 @@ begin
 
     if ANegation then op := NotConditionOperator[op];
 
-    intVal := ExpectInteger(ALine,AIndex);
-    case op of
-    coEqual: result := TBringCondition.Create(APlayer, unitType, locStr, icmExactly, intVal);
-    coGreaterThanOrEqual: result := TBringCondition.Create(APlayer, unitType, locStr, icmAtLeast, intVal);
-    coLowerThanOrEqual: result := TBringCondition.Create(APlayer, unitType, locStr, icmAtMost, intVal);
-    coGreaterThan: if intVal = maxLongint then
-                      result := TNeverCondition.Create
-                   else
-                      result := TBringCondition.Create(APlayer, unitType, locStr, icmAtLeast, intVal+1);
-    coLowerThan: if intVal = 0 then
-                      result := TNeverCondition.Create
-                   else
-                      result := TBringCondition.Create(APlayer, unitType, locStr, icmAtMost, intVal-1);
-    coNotEqual: result := TNotCondition.Create([TBringCondition.Create(APlayer, unitType, locStr, icmExactly, intVal)]);
+    if TryToken(ALine,AIndex,'Min') then
+    begin
+      case op of
+      coEqual,coLowerThanOrEqual:
+        result := TCompareUnitCountCondition.Create(unitType,locStr,False);
+      coGreaterThanOrEqual:
+        result := TAlwaysCondition.Create;
+      coGreaterThan,coNotEqual:
+        result := TNotCondition.Create([TCompareUnitCountCondition.Create(unitType,locStr,False)]);
+      coLowerThan:
+        result := TNeverCondition.Create;
+      else
+        raise exception.Create('Unhandled case');
+      end;
+    end
     else
-      raise exception.Create('Unhandled case');
+    if TryToken(ALine,AIndex,'Max') then
+    begin
+      case op of
+      coEqual,coGreaterThanOrEqual:
+        result := TCompareUnitCountCondition.Create(unitType,locStr,true);
+      coLowerThanOrEqual:
+        result := TAlwaysCondition.Create;
+      coLowerThan,coNotEqual:
+        result := TNotCondition.Create([TCompareUnitCountCondition.Create(unitType,locStr,true)]);
+      coGreaterThan:
+        result := TNeverCondition.Create;
+      else
+        raise exception.Create('Unhandled case');
+      end;
+    end
+    else
+    begin
+      intVal := ExpectInteger(ALine,AIndex);
+      case op of
+      coEqual: result := TBringCondition.Create(APlayer, unitType, locStr, icmExactly, intVal);
+      coGreaterThanOrEqual: result := TBringCondition.Create(APlayer, unitType, locStr, icmAtLeast, intVal);
+      coLowerThanOrEqual: result := TBringCondition.Create(APlayer, unitType, locStr, icmAtMost, intVal);
+      coGreaterThan: if intVal = maxLongint then
+                        result := TNeverCondition.Create
+                     else
+                        result := TBringCondition.Create(APlayer, unitType, locStr, icmAtLeast, intVal+1);
+      coLowerThan: if intVal = 0 then
+                        result := TNeverCondition.Create
+                     else
+                        result := TBringCondition.Create(APlayer, unitType, locStr, icmAtMost, intVal-1);
+      coNotEqual: result := TNotCondition.Create([TBringCondition.Create(APlayer, unitType, locStr, icmExactly, intVal)]);
+      else
+        raise exception.Create('Unhandled case');
+      end;
     end;
+
     exit;
   end else
   if TryToken(ALine,AIndex,'KillCount') then
@@ -354,22 +424,56 @@ begin
 
     if ANegation then op := NotConditionOperator[op];
 
-    intVal := ExpectInteger(ALine,AIndex);
-    case op of
-    coEqual: result := TKillCountCondition.Create(APlayer, unitType, icmExactly, intVal);
-    coGreaterThanOrEqual: result := TKillCountCondition.Create(APlayer, unitType, icmAtLeast, intVal);
-    coLowerThanOrEqual: result := TKillCountCondition.Create(APlayer, unitType, icmAtMost, intVal);
-    coGreaterThan: if intVal = maxLongint then
-                      result := TNeverCondition.Create
-                   else
-                      result := TKillCountCondition.Create(APlayer, unitType, icmAtLeast, intVal+1);
-    coLowerThan: if intVal = 0 then
-                      result := TNeverCondition.Create
-                   else
-                      result := TKillCountCondition.Create(APlayer, unitType, icmAtMost, intVal-1);
-    coNotEqual: result := TNotCondition.Create([TKillCountCondition.Create(APlayer, unitType, icmExactly, intVal)]);
+    if TryToken(ALine,AIndex,'Min') then
+    begin
+      case op of
+      coEqual,coLowerThanOrEqual:
+        result := TCompareKillCountCondition.Create(unitType,False);
+      coGreaterThanOrEqual:
+        result := TAlwaysCondition.Create;
+      coGreaterThan,coNotEqual:
+        result := TNotCondition.Create([TCompareKillCountCondition.Create(unitType,False)]);
+      coLowerThan:
+        result := TNeverCondition.Create;
+      else
+        raise exception.Create('Unhandled case');
+      end;
+    end
     else
-      raise exception.Create('Unhandled case');
+    if TryToken(ALine,AIndex,'Max') then
+    begin
+      case op of
+      coEqual,coGreaterThanOrEqual:
+        result := TCompareKillCountCondition.Create(unitType,true);
+      coLowerThanOrEqual:
+        result := TAlwaysCondition.Create;
+      coLowerThan,coNotEqual:
+        result := TNotCondition.Create([TCompareKillCountCondition.Create(unitType,true)]);
+      coGreaterThan:
+        result := TNeverCondition.Create;
+      else
+        raise exception.Create('Unhandled case');
+      end;
+    end
+    else
+    begin
+      intVal := ExpectInteger(ALine,AIndex);
+      case op of
+      coEqual: result := TKillCountCondition.Create(APlayer, unitType, icmExactly, intVal);
+      coGreaterThanOrEqual: result := TKillCountCondition.Create(APlayer, unitType, icmAtLeast, intVal);
+      coLowerThanOrEqual: result := TKillCountCondition.Create(APlayer, unitType, icmAtMost, intVal);
+      coGreaterThan: if intVal = maxLongint then
+                        result := TNeverCondition.Create
+                     else
+                        result := TKillCountCondition.Create(APlayer, unitType, icmAtLeast, intVal+1);
+      coLowerThan: if intVal = 0 then
+                        result := TNeverCondition.Create
+                     else
+                        result := TKillCountCondition.Create(APlayer, unitType, icmAtMost, intVal-1);
+      coNotEqual: result := TNotCondition.Create([TKillCountCondition.Create(APlayer, unitType, icmExactly, intVal)]);
+      else
+        raise exception.Create('Unhandled case');
+      end;
     end;
     exit;
   end else
@@ -435,40 +539,6 @@ begin
     end;
     exit;
   end else
-  if TryToken(ALine,AIndex,'LowestUnitCount') then
-  begin
-    if TryToken(ALine,AIndex,'(') then
-    begin
-      unitType := ExpectString(ALine,AIndex);
-      if TryToken(ALine,AIndex,',') then
-        locStr := ExpectString(ALine,AIndex)
-      else
-        locStr := '';
-      ExpectToken(ALine,AIndex,')');
-    end else
-    begin
-      unitType := 'Any unit';
-      locStr := '';
-    end;
-    result := TCompareUnitCountCondition.Create(unitType,locStr,False);
-  end else
-  if TryToken(ALine,AIndex,'HighestUnitCount') then
-  begin
-    if TryToken(ALine,AIndex,'(') then
-    begin
-      unitType := ExpectString(ALine,AIndex);
-      if TryToken(ALine,AIndex,',') then
-        locStr := ExpectString(ALine,AIndex)
-      else
-        locStr := '';
-      ExpectToken(ALine,AIndex,')');
-    end else
-    begin
-      unitType := 'Any unit';
-      locStr := '';
-    end;
-    result := TCompareUnitCountCondition.Create(unitType,locStr,False);
-  end else
     result := nil;
 end;
 
@@ -495,10 +565,13 @@ begin
     if pl <> plNone then
     begin
       ExpectToken(ALine,AIndex,'.');
-      result := TryConditionFonction(ALine, AIndex, pl, boolNot);
+      result := TryPlayerConditionFunction(ALine, AIndex, pl, boolNot);
       if result = nil then raise exception.Create('Expecting player condition');
       exit;
     end;
+
+    result := TryNeutralConditionFunction(ALine, AIndex, boolNot);
+    if result <> nil then exit;
 
     scalar := TryScalarVariable(ALine,AIndex);
     if scalar.VarType = svtNone then
@@ -512,7 +585,7 @@ begin
         exit;
       end else
       begin
-       result := TryConditionFonction(ALine, AIndex, plCurrentPlayer, boolNot);
+       result := TryPlayerConditionFunction(ALine, AIndex, plCurrentPlayer, boolNot);
        if result = nil then
          raise exception.Create('Expecting variable or function')
        else
@@ -535,22 +608,56 @@ begin
       begin
         if boolNot then op := NotConditionOperator[op];
 
-        intVal := ExpectInteger(ALine,AIndex);
-        case op of
-        coEqual: result := TIntegerCondition.Create(scalar.Player, scalar.Name, icmExactly, intVal);
-        coGreaterThanOrEqual: result := TIntegerCondition.Create(scalar.Player, scalar.Name, icmAtLeast, intVal);
-        coLowerThanOrEqual: result := TIntegerCondition.Create(scalar.Player, scalar.Name, icmAtMost, intVal);
-        coGreaterThan: if intVal = maxLongint then
-                          result := TNeverCondition.Create
-                       else
-                          result := TIntegerCondition.Create(scalar.Player, scalar.Name, icmAtLeast, intVal+1);
-        coLowerThan: if intVal = 0 then
-                          result := TNeverCondition.Create
-                       else
-                          result := TIntegerCondition.Create(scalar.Player, scalar.Name, icmAtMost, intVal-1);
-        coNotEqual: result := TNotCondition.Create([TIntegerCondition.Create(scalar.Player, scalar.Name, icmExactly, intVal)]);
+        if (scalar.Player in [plNone,plCurrentPlayer]) and TryToken(ALine,AIndex,'Min') then
+        begin
+          case op of
+          coEqual,coLowerThanOrEqual:
+            result := TCompareIntegerCondition.Create(scalar.Name,False);
+          coGreaterThanOrEqual:
+            result := TAlwaysCondition.Create;
+          coGreaterThan,coNotEqual:
+            result := TNotCondition.Create([TCompareIntegerCondition.Create(scalar.Name,False)]);
+          coLowerThan:
+            result := TNeverCondition.Create;
+          else
+            raise exception.Create('Unhandled case');
+          end;
+        end
         else
-          raise exception.Create('Unhandled case');
+        if (scalar.Player in [plNone,plCurrentPlayer]) and TryToken(ALine,AIndex,'Max') then
+        begin
+          case op of
+          coEqual,coGreaterThanOrEqual:
+            result := TCompareIntegerCondition.Create(scalar.Name,true);
+          coLowerThanOrEqual:
+            result := TAlwaysCondition.Create;
+          coLowerThan,coNotEqual:
+            result := TNotCondition.Create([TCompareIntegerCondition.Create(scalar.Name,true)]);
+          coGreaterThan:
+            result := TNeverCondition.Create;
+          else
+            raise exception.Create('Unhandled case');
+          end;
+        end
+        else
+        begin
+          intVal := ExpectInteger(ALine,AIndex);
+          case op of
+          coEqual: result := TIntegerCondition.Create(scalar.Player, scalar.Name, icmExactly, intVal);
+          coGreaterThanOrEqual: result := TIntegerCondition.Create(scalar.Player, scalar.Name, icmAtLeast, intVal);
+          coLowerThanOrEqual: result := TIntegerCondition.Create(scalar.Player, scalar.Name, icmAtMost, intVal);
+          coGreaterThan: if intVal = maxLongint then
+                            result := TNeverCondition.Create
+                         else
+                            result := TIntegerCondition.Create(scalar.Player, scalar.Name, icmAtLeast, intVal+1);
+          coLowerThan: if intVal = 0 then
+                            result := TNeverCondition.Create
+                         else
+                            result := TIntegerCondition.Create(scalar.Player, scalar.Name, icmAtMost, intVal-1);
+          coNotEqual: result := TNotCondition.Create([TIntegerCondition.Create(scalar.Player, scalar.Name, icmExactly, intVal)]);
+          else
+            raise exception.Create('Unhandled case');
+          end;
         end;
       end;
     end;
@@ -1314,7 +1421,7 @@ begin
               ExpectToken(line,index,')');
             end;
             CheckEndOfLine;
-            AProg.Add(TKillUnitInstruction.Create(pl, intVal, unitType, locStr, True));
+            AProg.Add(TKillUnitInstruction.Create(pl, intVal, unitType, locStr, boolVal));
           end else
           if TryToken(line,index,'GiveUnit') then
           begin
@@ -1552,19 +1659,18 @@ begin
   StringCount := 0;
   MainProg.Clear;
 
-  PredefineIntArray('Ore','Ore');
-  PredefineIntArray('Minerals','Ore');
-  PredefineIntArray('Gas','Gas');
-  PredefineIntArray('OreAndGas','Ore And Gas');
+  PredefineIntArray('Ore','ore');
+  PredefineIntArray('Minerals','ore');
+  PredefineIntArray('Gas','gas');
+  PredefineIntArray('OreAndGas','ore and gas');
   PredefineIntArray('UnitScore','Units Score');
-  PredefineIntArray('UnitsScore','Units Score');
   PredefineIntArray('BuildingScore','Buildings Score');
-  PredefineIntArray('BuildingsScore','Buildings Score');
+  PredefineIntArray('UnitAndBuildingScore','Units and buildings Score');
   PredefineIntArray('KillScore','Kills Score');
-  PredefineIntArray('KillsScore','Kills Score');
   PredefineIntArray('RazingScore','Razings Score');
-  PredefineIntArray('RazingsScore','Razings Score');
+  PredefineIntArray('KillAndRazingScore','Kills and razings Score');
   PredefineIntArray('CustomScore','Custom Score');
+  PredefineIntArray('TotalScore','Total Score');
   PredefineIntVar('Countdown', plNone, 'Countdown');
 
   AssignFile(t, AFilename);

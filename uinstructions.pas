@@ -63,6 +63,10 @@ type
              plUnknown23, plUnknown24, plUnknown25, plUnknown26,
              plNonAlliedVictoryPlayers);
   TPlayers = set of TPlayer;
+
+function UniquePlayer(APlayers: TPlayers): boolean;
+
+type
   TSetIntegerMode = (simSetTo, simAdd, simSubtract, simRandomize);
 
   { TSetIntegerInstruction }
@@ -123,15 +127,6 @@ type
     Params: array of string;
     constructor Create(AName: string; AParams: array of string);
     constructor Create(AName: string; AParams: TStringList);
-    function ToString: ansistring; override;
-  end;
-
-  { TPushInstruction }
-
-  TPushInstruction = class(TInstruction)
-    Value: integer;
-    NextIP: integer;
-    constructor Create(AValue: integer; ANextIP: integer);
     function ToString: ansistring; override;
   end;
 
@@ -754,19 +749,6 @@ begin
   Result:= '}';
 end;
 
-{ TPushInstruction }
-
-constructor TPushInstruction.Create(AValue: integer; ANextIP: integer);
-begin
-  Value := AValue;
-  NextIP:= ANextIP;
-end;
-
-function TPushInstruction.ToString: ansistring;
-begin
-  Result:= 'Push('+inttostr(Value)+')';
-end;
-
 { TReturnInstruction }
 
 constructor TReturnInstruction.Create;
@@ -989,6 +971,22 @@ end;
 function TSetSwitchInstruction.ToString: ansistring;
 begin
   Result:= 'Set Switch("Switch' + IntToStr(Switch) + '", ' + SwitchToStr[Value] + ')';
+end;
+
+function UniquePlayer(APlayers: TPlayers): boolean;
+var count: integer;
+  pl: TPlayer;
+begin
+  count := 0;
+  for pl := succ(plNone) to high(TPlayer) do
+  begin
+    if pl in APlayers then
+    begin
+      if pl > plPlayer12 then exit(false);
+      inc(count);
+    end;
+  end;
+  exit(count=1);
 end;
 
 function PlayerToStr(APlayer: TPlayer): string;

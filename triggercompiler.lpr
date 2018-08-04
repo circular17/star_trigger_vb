@@ -6,7 +6,7 @@ uses
   {$IFDEF UNIX}{$IFDEF UseCThreads}
   cthreads,
   {$ENDIF}{$ENDIF}
-  Classes, SysUtils, CustApp, ureadprog, uwritetriggers, uinstructions
+  Classes, SysUtils, CustApp, ureadprog, uwritetriggers, uinstructions, utriggercode
   { you can add units after this };
 
 type

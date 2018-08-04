@@ -348,6 +348,15 @@ type
     function ToString: ansistring; override;
   end;
 
+  { TCompareUnitCountCondition }
+
+  TCompareUnitCountCondition = class(TCondition)
+    UnitType, Location: string;
+    Highest: boolean;
+    constructor Create(AUnitType, ALocation: string; AHighest: boolean);
+    function ToString: ansistring; override;
+  end;
+
 function PlayerToStr(APlayer: TPlayer): string;
 
 implementation
@@ -404,6 +413,24 @@ function TKillCountCondition.ToString: ansistring;
 begin
   Result:= 'Kill("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' +
        IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')';
+end;
+
+{ TCompareUnitCountCondition }
+
+constructor TCompareUnitCountCondition.Create(AUnitType,
+  ALocation: string; AHighest: boolean);
+begin
+  UnitType := AUnitType;
+  Location:= ALocation;
+  Highest:= AHighest;
+end;
+
+function TCompareUnitCountCondition.ToString: ansistring;
+begin
+  Result:= 'Command ';
+  if Highest then result += 'the Most' else result += 'the Least';
+  if Location <> '' then result += ' At(' + AddQuotes(UnitType) + ', ' +AddQuotes(Location)+')'
+  else result += '(' + AddQuotes(UnitType) + ')';
 end;
 
 { TNotCondition }
@@ -960,6 +987,9 @@ begin
   or (CompareText(UnitType,'Custom Score')=0) then
     result := 'Score("' + PlayerToStr(Player) + '", ' + copy(UnitType,1,length(UnitType)-6) + ', ' + modeStr + ', ' + IntToStr(Value) + ')'
   else
+  if CompareText(UnitType,'Countdown')=0 then
+    result := 'Countdown Timer(' + modeStr + ', ' + IntToStr(Value) + ')'
+  else
     Result:= 'Deaths("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' + modeStr + ', ' + IntToStr(Value) + ')';
 end;
 
@@ -1012,6 +1042,9 @@ begin
   or (CompareText(UnitType,'Kills Score')=0) or (CompareText(UnitType,'Razings Score')=0)
   or (CompareText(UnitType,'Custom Score')=0) then
     result := 'Set Score("' + PlayerToStr(Player) + '", ' + modeStr + ', ' + IntToStr(Value) + ', ' + copy(UnitType,1,length(UnitType)-6) + ')'
+  else
+  if CompareText(UnitType,'Countdown')= 0 then
+    result := 'Set Countdown Timer(' + modeStr +', ' + IntToStr(Value) + ')'
   else
     Result:= 'Set Deaths("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' + modeStr + ', ' + IntToStr(Value) + ')';
 end;

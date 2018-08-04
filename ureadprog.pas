@@ -173,13 +173,14 @@ function ProcedureIndexOf(AName: string; AParamCount: integer): integer;
 
 var
   Events: array of record
+    Players: TPlayers;
     Conditions: TConditionList;
     Instructions: TInstructionList;
     Preserve: boolean;
   end;
   EventCount: integer;
 
-function CreateEvent(AConditions: TConditionList; APreserve: boolean): integer;
+function CreateEvent(APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
 
 function ParseRandom(ALine: TStringList; var AIndex: integer): integer;
 function IsPowerOf2(ANumber: integer): boolean;
@@ -1207,7 +1208,7 @@ begin
   exit(-1);
 end;
 
-function CreateEvent(AConditions: TConditionList; APreserve: boolean): integer;
+function CreateEvent(APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
 begin
   if EventCount >= length(Events) then
     setlength(Events, EventCount*2+4);
@@ -1216,6 +1217,7 @@ begin
 
   with Events[result] do
   begin
+    Players := APlayers;
     Conditions := AConditions;
     Instructions := TInstructionList.Create;
     Preserve := APreserve;
@@ -1317,7 +1319,7 @@ begin
     raise exception.Create('End of line expected');
 end;
 
-function ProcessEvent(ADeclaration: string): integer;
+function ProcessEvent(ADeclaration: string; APlayers: TPlayers): integer;
 var
   line: TStringList;
   index: Integer;
@@ -1329,7 +1331,7 @@ begin
 
   conds := ExpectConditions(line,index);
 
-  result := CreateEvent(conds, not TryToken(line,index,'Once'));
+  result := CreateEvent(APlayers, conds, not TryToken(line,index,'Once'));
 
   if index < line.Count then
     raise exception.Create('End of line expected');
@@ -2006,11 +2008,25 @@ begin
   end;
 end;
 
+function ParseAs(AText: string): TPlayers;
+var
+  line: TStringList;
+  index: Integer;
+begin
+  line := ParseLine(AText);
+  index := 0;
+  ExpectToken(line,index,'As');
+  result := ParsePlayers(line,index);
+  if index < line.Count then
+    raise exception.Create('Unexpected end of line');
+end;
+
 function ReadProg(AFilename: string): boolean;
 var t: TextFile;
   s: string;
   lineNumber, errorCount: integer;
   inSub, inEvent: integer;
+  players: TPlayers;
 begin
   HyperTriggers := false;
   BoolVarCount:= 0;
@@ -2060,11 +2076,18 @@ begin
         Procedures[inSub].Instructions.Add(TReturnInstruction.Create);
         inSub := -1;
       end
+      else if (inSub = -1) and (inEvent = -1) and (CompareText(copy(s,1,3),'As ') = 0) then
+      begin
+        players := ParseAs(s);
+        if eof(t) then raise exception.Create('End of file not expected');
+        readLn(t,s);
+        inEvent := ProcessEvent(s, players)
+      end
       else if CompareText(copy(s, 1, 5), 'When ') = 0 then
       begin
         if (inSub<>-1) or (inEvent <> -1) then
           raise exception.Create('Nested events not allowed');
-        inEvent := ProcessEvent(s)
+        inEvent := ProcessEvent(s, [])
       end
       else if CompareText(s, 'End When') = 0 then
       begin

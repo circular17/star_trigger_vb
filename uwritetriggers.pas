@@ -631,6 +631,7 @@ var
   initSub, combineProg: TInstructionList;
   mainOutput: TStringList;
   allProcDone: Boolean;
+  players: TPlayers;
 
 begin
   InitTriggerCode;
@@ -673,6 +674,9 @@ begin
   ExpandInstructions(initSub, -1, [AMainThread]);
   ExpandInstructions(MainProg, -1, [AMainThread]);
 
+  for i := 0 to EventCount-1 do
+    ExpandInstructions(Events[i].Instructions, -1, [AMainThread]);
+
   repeat
     allProcDone := true;
     for i := 0 to ProcedureCount-1 do
@@ -684,9 +688,6 @@ begin
         Procedures[i].Done := true;
       end;
   until allProcDone;
-
-  for i := 0 to EventCount-1 do
-    ExpandInstructions(Events[i].Instructions, -1, [AMainThread]);
 
   mainOutput.Add('// Program //');
 
@@ -713,13 +714,15 @@ begin
     if Procedures[i].StartIP <> -1 then
     begin
       mainOutput.Add('// Sub ' + Procedures[i].Name + ' //');
-      WriteProg(mainOutput, [AMainThread], [], Procedures[i].Instructions, Procedures[i].StartIP, EndIP, true);
+      WriteProg(mainOutput, [plAllPlayers], [], Procedures[i].Instructions, Procedures[i].StartIP, EndIP, true);
     end;
 
   for i := 0 to EventCount-1 do
   begin
     mainOutput.Add('// When //');
-    WriteProg(mainOutput, [AMainThread], Events[i].Conditions, Events[i].Instructions, EndIP, EndIP, Events[i].Preserve);
+    players := Events[i].Players;
+    if players = [] then players := [AMainThread];
+    WriteProg(mainOutput, players, Events[i].Conditions, Events[i].Instructions, EndIP, EndIP, Events[i].Preserve);
   end;
 
   //write generated code at the end of the file

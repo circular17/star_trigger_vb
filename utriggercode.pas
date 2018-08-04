@@ -177,22 +177,23 @@ end;
 //stack
 
 var
-  SPVar: integer;
+  SPArrayVar: integer;
   StackArrays: array[1..MaxArraySize] of integer;
   StackSize: integer;     //number of values that can be on the stack (max is MaxArraySize)
   MaxStackBits: integer;  //number of bits for one value on the stack (max is 32)
-  ReturnSysIP, PushSysIP: integer; //return and push functions
+  ReturnSysIP, PushSysIP, WaitReturnIP: integer; //return and push functions
 
 procedure NeedStack;
 begin
-  if SPVar = -1 then
+  if SPArrayVar = -1 then
   begin
-    SPVar := IntVarIndexOf('_sp');
-    if SPVar = -1 then
-      SPVar := CreateIntVar('_sp', 0);
+    SPArrayVar := IntArrayIndexOf('_sp');
+    if SPArrayVar = -1 then
+      SPArrayVar := CreateIntArray('_sp', MaxArraySize, []);
 
     ReturnSysIP := NewSysIP;
     PushSysIP:= NewSysIP;
+    WaitReturnIP := NewIP;
   end;
 end;
 
@@ -259,7 +260,6 @@ var
   NextIP: integer;
   add2: TSetIntegerInstruction;
   add2prog, remain: TInstructionList;
-  waitPush: TCondition;
   switchCheck: TSwitchCondition;
   jumpRet: TJumpReturnInstruction;
   waitCond: TWaitConditionInstruction;
@@ -279,7 +279,7 @@ begin
   instrCount := 0;
   if ((AProg.Count > 0) and not (AProg[0] is TJumpReturnInstruction) and not
     (AProg[0] is TChangeIPInstruction) and not (AProg[0] is TWaitConditionInstruction)
-    and not (AProg[0] is TSplitInstruction) ) and (AIPStart > 0) and (AReturnIP <> -1) then
+    and not (AProg[0] is TSplitInstruction) ) and (AIPStart <> -1) and (AReturnIP <> -1) then
   begin
     instrStr[0] := SetNextIP(BusyIP).ToStringAndFree;
     inc(instrCount);
@@ -289,9 +289,6 @@ begin
   begin
     if AProg[i] is TAddIntegerFromSwitchesInstruction then
     begin
-      if not UniquePlayer(APlayers) then
-        raise exception.Create('You cannot use implicit switches for multiple players at once');
-
       addFromSwitch := TAddIntegerFromSwitchesInstruction(AProg[i]);
 
       NextIP:= NewIP;
@@ -407,7 +404,7 @@ end;
 procedure AddSysReturn(AInstructions: TInstructionList);
 begin
   AInstructions.Add( SetReturnSysIP );
-  AInstructions.Add( TSplitInstruction.Create(NewIP, -1));
+  AInstructions.Add( TSplitInstruction.Create(NewIP, WaitReturnIP));
 end;
 
 procedure WriteStackTriggers(AOutput: TStringList);
@@ -437,7 +434,7 @@ var proc: TInstructionList;
   end;
 
 begin
-  if SPVar = -1 then exit;
+  if SPArrayVar = -1 then exit;
 
   DetermineStackValueSize;
 
@@ -450,13 +447,13 @@ begin
   //SP -= 1, IP := 0
   returnCond := CheckSysIP(ReturnSysIP);
   cond.Add(returnCond);
-  proc.Add(TSetIntegerInstruction.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, simSubtract, 1));
+  proc.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, simSubtract, 1));
   proc.Add(SetNextIP(0));
   WriteProg(AOutput, [plAllPlayers], cond, proc, -1, -1, True);
   EmptyProc;
 
   //copy stack value to IP
-  spCond := TIntegerCondition.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, icmExactly, 0);
+  spCond := TIntegerCondition.Create(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, icmExactly, 0);
   valCond := TIntegerCondition.Create(plCurrentPlayer, '', icmAtLeast, 0);
   cond.Add(spCond);
   cond.Add(valCond);
@@ -491,7 +488,7 @@ begin
 
   //stack overflow handler
   cond.Add(CheckSysIP(PushSysIP));
-  cond.Add(TIntegerCondition.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, icmAtLeast, StackSize));
+  cond.Add(TIntegerCondition.Create(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, icmAtLeast, StackSize));
   proc.Add(TDisplayTextMessageInstruction.Create(True, 'Stack overflow', [plAllPlayers]));
   proc.Add(TWaitInstruction.Create(4000));
   WriteProg(AOutput, [plAllPlayers], cond, proc, -1, -1, True);
@@ -500,7 +497,7 @@ begin
 
   //push handler
   pushCond := CheckSysIP(PushSysIP);
-  spCond := TIntegerCondition.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, icmExactly, 0);
+  spCond := TIntegerCondition.Create(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, icmExactly, 0);
   valCond := TIntegerCondition.Create(plCurrentPlayer, IntArrays[SysParamArray].UnitType, icmAtLeast, 0);
   cond.Add(pushCond);
   cond.Add(spCond);
@@ -522,7 +519,7 @@ begin
     end;
     EmptyProc;
 
-    proc.add(TSetIntegerInstruction.Create(IntVars[SPVar].Player, IntVars[SPVar].UnitType, simAdd, 1));
+    proc.add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, simAdd, 1));
     proc.Add(SetNextSysIP(0));
     WriteProg(AOutput, [plAllPlayers], [pushCond, spCond], proc, -1, -1, True);
     EmptyProc;
@@ -544,7 +541,7 @@ begin
   CurSysIPValue:= 0;
   SysIPVar := -1;
 
-  SPVar := -1;
+  SPArrayVar := -1;
   ReturnSysIP := -1;
   PushSysIP:= -1;
   SysParamArray := -1;

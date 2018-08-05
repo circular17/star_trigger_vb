@@ -1,6 +1,11 @@
+- procedures actions
 - calculs (expressions)
 - conditions complexes (or xor)
 - thread (for player)
-=> fonctions thread
 - bool array
 - string array (for template)
+- extended integer arrays
+- variable in any death count
+- fonctions avec parametres (pb recursivite)
+- indexation par variable
+

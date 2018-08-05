@@ -431,7 +431,7 @@ begin
   if IsResource then
   begin
     if Highest then result := 'Most' else result := 'Least';
-    result += ' Resource(' + ValueType + ')'
+    result += ' Resources(' + ValueType + ')'
   end;
 end;
 

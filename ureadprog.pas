@@ -332,6 +332,12 @@ var
   unitType, locStr: String;
   op: TConditionOperator;
   intVal: Integer;
+
+  procedure ExpectCurrentPlayer;
+  begin
+    If APlayer <> plCurrentPlayer then raise exception.Create('Checking against Min/Max can only be done with the current player ("Me")');
+  end;
+
 begin
   if TryToken(ALine,AIndex,'UnitCount') then
   begin
@@ -356,6 +362,7 @@ begin
 
     if TryToken(ALine,AIndex,'Min') then
     begin
+      ExpectCurrentPlayer;
       case op of
       coEqual,coLowerThanOrEqual:
         result := TCompareUnitCountCondition.Create(unitType,locStr,False);
@@ -372,6 +379,7 @@ begin
     else
     if TryToken(ALine,AIndex,'Max') then
     begin
+      ExpectCurrentPlayer;
       case op of
       coEqual,coGreaterThanOrEqual:
         result := TCompareUnitCountCondition.Create(unitType,locStr,true);
@@ -426,6 +434,7 @@ begin
 
     if TryToken(ALine,AIndex,'Min') then
     begin
+      ExpectCurrentPlayer;
       case op of
       coEqual,coLowerThanOrEqual:
         result := TCompareKillCountCondition.Create(unitType,False);
@@ -442,6 +451,7 @@ begin
     else
     if TryToken(ALine,AIndex,'Max') then
     begin
+      ExpectCurrentPlayer;
       case op of
       coEqual,coGreaterThanOrEqual:
         result := TCompareKillCountCondition.Create(unitType,true);

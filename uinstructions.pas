@@ -352,6 +352,24 @@ type
     function ToString: ansistring; override;
   end;
 
+  { TShowLeaderboardKillCountInstruction }
+
+  TShowLeaderboardKillCountInstruction = class(TInstruction)
+    Text, UnitType: string;
+    Goal: integer;
+    constructor Create(AText,AUnitType: string; AGoal: integer = -1);
+    function ToString: ansistring; override;
+  end;
+
+  { TShowLeaderboardUnitCountInstruction }
+
+  TShowLeaderboardUnitCountInstruction = class(TInstruction)
+    Text, UnitType,Location: string;
+    Goal: integer;
+    constructor Create(AText,AUnitType,ALocation: string; AGoal: integer = -1);
+    function ToString: ansistring; override;
+  end;
+
   TEndGameMode = (egDefeat, egDraw, egVictory);
 
   { TEndGameInstruction }
@@ -556,6 +574,60 @@ end;
 function IsAnywhere(ALocation: string): boolean;
 begin
   result := (ALocation = '') or (CompareText(ALocation, AnywhereLocation)=0);
+end;
+
+{ TShowLeaderboardUnitCountInstruction }
+
+constructor TShowLeaderboardUnitCountInstruction.Create(AText, AUnitType,
+  ALocation: string; AGoal: integer);
+begin
+  Text:= AText;
+  UnitType := AUnitType;
+  Goal := AGoal;
+  Location:= ALocation;
+end;
+
+function TShowLeaderboardUnitCountInstruction.ToString: ansistring;
+begin
+  if Goal <> -1 then
+    result := 'Leaderboard Goal Control'
+  else
+    result := 'Leader Board Control';
+
+  if not IsAnywhere(Location) then result += ' At Location';
+
+  result += '(' + AddQuotes(Text) + ', '+ AddQuotes(UnitType);
+
+  if Goal <> -1 then
+    result += ', ' + IntToStr(Goal);
+
+  if not IsAnywhere(Location) then result += ', ' + AddQuotes(Location);
+
+  result += ')';
+end;
+
+{ TShowLeaderboardKillCountInstruction }
+
+constructor TShowLeaderboardKillCountInstruction.Create(AText,
+  AUnitType: string; AGoal: integer);
+begin
+  Text:= AText;
+  UnitType := AUnitType;
+  Goal := AGoal;
+end;
+
+function TShowLeaderboardKillCountInstruction.ToString: ansistring;
+begin
+  if Goal <> -1 then
+    result := 'Leaderboard Goal Kills'
+  else
+    result := 'Leader Board Kills';
+
+  result += '(' + AddQuotes(Text) + ', '+ AddQuotes(UnitType);
+
+  if Goal <> -1 then
+    result += ', ' + IntToStr(Goal);
+  result += ')';
 end;
 
 { TShowLeaderboardValueInstruction }

@@ -260,9 +260,11 @@ var
   idxVar, intVal: Integer;
   boolVal: boolean;
   idx: integer;
+  firstElem: boolean;
 begin
   idx := AIndex;
   AStr := '';
+  firstElem := true;
   repeat
     if idx >= ALine.Count then
     begin
@@ -285,10 +287,22 @@ begin
     if TryInteger(ALine,idx,intVal) then
     begin
       AStr += inttostr(intVal);
+      if firstElem then
+      begin
+        if not ((idx < ALine.Count) and (ALine[idx] = '&')) then exit(false);
+        firstElem := false;
+        continue;
+      end;
     end else
     if TryBoolean(ALine,idx,boolVal) then
     begin
       AStr += BoolToStr(boolVal, 'True', 'False');
+      if firstElem then
+      begin
+        if not ((idx < ALine.Count) and (ALine[idx] = '&')) then exit(false);
+        firstElem := false;
+        continue;
+      end;
     end else
     begin
      idxVar := StringIndexOf(ALine[idx]);
@@ -312,6 +326,13 @@ begin
          svtSwitch: AStr += BoolToStr(scalar.BoolValue, 'True', 'False');
          else raise exception.Create('Unhandled case');
          end;
+
+         if firstElem then
+         begin
+           if not ((idx < ALine.Count) and (ALine[idx] = '&')) then exit(false);
+           firstElem := false;
+           continue;
+         end;
        end else
        begin
          if ARaiseException then raise exception.Create('Expecting string but "' + ALine[idx] + '" found');
@@ -319,6 +340,7 @@ begin
        end;
      end;
     end;
+    firstElem := false;
   until not TryToken(ALine,idx,'&');
   AIndex := idx;
   result := true;
@@ -1566,7 +1588,38 @@ begin
             if not textDefined then text := LowerCase(IntArrays[varIdx].UnitType);
             AProg.Add(TShowLeaderboardValueInstruction.Create(text, copy(IntArrays[varIdx].UnitType,1,length(IntArrays[varIdx].UnitType)-6), intVal));
           end else
-            raise exception.Create('Expecting sorting value');
+          if TryToken(ALine,AIndex,'KillCount') then
+          begin
+            if TryToken(ALine,AIndex,'(') then
+            begin
+              unitType := ExpectString(ALine,AIndex);
+              ExpectToken(ALine,AIndex,')');
+            end else
+            begin
+              unitType := 'Any unit';
+            end;
+            if not textDefined then text := 'kills';
+            AProg.Add(TShowLeaderboardKillCountInstruction.Create(text, unitType, intVal));
+          end else
+          if TryToken(ALine,AIndex,'UnitCount') then
+          begin
+            if TryToken(ALine,AIndex,'(') then
+            begin
+              unitType := ExpectString(ALine,AIndex);
+              if TryToken(ALine,AIndex,',') then
+                locStr := ExpectString(ALine,AIndex)
+              else
+                locStr := '';
+              ExpectToken(ALine,AIndex,')');
+            end else
+            begin
+              unitType := 'Any unit';
+              locStr := '';
+            end;
+            if not textDefined then text := 'units';
+            AProg.Add(TShowLeaderboardUnitCountInstruction.Create(text, unitType, locStr, intVal));
+          end else
+            raise exception.Create('Expecting sorting variable');
         end;
         ExpectToken(ALine,AIndex,')');
       end else

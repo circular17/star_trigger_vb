@@ -14,25 +14,6 @@ implementation
 
 uses utriggercode, uarithmetic, ureadprog, uinstructions, uvariables;
 
-const
-  PredefineProcedures: array[0..5] of string =
-('Leader Board Control At Location', //("Label", "Unit Name", "Location");   //Label, UnitCount("Terran Marine", "TestLocation")
-'Leader Board Control', //("Label", "Unit Name");      //Label, UnitCount("Terran Marine")
-'Leader Board Kills', //("Label", "Unit Name");        //Label, KillCount("Terran Marine")
-'Leaderboard Goal Control At Location', //("Label", "Unit Name", Goal Amount(#), "Location");     //Label, 3 - UnitCount("Terran Marine", "TestLocation")
-'Leaderboard Goal Control', //("Label", "Unit Name", Goal Amount(#));
-'Leaderboard Goal Kills' //("Label", "Unit Name", Goal Amount(#));
-);
-
-function IsPredefinedProcedure(AName: string): boolean;
-var
-  i: Integer;
-begin
-  for i := low(PredefineProcedures) to high(PredefineProcedures) do
-    if CompareText(PredefineProcedures[i],AName)=0 then exit(true);
-  exit(false);
-end;
-
 // output instructions that have already been expanded
 
 var
@@ -269,14 +250,7 @@ begin
 
       procIdx := ProcedureIndexOf(call.Name, length(call.Params));
       if procIdx = -1 then
-      begin
-        if IsPredefinedProcedure(call.Name) then
-        begin
-          expanded.Add(call);
-          continue;
-        end else
-          raise Exception.Create('Procedure not found "' + call.Name + '" with ' + Inttostr(length(call.Params)) + ' parameter(s)');
-      end;
+        raise Exception.Create('Procedure not found "' + call.Name + '" with ' + Inttostr(length(call.Params)) + ' parameter(s)');
 
       if Procedures[procIdx].StartIP = -1 then Procedures[procIdx].StartIP:= NewIP;
 

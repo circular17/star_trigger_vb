@@ -265,6 +265,56 @@ type
     function ToString: ansistring; override;
   end;
 
+  { TCenterViewInstruction }
+
+  TCenterViewInstruction = class(TInstruction)
+    Location: string;
+    constructor Create(ALocation: string);
+    function ToString: ansistring; override;
+  end;
+
+  { TMinimapPingInstruction }
+
+  TMinimapPingInstruction = class(TInstruction)
+    Location: string;
+    constructor Create(ALocation: string);
+    function ToString: ansistring; override;
+  end;
+
+  TEndGameMode = (egDefeat, egDraw, egVictory);
+
+  { TEndGameInstruction }
+
+  TEndGameInstruction = class(TInstruction)
+    Mode: TEndGameMode;
+    constructor Create(AMode: TEndGameMode);
+    function ToString: ansistring; override;
+  end;
+
+  { TUnitSpeechInstruction }
+
+  TUnitSpeechInstruction = class(TInstruction)
+    Active: boolean;
+    constructor Create(AActive: Boolean);
+    function ToString: ansistring; override;
+  end;
+
+  { TPauseGameInstruction }
+
+  TPauseGameInstruction = class(TInstruction)
+    Paused: boolean;
+    constructor Create(APaused: Boolean);
+    function ToString: ansistring; override;
+  end;
+
+  { TPauseCountdownInstruction }
+
+  TPauseCountdownInstruction = class(TInstruction)
+    Paused: boolean;
+    constructor Create(APaused: Boolean);
+    function ToString: ansistring; override;
+  end;
+
 type
 
   { TAlwaysCondition }
@@ -408,6 +458,93 @@ begin
   plNonAlliedVictoryPlayers: result := 'Non Allied Victory Players';
   else result := 'Unknown';
   end;
+end;
+
+{ TPauseCountdownInstruction }
+
+constructor TPauseCountdownInstruction.Create(APaused: Boolean);
+begin
+  Paused := APaused;
+end;
+
+function TPauseCountdownInstruction.ToString: ansistring;
+begin
+  If Paused then
+    Result := 'Pause Timer()'
+  else
+    result := 'Unpause Timer()';
+end;
+
+{ TPauseGameInstruction }
+
+constructor TPauseGameInstruction.Create(APaused: Boolean);
+begin
+  Paused := APaused;
+end;
+
+function TPauseGameInstruction.ToString: ansistring;
+begin
+  If Paused then
+    Result := 'Pause Game()'
+  else
+    result := 'Unpause Game()';
+end;
+
+{ TUnitSpeechInstruction }
+
+constructor TUnitSpeechInstruction.Create(AActive: Boolean);
+begin
+  Active := AActive;
+end;
+
+function TUnitSpeechInstruction.ToString: ansistring;
+begin
+  if not Active then
+    result := 'Mute Unit Speech()'
+  else
+    result := 'Unmute Unit Speech()';
+end;
+
+{ TMinimapPingInstruction }
+
+constructor TMinimapPingInstruction.Create(ALocation: string);
+begin
+  Location:= ALocation;
+end;
+
+function TMinimapPingInstruction.ToString: ansistring;
+begin
+  Result:= 'Minimap Ping(' + AddQuotes(Location) + ')';
+end;
+
+{ TEndGameInstruction }
+
+constructor TEndGameInstruction.Create(AMode: TEndGameMode);
+begin
+  Mode := AMode;
+end;
+
+function TEndGameInstruction.ToString: ansistring;
+begin
+  case Mode of
+  egDefeat: Result:='Defeat()';
+  egDraw: Result:='Draw()';
+  egVictory: Result := 'Victory()';
+  else
+    raise exception.Create('Unhandled case');
+  end;
+end;
+
+{ TCenterViewInstruction }
+
+constructor TCenterViewInstruction.Create(ALocation: string);
+begin
+  Location:= ALocation;
+end;
+
+function TCenterViewInstruction.ToString: ansistring;
+begin
+  Result:= 'Center View(' + AddQuotes(Location) + ')';
 end;
 
 { TCompareIntegerCondition }

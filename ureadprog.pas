@@ -1137,40 +1137,378 @@ begin
 
 end;
 
-procedure ParseInstruction(AText: string; AProg: TInstructionList; AThreads: TPlayers);
+function TryNeutralAction(AProg: TInstructionList; ALine: TStringList; AIndex: Integer): boolean;
 var
-  line: TStringList;
-  index, intVal, idxArr, i, propIndex, propVal: integer;
-  params: TStringList;
-  name, assignOp, msg, locStr, unitType, destLocStr, orderStr: String;
-  done, boolVal: boolean;
-  scalar, scalar2: TScalarVariable;
-  players: TPlayers;
-  conds: TConditionList;
-  ints: ArrayOfInteger;
-  sim: TSetIntegerMode;
-  pl, destPl: TPlayer;
-  prop : TSetUnitProperty;
+  boolVal: boolean;
+  scalar: TScalarVariable;
+begin
+  if TryToken(ALine,AIndex,'CountdownPaused') then
+  begin
+    result := true;
+    ExpectToken(ALine,AIndex,'=');
+    if TryBoolean(ALine,AIndex,boolVal) then
+      AProg.Add(TPauseCountdownInstruction.Create(boolVal))
+    else
+    begin
+      scalar := TryScalarVariable(ALine,AIndex);
+      if scalar.VarType <> svtSwitch then
+        raise exception.Create('Expecting boolean value');
+      if scalar.Constant then
+        AProg.Add(TPauseCountdownInstruction.Create(scalar.BoolValue))
+      else
+      begin
+        AProg.Add(TIfInstruction.Create(TSwitchCondition.Create(scalar.Index,true)));
+        AProg.Add(TPauseCountdownInstruction.Create(true));
+        AProg.Add(TElseInstruction.Create);
+        AProg.Add(TPauseCountdownInstruction.Create(false));
+        AProg.Add(TEndIfInstruction.Create);
+      end;
+    end;
+  end else
+  if TryToken(ALine,AIndex,'GamePaused') then  //not really neutral in the sense that each player can have a limited amount of pause
+  begin
+    result := true;
+    ExpectToken(ALine,AIndex,'=');
+    if TryBoolean(ALine,AIndex,boolVal) then
+      AProg.Add(TPauseGameInstruction.Create(boolVal))
+    else
+    begin
+      scalar := TryScalarVariable(ALine,AIndex);
+      if scalar.VarType <> svtSwitch then
+        raise exception.Create('Expecting boolean value');
+      if scalar.Constant then
+        AProg.Add(TPauseGameInstruction.Create(scalar.BoolValue))
+      else
+      begin
+        AProg.Add(TIfInstruction.Create(TSwitchCondition.Create(scalar.Index,true)));
+        AProg.Add(TPauseGameInstruction.Create(true));
+        AProg.Add(TElseInstruction.Create);
+        AProg.Add(TPauseGameInstruction.Create(false));
+        AProg.Add(TEndIfInstruction.Create);
+      end;
+    end;
+  end else
+    result := false;
+end;
+
+function TryPlayerAction(AProg: TInstructionList; ALine: TStringList; AIndex: Integer; APlayer: TPlayer): boolean;
+var
+  intVal, propIndex, propVal: integer;
+  unitType, locStr, destLocStr, orderStr: String;
+  boolVal: boolean;
+  scalar: TScalarVariable;
+  destPl: TPlayer;
   props: TUnitProperties;
+  prop: TSetUnitProperty;
+
+  procedure CheckCurrentPlayer;
+  begin
+    if APlayer <> plCurrentPlayer then
+      raise exception.Create('This action can only be done with the current player "Me"');
+  end;
 
   procedure CheckEndOfLine;
   begin
-    if index <> line.Count then
+    if AIndex <> ALine.Count then
       raise exception.Create('Expecting end of line');
   end;
 
   function ParseOptionalQuantity: integer;
   begin
-    if TryToken(line,index,'All') then
+    if TryToken(ALine,AIndex,'All') then
     begin
       result := -1;
-      ExpectToken(line,index,',');
+      ExpectToken(ALine,AIndex,',');
     end else
-    if TryInteger(line,index,result) then
+    if TryInteger(ALine,AIndex,result) then
     begin
-      ExpectToken(line,index,',');
+      ExpectToken(ALine,AIndex,',');
     end else
       result := -1; //All by default
+  end;
+
+begin
+  result := true;
+  if TryToken(ALine,AIndex,'CreateUnit') then
+  begin
+    ExpectToken(ALine,AIndex,'(');
+    if TryInteger(ALine,AIndex,intVal) then
+    begin
+      if intVal <= 0 then raise exception.Create('Quantity must be at least 1');
+      ExpectToken(ALine,AIndex,',');
+    end else
+      intVal := 1;
+
+    unitType := ExpectString(ALine,AIndex);
+    ExpectToken(ALine,AIndex,',');
+    locStr := ExpectString(ALine,AIndex);
+    if TryToken(ALine,AIndex,',') then
+    begin
+      propIndex := TryUnitPropVar(ALine,AIndex);
+      if propIndex = -1 then
+        raise exception.Create('Unit properties expected');
+    end else
+      propIndex := -1;
+    ExpectToken(ALine,AIndex,')');
+    CheckEndOfLine;
+
+    AProg.Add(TCreateUnitInstruction.Create(APlayer, intVal, unitType, locStr, propIndex));
+
+  end else
+  if TryToken(ALine,AIndex,'KillUnit') or TryToken(ALine,AIndex,'RemoveUnit') then
+  begin
+    boolVal:= upcase(ALine[AIndex-1][1])='K';
+    ExpectToken(ALine,AIndex,'(');
+    intVal := ParseOptionalQuantity;
+    unitType := ExpectString(ALine,AIndex);
+
+    if TryToken(ALine,AIndex,')') then
+      locStr:= ''
+    else
+    begin
+      ExpectToken(ALine,AIndex,',');
+      locStr := ExpectString(ALine,AIndex);
+      ExpectToken(ALine,AIndex,')');
+    end;
+    CheckEndOfLine;
+    AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, boolVal));
+  end else
+  if TryToken(ALine,AIndex,'GiveUnit') then
+  begin
+    ExpectToken(ALine,AIndex,'(');
+    intVal := ParseOptionalQuantity;
+    unitType := ExpectString(ALine,AIndex);
+    ExpectToken(ALine,AIndex,',');
+    locStr := ExpectString(ALine,AIndex);
+    ExpectToken(ALine,AIndex,',');
+    destPl := TryParsePlayer(ALine,AIndex);
+    if destPl = plNone then raise Exception.Create('Expecting player');
+    ExpectToken(ALine,AIndex,')');
+    CheckEndOfLine;
+
+    AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
+  end else
+  if TryToken(ALine,AIndex,'GetUnit') then
+  begin
+    ExpectToken(ALine,AIndex,'(');
+    intVal := ParseOptionalQuantity;
+    unitType := ExpectString(ALine,AIndex);
+    ExpectToken(ALine,AIndex,',');
+    locStr := ExpectString(ALine,AIndex);
+    ExpectToken(ALine,AIndex,')');
+    ExpectToken(ALine,AIndex,'.');
+
+    if TryToken(ALine,AIndex,'Properties') then
+    begin
+      ExpectToken(ALine,AIndex,'=');
+      if not TryUnitProperties(ALine,AIndex,props) then
+      begin
+        if (AIndex < ALine.Count) and IsValidVariableName(ALine[AIndex]) then
+        begin
+          propIndex:= UnitPropIndexOf(ALine[AIndex]);
+          if propIndex = -1 then
+            raise exception.Create('Expecting unit properties');
+
+          inc(AIndex);
+          props := UnitPropVars[propIndex].Value;
+        end else
+        raise exception.Create('Expecting unit properties');
+      end;
+      CheckEndOfLine;
+
+      AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supLife, props.Life));
+      AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supShield, props.Shield));
+      AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supEnergy, props.Energy));
+      if CompareTexT(unitType, 'Any unit')=0 then
+        AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supResource, props.Resource));
+      AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supHangarCount, props.HangarCount));
+
+      if intVal = -1 then
+        AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supInvincible, integer(props.Invincible)));
+
+    end else
+    if TryToken(ALine,AIndex,'Location') then
+    begin
+       ExpectToken(ALine,AIndex,'=');
+       destLocStr := ExpectString(ALine,AIndex);
+       CheckEndOfLine;
+
+       AProg.Add(TTeleportUnitInstruction.Create(APlayer, intVal, unitType, locStr, destLocStr));
+    end else
+    if TryToken(ALine,AIndex,'Teleport') then
+    begin
+       ExpectToken(ALine,AIndex,'(');
+       destLocStr := ExpectString(ALine,AIndex);
+       ExpectToken(ALine,AIndex,')');
+       CheckEndOfLine;
+
+       AProg.Add(TTeleportUnitInstruction.Create(APlayer, intVal, unitType, locStr, destLocStr));
+    end else
+    if TryToken(ALine,AIndex,'MoveOrder') or TryToken(ALine,AIndex,'PatrolOrder') or TryToken(ALine,AIndex,'AttackOrder') then
+    begin
+      orderStr := ALine[AIndex-1];
+      orderStr := lowercase(copy(orderStr,1,length(orderStr)-5));
+       if intVal <> -1 then
+         raise exception.Create('Cannot specify quantity for an order (use All quantity instead)');
+       ExpectToken(ALine,AIndex,'(');
+       destLocStr := ExpectString(ALine,AIndex);
+       ExpectToken(ALine,AIndex,')');
+       CheckEndOfLine;
+
+       AProg.Add(TOrderUnitInstruction.Create(APlayer, unitType, locStr, destLocStr, orderStr));
+    end else
+    if TryToken(ALine,AIndex,'Kill') then
+    begin
+      if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
+      CheckEndOfLine;
+      AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, true));
+    end else
+    if TryToken(ALine,AIndex,'Remove') then
+    begin
+      CheckEndOfLine;
+      AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, false));
+    end else
+    if TryToken(ALine,AIndex,'Give') then
+    begin
+      ExpectToken(ALine,AIndex,'(');
+      destPl:= TryParsePlayer(ALine,AIndex);
+      if destPl = plNone then raise exception.Create('Expecting player');
+      ExpectToken(ALine,AIndex,')');
+      CheckEndOfLine;
+
+      AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
+    end else
+    if TryToken(ALine,AIndex,'ToggleInvincibility') then
+    begin
+      if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,'(');
+      CheckEndOfLine;
+
+      AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supInvincible, -1));
+    end else
+    if TryToken(ALine,AIndex,'ToggleDoodadState') then
+    begin
+      if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,'(');
+      CheckEndOfLine;
+
+      AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supDoodadState, -1));
+    end else
+    begin
+      if TryToken(ALine,AIndex,'Life') then prop := supLife else
+      if TryToken(ALine,AIndex,'Shield') then prop := supShield else
+      if TryToken(ALine,AIndex,'Energy') then prop := supEnergy else
+      if TryToken(ALine,AIndex,'Resource') then prop := supResource else
+      if TryToken(ALine,AIndex,'HangarCount') then prop := supHangarCount else
+      if TryToken(ALine,AIndex,'Invincible') then prop := supInvincible else
+      if TryToken(ALine,AIndex,'DoodadState') then prop := supDoodadState else
+        raise exception.Create('Expecting property name');
+      ExpectToken(ALine,AIndex,'=');
+
+      scalar := TryScalarVariable(ALine,AIndex);
+      CheckEndOfLine;
+
+      if prop in[supInvincible,supDoodadState] then
+      begin
+        if scalar.VarType <> svtSwitch then
+          raise exception.Create('Expecting boolean');
+
+        if scalar.Constant then
+          AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, integer(scalar.BoolValue)))
+        else
+        begin
+          AProg.Add(TIfInstruction.Create(TSwitchCondition.Create(scalar.Index, true)));
+          AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, 1));
+          AProg.Add(TElseInstruction.Create);
+          AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, 0));
+          AProg.Add(TEndIfInstruction.Create);
+        end;
+      end
+      else
+      begin
+        propVal:= ExpectInteger(ALine,AIndex);
+        AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, propVal));
+      end;
+    end;
+
+  end else
+  begin
+    if TryToken(ALine,AIndex,'CenterView') then
+    begin
+      CheckCurrentPlayer;
+      ExpectToken(ALine,AIndex,'(');
+      locStr := ExpectString(ALine,AIndex);
+      ExpectToken(ALine,AIndex,')');
+      AProg.Add(TCenterViewInstruction.Create(locStr));
+    end else
+    if TryToken(ALine,AIndex,'MinimapPing') then
+    begin
+      CheckCurrentPlayer;
+      ExpectToken(ALine,AIndex,'(');
+      locStr := ExpectString(ALine,AIndex);
+      ExpectToken(ALine,AIndex,')');
+      AProg.Add(TCenterViewInstruction.Create(locStr));
+    end else
+    if TryToken(ALine,AIndex,'Defeat') then
+    begin
+      CheckCurrentPlayer;
+      if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
+      AProg.Add(TEndGameInstruction.Create(egDefeat));
+    end else
+    if TryToken(ALine,AIndex,'Draw') then
+    begin
+      CheckCurrentPlayer;
+      if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
+      AProg.Add(TEndGameInstruction.Create(egDraw));
+    end else
+    if TryToken(ALine,AIndex,'Victory') then
+    begin
+      CheckCurrentPlayer;
+      if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
+      AProg.Add(TEndGameInstruction.Create(egVictory));
+    end else
+    if TryToken(ALine,AIndex,'UnitSpeech') then
+    begin
+      ExpectToken(ALine,AIndex,'=');
+      if TryBoolean(ALine,AIndex,boolVal) then
+        AProg.Add(TUnitSpeechInstruction.Create(boolVal))
+      else
+      begin
+        scalar := TryScalarVariable(ALine,AIndex);
+        if scalar.VarType <> svtSwitch then
+          raise exception.Create('Expecting boolean value');
+        if scalar.Constant then
+          AProg.Add(TUnitSpeechInstruction.Create(scalar.BoolValue))
+        else
+        begin
+          AProg.Add(TIfInstruction.Create(TSwitchCondition.Create(scalar.Index,true)));
+          AProg.Add(TUnitSpeechInstruction.Create(true));
+          AProg.Add(TElseInstruction.Create);
+          AProg.Add(TUnitSpeechInstruction.Create(false));
+          AProg.Add(TEndIfInstruction.Create);
+        end;
+      end;
+    end else
+      result := false;
+  end;
+end;
+
+procedure ParseInstruction(AText: string; AProg: TInstructionList; AThreads: TPlayers);
+var
+  line: TStringList;
+  index, intVal, idxArr, i: integer;
+  params: TStringList;
+  name, assignOp, msg: String;
+  done: boolean;
+  scalar, scalar2: TScalarVariable;
+  players: TPlayers;
+  conds: TConditionList;
+  ints: ArrayOfInteger;
+  sim: TSetIntegerMode;
+  pl: TPlayer;
+
+  procedure CheckEndOfLine;
+  begin
+    if index <> line.Count then
+      raise exception.Create('Expecting end of line');
   end;
 
 begin
@@ -1389,210 +1727,21 @@ begin
           if index >= line.Count then
             raise exception.Create('Expecting action but end of line found');
 
-          if TryToken(line,index,'CreateUnit') then
-          begin
-            ExpectToken(line,index,'(');
-            if TryInteger(line,index,intVal) then
-            begin
-              if intVal <= 0 then raise exception.Create('Quantity must be at least 1');
-              ExpectToken(line,index,',');
-            end else
-              intVal := 1;
-
-            unitType := ExpectString(line,index);
-            ExpectToken(line,index,',');
-            locStr := ExpectString(line,index);
-            if TryToken(line,index,',') then
-            begin
-              propIndex := TryUnitPropVar(line,index);
-              if propIndex = -1 then
-                raise exception.Create('Unit properties expected');
-            end else
-              propIndex := -1;
-            ExpectToken(line,index,')');
-            CheckEndOfLine;
-
-            AProg.Add(TCreateUnitInstruction.Create(pl, intVal, unitType, locStr, propIndex));
-
-          end else
-          if TryToken(line,index,'KillUnit') or TryToken(line,index,'RemoveUnit') then
-          begin
-            boolVal:= upcase(line[index-1][1])='K';
-            ExpectToken(line,index,'(');
-            intVal := ParseOptionalQuantity;
-            unitType := ExpectString(line,index);
-
-            if TryToken(line,index,')') then
-              locStr:= ''
-            else
-            begin
-              ExpectToken(line,index,',');
-              locStr := ExpectString(line,index);
-              ExpectToken(line,index,')');
-            end;
-            CheckEndOfLine;
-            AProg.Add(TKillUnitInstruction.Create(pl, intVal, unitType, locStr, boolVal));
-          end else
-          if TryToken(line,index,'GiveUnit') then
-          begin
-            ExpectToken(line,index,'(');
-            intVal := ParseOptionalQuantity;
-            unitType := ExpectString(line,index);
-            ExpectToken(line,index,',');
-            locStr := ExpectString(line,index);
-            ExpectToken(line,index,',');
-            destPl := TryParsePlayer(line,index);
-            if destPl = plNone then raise Exception.Create('Expecting player');
-            ExpectToken(line,index,')');
-            CheckEndOfLine;
-
-            AProg.Add(TGiveUnitInstruction.Create(pl, intVal, unitType, locStr, destPl));
-          end else
-          if TryToken(line,index,'GetUnit') then
-          begin
-            ExpectToken(line,index,'(');
-            intVal := ParseOptionalQuantity;
-            unitType := ExpectString(line,index);
-            ExpectToken(line,index,',');
-            locStr := ExpectString(line,index);
-            ExpectToken(line,index,')');
-            ExpectToken(line,index,'.');
-
-            if TryToken(line,index,'Properties') then
-            begin
-              ExpectToken(line,index,'=');
-              if not TryUnitProperties(line,index,props) then
-              begin
-                if (index < line.Count) and IsValidVariableName(line[index]) then
-                begin
-                  propIndex:= UnitPropIndexOf(line[index]);
-                  if propIndex = -1 then
-                    raise exception.Create('Expecting unit properties');
-
-                  inc(index);
-                  props := UnitPropVars[propIndex].Value;
-                end else
-                raise exception.Create('Expecting unit properties');
-              end;
-              CheckEndOfLine;
-
-              AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, supLife, props.Life));
-              AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, supShield, props.Shield));
-              AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, supEnergy, props.Energy));
-              if CompareTexT(unitType, 'Any unit')=0 then
-                AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, supResource, props.Resource));
-              AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, supHangarCount, props.HangarCount));
-
-              if intVal = -1 then
-                AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, supInvincible, integer(props.Invincible)));
-
-            end else
-            if TryToken(line,index,'Location') then
-            begin
-               ExpectToken(line,index,'=');
-               destLocStr := ExpectString(line,index);
-               CheckEndOfLine;
-
-               AProg.Add(TTeleportUnitInstruction.Create(pl, intVal, unitType, locStr, destLocStr));
-            end else
-            if TryToken(line,index,'Teleport') then
-            begin
-               ExpectToken(line,index,'(');
-               destLocStr := ExpectString(line,index);
-               ExpectToken(line,index,')');
-               CheckEndOfLine;
-
-               AProg.Add(TTeleportUnitInstruction.Create(pl, intVal, unitType, locStr, destLocStr));
-            end else
-            if TryToken(line,index,'MoveOrder') or TryToken(line,index,'PatrolOrder') or TryToken(line,index,'AttackOrder') then
-            begin
-              orderStr := line[index-1];
-              orderStr := lowercase(copy(orderStr,1,length(orderStr)-5));
-               if intVal <> -1 then
-                 raise exception.Create('Cannot specify quantity for an order (use All quantity instead)');
-               ExpectToken(line,index,'(');
-               destLocStr := ExpectString(line,index);
-               ExpectToken(line,index,')');
-               CheckEndOfLine;
-
-               AProg.Add(TOrderUnitInstruction.Create(pl, unitType, locStr, destLocStr, orderStr));
-            end else
-            if TryToken(line,index,'Kill') then
-            begin
-              if TryToken(line,index,'(') then ExpectToken(line,index,'(');
-              CheckEndOfLine;
-              AProg.Add(TKillUnitInstruction.Create(pl, intVal, unitType, locStr, true));
-            end else
-            if TryToken(line,index,'Remove') then
-            begin
-              CheckEndOfLine;
-              AProg.Add(TKillUnitInstruction.Create(pl, intVal, unitType, locStr, false));
-            end else
-            if TryToken(line,index,'Give') then
-            begin
-              ExpectToken(line,index,'(');
-              destPl:= TryParsePlayer(line,index);
-              if destPl = plNone then raise exception.Create('Expecting player');
-              ExpectToken(line,index,')');
-              CheckEndOfLine;
-
-              AProg.Add(TGiveUnitInstruction.Create(pl, intVal, unitType, locStr, destPl));
-            end else
-            if TryToken(line,index,'ToggleInvincibility') then
-            begin
-              if TryToken(line,index,'(') then ExpectToken(line,index,'(');
-              CheckEndOfLine;
-
-              AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, supInvincible, -1));
-            end else
-            if TryToken(line,index,'ToggleDoodadState') then
-            begin
-              if TryToken(line,index,'(') then ExpectToken(line,index,'(');
-              CheckEndOfLine;
-
-              AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, supDoodadState, -1));
-            end else
-            begin
-              if TryToken(line,index,'Life') then prop := supLife else
-              if TryToken(line,index,'Shield') then prop := supShield else
-              if TryToken(line,index,'Energy') then prop := supEnergy else
-              if TryToken(line,index,'Resource') then prop := supResource else
-              if TryToken(line,index,'HangarCount') then prop := supHangarCount else
-              if TryToken(line,index,'Invincible') then prop := supInvincible else
-              if TryToken(line,index,'DoodadState') then prop := supDoodadState else
-                raise exception.Create('Expecting property name');
-              ExpectToken(line,index,'=');
-
-              scalar := TryScalarVariable(line,index);
-              CheckEndOfLine;
-
-              if prop in[supInvincible,supDoodadState] then
-              begin
-                if scalar.VarType <> svtSwitch then
-                  raise exception.Create('Expecting boolean');
-
-                if scalar.Constant then
-                  AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, prop, integer(scalar.BoolValue)))
-                else
-                begin
-                  AProg.Add(TIfInstruction.Create(TSwitchCondition.Create(scalar.Index, true)));
-                  AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, prop, 1));
-                  AProg.Add(TElseInstruction.Create);
-                  AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, prop, 0));
-                  AProg.Add(TEndIfInstruction.Create);
-                end;
-              end
-              else
-              begin
-                propVal:= ExpectInteger(line,index);
-                AProg.Add(TSetUnitPropertyInstruction.Create(pl, intVal, unitType, locStr, prop, propVal));
-              end;
-            end;
-
-          end else
+          if not TryPlayerAction(AProg,line,index,pl) then
             raise exception.Create('Expecting action but "' + line[index] + '" found');
         end;
       end;
+
+      index := 0;
+      if TryNeutralAction(AProg,line,index) then done := true;
+
+      if TryPlayerAction(AProg,line,index,plCurrentPlayer) then
+      begin
+        if AThreads = [plCurrentPlayer] then
+          raise exception.Create('You need to specify which players does the action');
+        done := true;
+      end;
+
 
       if not done then
       begin
@@ -1659,7 +1808,7 @@ function ReadProg(AFilename: string): boolean;
 var t: TextFile;
   s: string;
   lineNumber, errorCount: integer;
-  inSub, inEvent: integer;
+  inSub, inEvent, i: integer;
   players: TPlayers;
 begin
   HyperTriggers := false;
@@ -1702,6 +1851,27 @@ begin
           raise exception.Create('Nested procedures not allowed');
         inSub := ProcessSub(s)
       end
+      else if (CompareText(s, 'Return') = 0) and (inEvent <> -1) then
+      begin
+        if not Events[inEvent].Preserve then
+          raise exception.Create('If you use Stop in an event, you cannot use Return in the same event');
+        Events[inEvent].Instructions.Add(TReturnInstruction.Create);
+      end
+      else if CompareText(s, 'Stop') = 0 then
+      begin
+        if inEvent <> -1 then
+        begin
+          if Events[inEvent].Preserve then
+          begin
+            Events[inEvent].Preserve := false;
+            for i := 0 to Events[inEvent].Instructions.Count-1 do
+              if Events[inEvent].Instructions[i] is TReturnInstruction then
+                raise exception.Create('If you use Stop in an event, you cannot use Return in the same event');
+          end;
+          Events[inEvent].Instructions.Add(TReturnInstruction.Create);
+        end else
+          raise exception.Create('Stop instruction only allowed in event');
+      end
       else if CompareText(s, 'End Sub') = 0 then
       begin
         if inSub= -1 then
@@ -1726,6 +1896,12 @@ begin
       begin
         if inEvent= -1 then
           raise Exception.create('Not in an event');
+        with Events[inEvent] do
+          while Instructions[Instructions.Count-1] is TReturnInstruction do
+          begin
+            Instructions[Instructions.Count-1].Free;
+            Instructions.Delete(Instructions.Count-1);
+          end;
         inEvent := -1;
       end
       else

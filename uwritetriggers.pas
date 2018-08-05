@@ -15,11 +15,8 @@ implementation
 uses utriggercode, uarithmetic, ureadprog, uinstructions, uvariables;
 
 const
-  PredefineProcedures: array[0..33] of string =
-('Center View', //("Location");
-'Defeat', //();
-'Draw', //();
-'Leader Board Control At Location', //("Label", "Unit Name", "Location");
+  PredefineProcedures: array[0..20] of string =
+('Leader Board Control At Location', //("Label", "Unit Name", "Location");
 'Leader Board Control', //("Label", "Unit Name");
 'Leaderboard Greed', //(Resource Amount(#));
 'Leader Board Kills', //("Label", "Unit Name");
@@ -31,25 +28,15 @@ const
 'Leaderboard Goal Points', //("Label", Score Type, Goal Amount(#));
 'Leaderboard Goal Resources', //("Label", Goal Amount(#), Resource Type);
 'Leaderboard Computer Players', //(State);
-'Minimap Ping', //("Location");
-'Mute Unit Speech', //();
-'Pause Game', //();
-'Pause Timer', //();
 'Play WAV', //("WAV path", WAV length in ms);
 'Preserve Trigger', //();
 'Run AI Script', //("Script Name");
 'Run AI Script At Location', //("Script Name", "Location");
 'Set Alliance Status', //("Players", Alliance Status);
-'Set Countdown Timer', //(Edit Type, Time in Seconds);
 'Set Mission Objectives', //("Text here");
 'Set Next Scenario', //("Scenario name");
-'Set Switch', //("Switch Name", set/clear/toggle/randomize);
 'Talking Portrait', //("Unit Name", Time in ms);
-'Transmission', //(Always Display, "Text here", "Unit Name", "Location", Edit Type, Time in ms, "WAV path", WAV length in ms);
-'Unmute Unit Speech', //();
-'Unpause Game', //();
-'Unpause Timer', //();
-'Victory' //();
+'Transmission' //(Always Display, "Text here", "Unit Name", "Location", Edit Type, Time in ms, "WAV path", WAV length in ms);
 );
 
 function IsPredefinedProcedure(AName: string): boolean;
@@ -156,7 +143,7 @@ begin
       waitInstr := TWaitConditionInstruction.Create(TIntegerCondition.Create(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, icmAtLeast, 1), NewIP);
       expanded.Add(waitInstr);
 
-      expanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, simSubtract, 80));
+      expanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, simSubtract, 140));
 
       splitInstr := TSplitInstruction.Create(waitInstr.IP, startWhileIP);
 

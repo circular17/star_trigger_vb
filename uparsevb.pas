@@ -35,7 +35,7 @@ begin
   if (length(AQuotedText)<2) or (AQuotedText[1]<>'"') or (AQuotedText[length(AQuotedText)]<>'"') then
     raise exception.Create('Quotes not found');
 
-  result := StringReplace(StringReplace(StringReplace(copy(AQuotedText, 2, length(AQuotedText)-2), '\\', #0, [rfReplaceAll]), '\"', '"', [rfReplaceAll]), #0, '\', [rfReplaceAll]);
+  result := StringReplace(copy(AQuotedText,2,length(AQuotedText)-2), '""', '"', [rfReplaceAll]);
 end;
 
 procedure CheckReservedWord(AText: string);
@@ -56,7 +56,7 @@ end;
 function ParseLine(ALine: string): TStringList;
 var
   p,start: Integer;
-  inSpace, inStr, prevBackslash: boolean;
+  inSpace, inStr: boolean;
   token: string;
   i,j: Integer;
 begin
@@ -66,7 +66,6 @@ begin
   start := 1;
   inSpace := true;
   inStr := false;
-  prevBackslash := false;
   while p <= length(ALine) do
   begin
     if inStr or not (ALine[p] in[#0..' ']) then
@@ -86,7 +85,7 @@ begin
       if (ALine[p] = '"') and not inStr then inStr := true else
       if (ALine[p] = '"') and inStr then
       begin
-        if not prevBackslash then
+        if not ((p < length(ALine)) and (ALine[p+1] = '"')) then
         begin
           inStr := false;
           token := copy(ALine, start, p-start+1);
@@ -94,8 +93,6 @@ begin
           inSpace := true;
         end;
       end;
-      if not prevBackslash and inStr and (ALine[p]='\') then prevBackslash:= true
-      else prevBackslash:= false;
 
       if not inStr and not inSpace and not (ALine[p] in['A'..'Z','a'..'z','_','0'..'9']) then
       begin

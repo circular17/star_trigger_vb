@@ -15,28 +15,13 @@ implementation
 uses utriggercode, uarithmetic, ureadprog, uinstructions, uvariables;
 
 const
-  PredefineProcedures: array[0..20] of string =
-('Leader Board Control At Location', //("Label", "Unit Name", "Location");
-'Leader Board Control', //("Label", "Unit Name");
-'Leaderboard Greed', //(Resource Amount(#));
-'Leader Board Kills', //("Label", "Unit Name");
-'Leader Board Points', //("Label", Score Type);
-'Leader Board Resources', //("Label", Resource Type);
-'Leaderboard Goal Control At Location', //("Label", "Unit Name", Goal Amount(#), "Location");
+  PredefineProcedures: array[0..5] of string =
+('Leader Board Control At Location', //("Label", "Unit Name", "Location");   //Label, UnitCount("Terran Marine", "TestLocation")
+'Leader Board Control', //("Label", "Unit Name");      //Label, UnitCount("Terran Marine")
+'Leader Board Kills', //("Label", "Unit Name");        //Label, KillCount("Terran Marine")
+'Leaderboard Goal Control At Location', //("Label", "Unit Name", Goal Amount(#), "Location");     //Label, 3 - UnitCount("Terran Marine", "TestLocation")
 'Leaderboard Goal Control', //("Label", "Unit Name", Goal Amount(#));
-'Leaderboard Goal Kills', //("Label", "Unit Name", Goal Amount(#));
-'Leaderboard Goal Points', //("Label", Score Type, Goal Amount(#));
-'Leaderboard Goal Resources', //("Label", Goal Amount(#), Resource Type);
-'Leaderboard Computer Players', //(State);
-'Play WAV', //("WAV path", WAV length in ms);
-'Preserve Trigger', //();
-'Run AI Script', //("Script Name");
-'Run AI Script At Location', //("Script Name", "Location");
-'Set Alliance Status', //("Players", Alliance Status);
-'Set Mission Objectives', //("Text here");
-'Set Next Scenario', //("Scenario name");
-'Talking Portrait', //("Unit Name", Time in ms);
-'Transmission' //(Always Display, "Text here", "Unit Name", "Location", Edit Type, Time in ms, "WAV path", WAV length in ms);
+'Leaderboard Goal Kills' //("Label", "Unit Name", Goal Amount(#));
 );
 
 function IsPredefinedProcedure(AName: string): boolean;

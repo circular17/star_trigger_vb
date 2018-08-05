@@ -44,8 +44,11 @@ implementation
 
 uses uparsevb, uvariables;
 
+function ExpectString(ALine: TStringList; var AIndex: integer): string; forward;
+
 function TryInteger(ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
 var errPos, idxVar: integer;
+  s: String;
 begin
   AValue := 0;
   if AIndex < ALine.Count then
@@ -57,6 +60,18 @@ begin
       exit(true);
     end else
     begin
+      if TryToken(ALine,AIndex,'Asc') then
+      begin
+        ExpectToken(ALine,AIndex,'(');
+        s := ExpectString(ALine,AIndex);
+        ExpectToken(ALine,AIndex,')');
+        if s = '' then
+          AValue := 0
+        else
+          AValue := ord(s[1]);
+        exit(true)
+      end;
+
       idxVar := IntVarIndexOf(ALine[AIndex]);
       if (idxVar<>-1) and IntVars[idxVar].Constant then
       begin
@@ -118,8 +133,6 @@ type
     IntValue: integer;
     BoolValue: boolean;
   end;
-
-function ExpectString(ALine: TStringList; var AIndex: integer): string; forward;
 
 function TryScalarVariable(ALine: TStringList; var AIndex: integer): TScalarVariable;
 var varIdx, arrayIndex, idx: integer;
@@ -241,55 +254,79 @@ begin
   end;
 end;
 
-function ExpectString(ALine: TStringList; var AIndex: integer): string;
+function TryString(ALine: TStringList; var AIndex: integer; out AStr: string; ARaiseException: boolean = false): boolean;
 var
   scalar: TScalarVariable;
   idxVar, intVal: Integer;
   boolVal: boolean;
+  idx: integer;
 begin
-
-  result := '';
+  idx := AIndex;
+  AStr := '';
   repeat
-    if AIndex >= ALine.Count then
-      raise exception.Create('Expecting string but end of line found');
+    if idx >= ALine.Count then
+    begin
+      if ARaiseException then raise exception.Create('Expecting string but end of line found');
+      exit(false);
+    end;
 
-    if copy(ALine[AIndex],1,1) = '"' then
+    if TryToken(ALine,idx,'Chr') then
     begin
-      result += RemoveQuotes(ALine[AIndex]);
-      Inc(AIndex);
+      ExpectToken(ALine,idx,'(');
+      intVal := ExpectInteger(ALine,idx);
+      ExpectToken(ALine,idx,')');
+      AStr += chr(intVal);
     end else
-    if TryInteger(ALine,AIndex,intVal) then
+    if copy(ALine[idx],1,1) = '"' then
     begin
-      result += inttostr(intVal);
+      AStr += RemoveQuotes(ALine[idx]);
+      Inc(idx);
     end else
-    if TryBoolean(ALine,AIndex,boolVal) then
+    if TryInteger(ALine,idx,intVal) then
     begin
-      result += BoolToStr(boolVal, 'True', 'False');
+      AStr += inttostr(intVal);
+    end else
+    if TryBoolean(ALine,idx,boolVal) then
+    begin
+      AStr += BoolToStr(boolVal, 'True', 'False');
     end else
     begin
-     idxVar := StringIndexOf(ALine[AIndex]);
+     idxVar := StringIndexOf(ALine[idx]);
      if idxVar <> -1 then
      begin
-       result += StringVars[idxVar].Value;
-       inc(AIndex);
+       AStr += StringVars[idxVar].Value;
+       inc(idx);
      end else
      begin
-       scalar := TryScalarVariable(ALine,AIndex);
+       scalar := TryScalarVariable(ALine,idx);
        if scalar.VarType <> svtNone then
        begin
          if not scalar.Constant then
-           raise exception.Create('Only constants can be used in a string');
+         begin
+           if ARaiseException then raise exception.Create('Only constants can be used in a string');
+           exit(false);
+         end;
 
          case scalar.VarType of
-         svtInteger: result += inttostr(scalar.IntValue);
-         svtSwitch: result += BoolToStr(scalar.BoolValue, 'True', 'False');
+         svtInteger: AStr += inttostr(scalar.IntValue);
+         svtSwitch: AStr += BoolToStr(scalar.BoolValue, 'True', 'False');
          else raise exception.Create('Unhandled case');
          end;
        end else
-       raise exception.Create('Expecting string but "' + ALine[AIndex] + '" found');
+       begin
+         if ARaiseException then raise exception.Create('Expecting string but "' + ALine[idx] + '" found');
+         exit(false);
+       end;
      end;
     end;
-  until not TryToken(ALine,AIndex,'&');
+  until not TryToken(ALine,idx,'&');
+  AIndex := idx;
+  result := true;
+end;
+
+function ExpectString(ALine: TStringList; var AIndex: integer): string;
+begin
+  TryString(ALine,AIndex,result,True);
 end;
 
 function TryNeutralConditionFunction(ALine: TStringList; var AIndex: Integer; ANegation: boolean): TCondition;
@@ -734,7 +771,7 @@ var idx, intVal: integer;
 begin
   AProp.Life := 100;
   AProp.Shield := 100;
-  AProp.Energy := 100;
+  AProp.Energy := 25;
   AProp.Resource := 0;
   AProp.HangarCount := 0;
   AProp.Burrowed:= false;
@@ -848,7 +885,8 @@ end;
 function IsVarNameUsed(AName: string; AParamCount: integer): boolean;
 begin
   result := (IntVarIndexOf(AName)<>-1) or (BoolVarIndexOf(AName)<>-1) or (IntArrayIndexOf(AName)<>-1) or
-    (ProcedureIndexOf(AName,AParamCount)<>-1) or (UnitPropIndexOf(AName) <> -1) or (StringIndexOf(AName)<>-1);
+    (ProcedureIndexOf(AName,AParamCount)<>-1) or (UnitPropIndexOf(AName) <> -1) or (StringIndexOf(AName)<>-1) or
+    (SoundIndexOf(AName)<>-1);
 end;
 
 function CreateProcedure(AName: string; AParamCount: integer): integer;
@@ -968,10 +1006,10 @@ end;
 procedure ProcessDim(ADeclaration: string; AConstant: boolean);
 var line: TStringList;
   index: Integer;
-  varName, varType: String;
+  varName, varType, filename, text: String;
   varValue, arraySize: integer;
   isArray: boolean;
-  rndVal: integer;
+  rndVal, timeMs: integer;
   arrValues: ArrayOfInteger;
   boolVal: boolean;
   prop: TUnitProperties;
@@ -1029,6 +1067,7 @@ begin
         else if TryToken(line,index,'Boolean') then varType := 'Boolean'
         else if TryToken(line,index,'String') then varType := 'String'
         else if TryToken(line,index,'UnitProperties') then varType := 'UnitProperties'
+        else if TryToken(line,index,'Sound') then varType := 'Sound'
         else raise Exception.Create('Unknown type : ' + line[index]);
 
         if not isArray and (varType <> 'UnitProperties') and TryToken(line,index,'(') then
@@ -1061,6 +1100,36 @@ begin
           end;
           CreateIntArray(varName, arraySize, arrValues, AConstant);
         end else
+        if varType = 'Sound' then
+        begin
+          ExpectToken(line,index,'{');
+          filename := '';
+          timeMs := -1;
+          if not TryToken(line,index,'}') then
+          while true do
+          begin
+            ExpectToken(line,index,'.');
+            if TryToken(line,index,'Filename') then
+            begin
+              ExpectToken(line,index,'=');
+              filename := ExpectString(line,index);
+            end else
+            if TryToken(line,index,'Duration') then
+            begin
+              ExpectToken(line,index,'=');
+              timeMs := ExpectInteger(line,index);
+            end else
+              raise exception.Create('Unknown field. Expecting Filename or Duration');
+            if not TryToken(line,index,',') then
+            begin
+              ExpectToken(line,index,'}');
+              break;
+            end;
+          end;
+          if filename = '' then raise exception.Create('Filename not specified');
+          if timeMs = -1 then raise exception.Create('Duration not specified');
+          CreateSound(varName, filename, timeMs, AConstant);
+        end else
         if varType = 'UnitProperties' then
         begin
           if TryUnitProperties(line,index,prop) then
@@ -1081,9 +1150,9 @@ begin
             CreateBoolVar(varName, BoolToSwitch[boolVal], AConstant);
           end
           else
-          if (index < line.Count) and (copy(line[index],1,1)='"') then
+          if TryString(line,index,text) then
           begin
-            CreateString(varName,ExpectString(line,index), AConstant);
+            CreateString(varName,text, AConstant);
           end else
           begin
             rndVal := ParseRandom(line, index);
@@ -1137,80 +1206,77 @@ begin
 
 end;
 
-function TryNeutralAction(AProg: TInstructionList; ALine: TStringList; AIndex: Integer): boolean;
+procedure AppendConditionalInstruction(AProg: TInstructionList; AConditions: TConditionList; AIfTrue, AIfFalse: TInstruction);
+begin
+  if (AConditions.Count = 1) and (AConditions[0] is TAlwaysCondition) then
+  begin
+    AProg.Add(AIfTrue);
+    AConditions[0].Free;
+    AConditions.Free;
+    AIfFalse.Free;
+  end else
+  if (AConditions.Count = 1) and (AConditions[0] is TNeverCondition) then
+  begin
+    AProg.Add(AIfFalse);
+    AConditions[0].Free;
+    AConditions.Free;
+    AIfTrue.Free;
+  end else
+  begin
+    AProg.Add(TIfInstruction.Create(AConditions));
+    AProg.Add(AIfTrue);
+    AProg.Add(TElseInstruction.Create);
+    AProg.Add(AIfFalse);
+    AProg.Add(TEndIfInstruction.Create);
+  end;
+end;
+
+function TryNeutralAction(AProg: TInstructionList; ALine: TStringList; var AIndex: Integer; AThreads: TPlayers): boolean;
 var
-  boolVal: boolean;
-  scalar: TScalarVariable;
+  scenario: String;
+  conds: TConditionList;
 begin
   if TryToken(ALine,AIndex,'CountdownPaused') then
   begin
     result := true;
     ExpectToken(ALine,AIndex,'=');
-    if TryBoolean(ALine,AIndex,boolVal) then
-      AProg.Add(TPauseCountdownInstruction.Create(boolVal))
-    else
-    begin
-      scalar := TryScalarVariable(ALine,AIndex);
-      if scalar.VarType <> svtSwitch then
-        raise exception.Create('Expecting boolean value');
-      if scalar.Constant then
-        AProg.Add(TPauseCountdownInstruction.Create(scalar.BoolValue))
-      else
-      begin
-        AProg.Add(TIfInstruction.Create(TSwitchCondition.Create(scalar.Index,true)));
-        AProg.Add(TPauseCountdownInstruction.Create(true));
-        AProg.Add(TElseInstruction.Create);
-        AProg.Add(TPauseCountdownInstruction.Create(false));
-        AProg.Add(TEndIfInstruction.Create);
-      end;
-    end;
+    conds := ExpectConditions(ALine,AIndex,AThreads);
+    AppendConditionalInstruction(AProg, conds, TPauseCountdownInstruction.Create(true),
+                                        TPauseCountdownInstruction.Create(false));
   end else
   if TryToken(ALine,AIndex,'GamePaused') then  //not really neutral in the sense that each player can have a limited amount of pause
   begin
     result := true;
     ExpectToken(ALine,AIndex,'=');
-    if TryBoolean(ALine,AIndex,boolVal) then
-      AProg.Add(TPauseGameInstruction.Create(boolVal))
-    else
-    begin
-      scalar := TryScalarVariable(ALine,AIndex);
-      if scalar.VarType <> svtSwitch then
-        raise exception.Create('Expecting boolean value');
-      if scalar.Constant then
-        AProg.Add(TPauseGameInstruction.Create(scalar.BoolValue))
-      else
-      begin
-        AProg.Add(TIfInstruction.Create(TSwitchCondition.Create(scalar.Index,true)));
-        AProg.Add(TPauseGameInstruction.Create(true));
-        AProg.Add(TElseInstruction.Create);
-        AProg.Add(TPauseGameInstruction.Create(false));
-        AProg.Add(TEndIfInstruction.Create);
-      end;
-    end;
+    conds := ExpectConditions(ALine,AIndex,AThreads);
+    AppendConditionalInstruction(AProg, conds, TPauseGameInstruction.Create(true),
+                                        TPauseGameInstruction.Create(false));
+  end else
+  if TryToken(ALine,AIndex,'NextScenario') then
+  begin
+    ExpectToken(ALine,AIndex,'=');
+    scenario := ExpectString(ALine,AIndex);
+    AProg.Add(TSetNextScenarioInstruction.Create(scenario));
   end else
     result := false;
 end;
 
-function TryPlayerAction(AProg: TInstructionList; ALine: TStringList; AIndex: Integer; APlayer: TPlayer): boolean;
+function TryPlayerAction(AProg: TInstructionList; ALine: TStringList; var AIndex: Integer; APlayer: TPlayer; AThreads: TPlayers): boolean;
 var
-  intVal, propIndex, propVal: integer;
-  unitType, locStr, destLocStr, orderStr: String;
-  boolVal: boolean;
-  scalar: TScalarVariable;
+  intVal, propIndex, propVal, timeMs, varIdx: integer;
+  unitType, locStr, destLocStr, orderStr, filename, text: String;
+  boolVal, textDefined: boolean;
   destPl: TPlayer;
   props: TUnitProperties;
   prop: TSetUnitProperty;
+  alliance: TAllianceStatus;
+  pl: TPlayer;
+  conds: TConditionList;
 
   procedure CheckCurrentPlayer;
   begin
     if APlayer <> plCurrentPlayer then
       raise exception.Create('This action can only be done with the current player "Me"');
-  end;
-
-  procedure CheckEndOfLine;
-  begin
-    if AIndex <> ALine.Count then
-      raise exception.Create('Expecting end of line');
   end;
 
   function ParseOptionalQuantity: integer;
@@ -1250,8 +1316,6 @@ begin
     end else
       propIndex := -1;
     ExpectToken(ALine,AIndex,')');
-    CheckEndOfLine;
-
     AProg.Add(TCreateUnitInstruction.Create(APlayer, intVal, unitType, locStr, propIndex));
 
   end else
@@ -1270,7 +1334,6 @@ begin
       locStr := ExpectString(ALine,AIndex);
       ExpectToken(ALine,AIndex,')');
     end;
-    CheckEndOfLine;
     AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, boolVal));
   end else
   if TryToken(ALine,AIndex,'GiveUnit') then
@@ -1284,7 +1347,6 @@ begin
     destPl := TryParsePlayer(ALine,AIndex);
     if destPl = plNone then raise Exception.Create('Expecting player');
     ExpectToken(ALine,AIndex,')');
-    CheckEndOfLine;
 
     AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
   end else
@@ -1314,7 +1376,6 @@ begin
         end else
         raise exception.Create('Expecting unit properties');
       end;
-      CheckEndOfLine;
 
       AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supLife, props.Life));
       AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supShield, props.Shield));
@@ -1331,7 +1392,6 @@ begin
     begin
        ExpectToken(ALine,AIndex,'=');
        destLocStr := ExpectString(ALine,AIndex);
-       CheckEndOfLine;
 
        AProg.Add(TTeleportUnitInstruction.Create(APlayer, intVal, unitType, locStr, destLocStr));
     end else
@@ -1340,7 +1400,6 @@ begin
        ExpectToken(ALine,AIndex,'(');
        destLocStr := ExpectString(ALine,AIndex);
        ExpectToken(ALine,AIndex,')');
-       CheckEndOfLine;
 
        AProg.Add(TTeleportUnitInstruction.Create(APlayer, intVal, unitType, locStr, destLocStr));
     end else
@@ -1353,19 +1412,16 @@ begin
        ExpectToken(ALine,AIndex,'(');
        destLocStr := ExpectString(ALine,AIndex);
        ExpectToken(ALine,AIndex,')');
-       CheckEndOfLine;
 
        AProg.Add(TOrderUnitInstruction.Create(APlayer, unitType, locStr, destLocStr, orderStr));
     end else
     if TryToken(ALine,AIndex,'Kill') then
     begin
       if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
-      CheckEndOfLine;
       AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, true));
     end else
     if TryToken(ALine,AIndex,'Remove') then
     begin
-      CheckEndOfLine;
       AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, false));
     end else
     if TryToken(ALine,AIndex,'Give') then
@@ -1374,21 +1430,18 @@ begin
       destPl:= TryParsePlayer(ALine,AIndex);
       if destPl = plNone then raise exception.Create('Expecting player');
       ExpectToken(ALine,AIndex,')');
-      CheckEndOfLine;
 
       AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
     end else
     if TryToken(ALine,AIndex,'ToggleInvincibility') then
     begin
       if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,'(');
-      CheckEndOfLine;
 
       AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supInvincible, -1));
     end else
     if TryToken(ALine,AIndex,'ToggleDoodadState') then
     begin
       if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,'(');
-      CheckEndOfLine;
 
       AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supDoodadState, -1));
     end else
@@ -1403,24 +1456,12 @@ begin
         raise exception.Create('Expecting property name');
       ExpectToken(ALine,AIndex,'=');
 
-      scalar := TryScalarVariable(ALine,AIndex);
-      CheckEndOfLine;
-
       if prop in[supInvincible,supDoodadState] then
       begin
-        if scalar.VarType <> svtSwitch then
-          raise exception.Create('Expecting boolean');
-
-        if scalar.Constant then
-          AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, integer(scalar.BoolValue)))
-        else
-        begin
-          AProg.Add(TIfInstruction.Create(TSwitchCondition.Create(scalar.Index, true)));
-          AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, 1));
-          AProg.Add(TElseInstruction.Create);
-          AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, 0));
-          AProg.Add(TEndIfInstruction.Create);
-        end;
+        conds := ExpectConditions(ALine,AIndex,AThreads);
+        AppendConditionalInstruction(AProg, conds,
+           TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, 1),
+           TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, 0));
       end
       else
       begin
@@ -1447,6 +1488,122 @@ begin
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TCenterViewInstruction.Create(locStr));
     end else
+    if TryToken(ALine,AIndex,'TalkingPortrait') then
+    begin
+      CheckCurrentPlayer;
+      ExpectToken(ALine,AIndex,'(');
+      unitType := ExpectString(ALine,AIndex);
+      ExpectToken(ALine,AIndex,',');
+      timeMs := ExpectInteger(ALine,AIndex);
+      ExpectToken(ALine,AIndex,')');
+      AProg.Add(TTalkingPortraitInstruction.Create(unitType, timeMs));
+    end else
+    if TryToken(ALine,AIndex,'MissionObjectives') then
+    begin
+      CheckCurrentPlayer;
+      ExpectToken(ALine,AIndex,'=');
+      text := ExpectString(ALine,AIndex);
+      AProg.Add(TSetMissionObjectivesInstruction.Create(text));
+    end else
+    if TryToken(ALine,AIndex,'Leaderboard') then
+    begin
+      ExpectToken(ALine,AIndex,'.');
+      if TryToken(ALine,AIndex,'Computers') then
+      begin
+        ExpectToken(ALine,AIndex,'=');
+        conds := ExpectConditions(ALine,AIndex,AThreads);
+        AppendConditionalInstruction(AProg, conds,
+          TLeaderBoardIncludeComputersInstruction.Create(1),
+          TLeaderBoardIncludeComputersInstruction.Create(0));
+      end else
+      if TryToken(ALine,AIndex,'ToggleComputers') then
+      begin
+        AProg.Add(TLeaderBoardIncludeComputersInstruction.Create(-1));
+      end else
+      if TryToken(ALine,AIndex,'Show') then
+      begin
+        ExpectToken(ALine,AIndex,'(');
+        textDefined:= TryString(ALine,AIndex,text);
+        if textDefined then ExpectToken(ALine,AIndex,',');
+
+        if TryToken(ALine,AIndex,'MineralsAndGas') or
+         TryToken(ALine,AIndex,'OreAndGas') then
+        begin
+          if not textDefined then
+          begin
+            intVal := MaxLongInt;
+            if TryToken(ALine,AIndex,',') then
+            begin
+              if not TryInteger(ALine,AIndex,intVal) then
+                raise exception.Create('Expecting integer value');
+            end;
+            AProg.Add(TShowLeaderboardOreAndGasIconInstruction.Create(intVal));
+          end else
+            AProg.Add(TShowLeaderboardValueInstruction.Create('Minerals and gas','OreAndGas',-1));
+        end else
+        begin
+          if TryInteger(ALine,AIndex,intVal) then
+            ExpectToken(ALine,AIndex,'-')
+          else intVal := -1;
+
+          if TryToken(ALine,AIndex,'MineralsAndGas') or
+            TryToken(ALine,AIndex,'OreAndGas') or
+            TryToken(ALine,AIndex,'Gas') or
+            TryToken(ALine,AIndex,'Minerals') or
+            TryToken(ALine,AIndex,'Ore') then
+          begin
+            varIdx := IntArrayIndexOf(ALine[AIndex-1]);
+            if varIdx = -1 then raise exception.Create('Unable to find variable');
+            if not textDefined then text := LowerCase(IntArrays[varIdx].UnitType);
+            AProg.Add(TShowLeaderboardValueInstruction.Create(text, IntArrays[varIdx].UnitType, intVal));
+          end else
+          if TryToken(ALine,AIndex,'TotalScore') or TryToken(ALine,AIndex,'CustomScore') or
+            TryToken(ALine,AIndex,'UnitScore') or TryToken(ALine,AIndex,'BuildingScore') or TryToken(ALine,AIndex,'UnitAndBuildingScore')  or
+            TryToken(ALine,AIndex,'KillScore') or TryToken(ALine,AIndex,'RazingScore') or TryToken(ALine,AIndex,'KillAndRazingScore') then
+          begin
+            varIdx := IntArrayIndexOf(ALine[AIndex-1]);
+            if varIdx = -1 then raise exception.Create('Unable to find variable');
+            if not textDefined then text := LowerCase(IntArrays[varIdx].UnitType);
+            AProg.Add(TShowLeaderboardValueInstruction.Create(text, copy(IntArrays[varIdx].UnitType,1,length(IntArrays[varIdx].UnitType)-6), intVal));
+          end else
+            raise exception.Create('Expecting sorting value');
+        end;
+        ExpectToken(ALine,AIndex,')');
+      end else
+        raise exception.Create('Unknown field of leaderboard (Show, Computers, ToggleComputers)');
+
+    end else
+    if TryToken(ALine,AIndex,'Alliance') then
+    begin
+      CheckCurrentPlayer;
+      ExpectToken(ALine,AIndex,'(');
+      pl := TryParsePlayer(ALine,AIndex);
+      if pl = plNone then raise exception.Create('Expecting player identifier');
+      ExpectToken(ALine,AIndex,')');
+      ExpectToken(ALine,AIndex,'=');
+      if TryToken(ALine,AIndex,'Ennemy') then alliance := asEnnemy
+      else if TryToken(ALine,AIndex,'Ally') then alliance := asAlly
+      else if TryToken(ALine,AIndex,'AlliedVictory') then alliance := asAlliedVictory
+      else raise exception.Create('Expecting alliance status (Ennemy, Ally, AlliedVictory)');
+
+      AProg.Add(TSetAllianceStatus.Create(pl, alliance));
+    end else
+    if TryToken(ALine,AIndex,'NextScenario') then
+    begin
+      raise exception.Create('Changing scenario cannot be done for a specific player');
+    end else
+    if TryToken(ALine,AIndex,'RunAIScript') then
+    begin
+      CheckCurrentPlayer;
+      ExpectToken(ALine,AIndex,'(');
+      filename := ExpectString(ALine,AIndex);
+      if TryToken(ALine,AIndex,',') then
+        locStr := ExpectString(ALine,AIndex)
+      else
+        locStr := '';
+      ExpectToken(ALine,AIndex,')');
+      AProg.Add(TRunAIScriptInstruction.Create(filename, locStr));
+    end else
     if TryToken(ALine,AIndex,'Defeat') then
     begin
       CheckCurrentPlayer;
@@ -1468,24 +1625,10 @@ begin
     if TryToken(ALine,AIndex,'UnitSpeech') then
     begin
       ExpectToken(ALine,AIndex,'=');
-      if TryBoolean(ALine,AIndex,boolVal) then
-        AProg.Add(TUnitSpeechInstruction.Create(boolVal))
-      else
-      begin
-        scalar := TryScalarVariable(ALine,AIndex);
-        if scalar.VarType <> svtSwitch then
-          raise exception.Create('Expecting boolean value');
-        if scalar.Constant then
-          AProg.Add(TUnitSpeechInstruction.Create(scalar.BoolValue))
-        else
-        begin
-          AProg.Add(TIfInstruction.Create(TSwitchCondition.Create(scalar.Index,true)));
-          AProg.Add(TUnitSpeechInstruction.Create(true));
-          AProg.Add(TElseInstruction.Create);
-          AProg.Add(TUnitSpeechInstruction.Create(false));
-          AProg.Add(TEndIfInstruction.Create);
-        end;
-      end;
+      conds := ExpectConditions(ALine,AIndex,AThreads);
+      AppendConditionalInstruction(AProg, conds,
+        TUnitSpeechInstruction.Create(true),
+        TUnitSpeechInstruction.Create(false));
     end else
       result := false;
   end;
@@ -1494,7 +1637,7 @@ end;
 procedure ParseInstruction(AText: string; AProg: TInstructionList; AThreads: TPlayers);
 var
   line: TStringList;
-  index, intVal, idxArr, i: integer;
+  index, intVal, idxArr, i, idxSound: integer;
   params: TStringList;
   name, assignOp, msg: String;
   done: boolean;
@@ -1630,27 +1773,9 @@ begin
                   conds[0].Free;
                   conds.Free;
                 end else
-                if (conds.Count = 1) and (conds[0] is TAlwaysCondition) then
-                begin
-                  //a = True
-                  AProg.Add(TSetSwitchInstruction.Create(scalar.Index, svSet));
-                  conds[0].Free;
-                  conds.Free;
-                end else
-                if (conds.Count = 1) and (conds[0] is TNeverCondition) then
-                begin
-                  //a = False
-                  AProg.Add(TSetSwitchInstruction.Create(scalar.Index, svClear));
-                  conds[0].Free;
-                  conds.Free;
-                end else
-                begin
-                  AProg.Add(TIfInstruction.Create(conds));
-                  AProg.Add(TSetSwitchInstruction.Create(scalar.Index, svSet));
-                  AProg.Add(TElseInstruction.Create);
-                  AProg.Add(TSetSwitchInstruction.Create(scalar.Index, svClear));
-                  AProg.Add(TEndIfInstruction.Create);
-                end;
+                  AppendConditionalInstruction(AProg, conds,
+                    TSetSwitchInstruction.Create(scalar.Index, svSet),
+                    TSetSwitchInstruction.Create(scalar.Index, svClear));
               end;
             end;
           else raise exception.Create('Unhandled case');
@@ -1690,10 +1815,21 @@ begin
 
       end;
 
+      idxSound := SoundIndexOf(line[0]);
+      if idxSound <> -1 then
+      begin
+        index := 1;
+        ExpectToken(line,index,'.');
+        ExpectToken(line,index,'Play');
+        if TryToken(line,index,'(') then ExpectToken(line,index,')');
+
+        AProg.Add(TPlayWAVInstruction.Create(SoundVars[idxSound].Filename, SoundVars[idxSound].DurationMs));
+        done := true;
+      end;
+
       idxArr := IntArrayIndexOf(line[0]);
       if idxArr <> -1 then
       begin
-
         index := 1;
         If TryToken(line,index,'+') or TryToken(line,index,'-') then
           assignOp := line[index-1] else assignOp := '';
@@ -1727,18 +1863,24 @@ begin
           if index >= line.Count then
             raise exception.Create('Expecting action but end of line found');
 
-          if not TryPlayerAction(AProg,line,index,pl) then
+          if not TryPlayerAction(AProg,line,index,pl, AThreads) then
             raise exception.Create('Expecting action but "' + line[index] + '" found');
+          CheckEndOfLine;
         end;
       end;
 
       index := 0;
-      if TryNeutralAction(AProg,line,index) then done := true;
+      if TryNeutralAction(AProg,line,index, AThreads) then
+      begin
+        CheckEndOfLine;
+        done := true;
+      end;
 
-      if TryPlayerAction(AProg,line,index,plCurrentPlayer) then
+      if TryPlayerAction(AProg,line,index,plCurrentPlayer, AThreads) then
       begin
         if AThreads = [plCurrentPlayer] then
           raise exception.Create('You need to specify which players does the action');
+        CheckEndOfLine;
         done := true;
       end;
 
@@ -1794,7 +1936,7 @@ begin
           end;
         end else
         if scalar.VarType = svtNone then
-          raise exception.Create('Unknown instruction')
+          raise exception.Create('Unknown instruction "' + name + '"')
         else
           raise exception.Create('Expecting assignment');
       end;
@@ -1812,16 +1954,14 @@ var t: TextFile;
   players: TPlayers;
 begin
   HyperTriggers := false;
-  BoolVarCount:= 0;
-  IntVarCount:= 0;
-  IntArrayCount:= 0;
-  StringCount := 0;
+  InitVariables;
   MainProg.Clear;
 
   PredefineIntArray('Ore','ore');
   PredefineIntArray('Minerals','ore');
   PredefineIntArray('Gas','gas');
   PredefineIntArray('OreAndGas','ore and gas');
+  PredefineIntArray('MineralsAndGas','ore and gas');
   PredefineIntArray('UnitScore','Units Score');
   PredefineIntArray('BuildingScore','Buildings Score');
   PredefineIntArray('UnitAndBuildingScore','Units and buildings Score');
@@ -1831,6 +1971,10 @@ begin
   PredefineIntArray('CustomScore','Custom Score');
   PredefineIntArray('TotalScore','Total Score');
   PredefineIntVar('Countdown', plNone, 'Countdown');
+  ProcessDim('Const vbCr = Chr(13)',True);
+  ProcessDim('Const vbLf = Chr(10)',True);
+  ProcessDim('Const vbTab = Chr(9)',True);
+  ProcessDim('Const vbCrLf = vbCr & vbLf',True);
 
   AssignFile(t, AFilename);
   Reset(t);

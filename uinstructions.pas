@@ -7,6 +7,10 @@ interface
 uses
   Classes, SysUtils, fgl, usctypes;
 
+var
+  AnywhereLocation : string = 'N''importe Où';
+  Force : array[1..4] of string = ('Force 1', 'Force 2', 'Force 3', 'Force 4');
+
 type
   { TInstruction }
 
@@ -265,6 +269,48 @@ type
     function ToString: ansistring; override;
   end;
 
+  { TPlayWAVInstruction }
+
+  TPlayWAVInstruction = class(TInstruction)
+    Filename: string;
+    DurationMs: integer;
+    constructor Create(AFilename: string; ADurationMs: integer);
+    function ToString: ansistring; override;
+  end;
+
+  { TTalkingPortraitInstruction }
+
+  TTalkingPortraitInstruction = class(TInstruction)
+    UnitType: string;
+    DurationMs: integer;
+    constructor Create(AUnitType: string; ADurationMs: integer);
+    function ToString: ansistring; override;
+  end;
+
+  { TRunAIScriptInstruction }
+
+  TRunAIScriptInstruction = class(TInstruction)
+    Script, Location: string;
+    constructor Create(AScript, ALocation: string);
+    function ToString: ansistring; override;
+  end;
+
+  { TSetMissionObjectivesInstruction }
+
+  TSetMissionObjectivesInstruction = class(TInstruction)
+    Text: string;
+    constructor Create(AText: string);
+    function ToString: ansistring; override;
+  end;
+
+  { TSetNextScenarioInstruction }
+
+  TSetNextScenarioInstruction = class(TInstruction)
+    Scenario: string;
+    constructor Create(AScenario: string);
+    function ToString: ansistring; override;
+  end;
+
   { TCenterViewInstruction }
 
   TCenterViewInstruction = class(TInstruction)
@@ -278,6 +324,31 @@ type
   TMinimapPingInstruction = class(TInstruction)
     Location: string;
     constructor Create(ALocation: string);
+    function ToString: ansistring; override;
+  end;
+
+  { TLeaderBoardIncludeComputersInstruction }
+
+  TLeaderBoardIncludeComputersInstruction = class(TInstruction)
+    Include: integer;
+    constructor Create(AInclude: integer);
+    function ToString: ansistring; override;
+  end;
+
+  { TShowLeaderboardOreAndGasIconInstruction }
+
+  TShowLeaderboardOreAndGasIconInstruction = class(TInstruction)
+    Amount: integer;
+    constructor Create(AAmount: integer);
+    function ToString: ansistring; override;
+  end;
+
+  { TShowLeaderboardValueInstruction }
+
+  TShowLeaderboardValueInstruction = class(TInstruction)
+    Text, ValueName: string;
+    Goal: integer;
+    constructor Create(AText,AValueName: string; AGoal: integer = -1);
     function ToString: ansistring; override;
   end;
 
@@ -312,6 +383,17 @@ type
   TPauseCountdownInstruction = class(TInstruction)
     Paused: boolean;
     constructor Create(APaused: Boolean);
+    function ToString: ansistring; override;
+  end;
+
+  TAllianceStatus = (asEnnemy, asAlly, asAlliedVictory);
+
+  { TSetAllianceStatus }
+
+  TSetAllianceStatus = class(TInstruction)
+    Player: TPlayer;
+    Status: TAllianceStatus;
+    constructor Create(APlayer: TPlayer; AStatus: TAllianceStatus);
     function ToString: ansistring; override;
   end;
 
@@ -436,12 +518,23 @@ type
   end;
 
 function PlayerToStr(APlayer: TPlayer): string;
+function IsAnywhere(ALocation: string): boolean;
 
 implementation
 
 function AddQuotes(AText: string): string;
+var
+  i: Integer;
 begin
   result := '"' + StringReplace(StringReplace(AText, '\', '\\', [rfReplaceAll]), '"', '\"', [rfReplaceAll]) + '"';
+  for i := length(result) downto 1 do
+    if result[i] in [#0..#31] then
+    begin
+      if result[i] = #13 then insert('\r',result,i+1)
+      else if result[i] = #10 then insert('\n',result,i+1)
+      else insert('\x0' +IntToHex(ord(result[i]),2), result,i+1);
+      delete(result,i,1);
+    end;
 end;
 
 function PlayerToStr(APlayer: TPlayer): string;
@@ -454,10 +547,174 @@ begin
   plAllies: result := 'Allies';
   plNeutralPlayers: result := 'Neutral players';
   plAllPlayers: result := 'All players';
-  plForce1..plForce4: result := 'Force ' + IntToStr(ord(APlayer) - ord(plForce1)+1);
+  plForce1..plForce4: result := Force[ord(APlayer)-ord(plForce1)+1];
   plNonAlliedVictoryPlayers: result := 'Non Allied Victory Players';
   else result := 'Unknown';
   end;
+end;
+
+function IsAnywhere(ALocation: string): boolean;
+begin
+  result := (ALocation = '') or (CompareText(ALocation, AnywhereLocation)=0);
+end;
+
+{ TShowLeaderboardValueInstruction }
+
+constructor TShowLeaderboardValueInstruction.Create(AText,AValueName: string;
+  AGoal: integer);
+begin
+  Text:= AText;
+  ValueName := AValueName;
+  Goal := AGoal;
+end;
+
+function TShowLeaderboardValueInstruction.ToString: ansistring;
+begin
+  Result:=inherited ToString;
+  if (CompareText(ValueName,'Minerals')=0) or
+    (CompareText(ValueName,'Ore')=0) or
+    (CompareText(ValueName,'MineralsAndGas')=0) or
+    (CompareText(ValueName,'OreAndGas')=0) or
+    (CompareText(ValueName,'Gas')=0) then
+  begin
+    if Goal = -1 then
+      result := 'Leader Board Resources'
+    else
+      result := 'Leaderboard Goal Resources';
+    result += '(' + AddQuotes(Text) + ', ';
+    if (CompareText(ValueName,'Minerals')=0) or
+    (CompareText(ValueName,'Ore')=0) then result += 'ore'
+    else if (CompareText(ValueName,'MineralsAndGas')=0) or
+    (CompareText(ValueName,'OreAndGas')=0) then result += 'ore and gas'
+    else result += 'gas';
+
+    if Goal <> -1 then result += ', ' + inttostr(Goal);
+    result += ')';
+  end else
+  begin
+    if Goal = -1 then
+      result := 'Leader Board Points'
+    else
+      result := 'Leaderboard Goal Points';
+    result += '(' + AddQuotes(Text) + ', ' + ValueName;
+    if Goal <> -1 then result += ', ' + inttostr(Goal);
+    result += ')';
+  end;
+end;
+
+{ TShowLeaderboardOreAndGasIconInstruction }
+
+constructor TShowLeaderboardOreAndGasIconInstruction.Create(AAmount: integer);
+begin
+  Amount := AAmount;
+end;
+
+function TShowLeaderboardOreAndGasIconInstruction.ToString: ansistring;
+begin
+  Result:='Leaderboard Greed(' + intTostr(Amount)+')';
+end;
+
+{ TLeaderBoardIncludeComputersInstruction }
+
+constructor TLeaderBoardIncludeComputersInstruction.Create(AInclude: integer);
+begin
+  Include:= AInclude;
+end;
+
+function TLeaderBoardIncludeComputersInstruction.ToString: ansistring;
+begin
+  Result:='Leaderboard Computer Players(';
+  if Include= 0 then result += 'disable'
+  else if Include=1 then result += 'enable'
+  else result += 'toggle';
+  result += ')';
+end;
+
+{ TTalkingPortraitInstruction }
+
+constructor TTalkingPortraitInstruction.Create(AUnitType: string;
+  ADurationMs: integer);
+begin
+  UnitType:= AUnitType;
+  DurationMs:= ADurationMs;
+end;
+
+function TTalkingPortraitInstruction.ToString: ansistring;
+begin
+  Result:= 'Talking Portrait(' + AddQuotes(UnitType) + ', ' + inttostr(DurationMs) + ')';
+end;
+
+{ TSetAllianceStatus }
+
+constructor TSetAllianceStatus.Create(APlayer: TPlayer; AStatus: TAllianceStatus);
+begin
+  Player:= APlayer;
+  Status:= AStatus;
+end;
+
+function TSetAllianceStatus.ToString: ansistring;
+begin
+  Result:='Set Alliance Status(' + AddQuotes(PlayerToStr(Player))+ ', ';
+  case Status of
+  asEnnemy: result += 'Ennemy';
+  asAlly: result += 'Ally';
+  asAlliedVictory: result += 'AlliedVictory';
+  end;
+  result += ')';
+end;
+
+{ TSetNextScenarioInstruction }
+
+constructor TSetNextScenarioInstruction.Create(AScenario: string);
+begin
+  Scenario:= AScenario;
+end;
+
+function TSetNextScenarioInstruction.ToString: ansistring;
+begin
+  Result:='Set Next Scenario(' + AddQuotes(Scenario) + ')';
+end;
+
+{ TSetMissionObjectivesInstruction }
+
+constructor TSetMissionObjectivesInstruction.Create(AText: string);
+begin
+  Text := AText;
+end;
+
+function TSetMissionObjectivesInstruction.ToString: ansistring;
+begin
+  Result:= 'Set Mission Objectives(' + AddQuotes(Text) + ')';
+end;
+
+{ TRunAIScriptInstruction }
+
+constructor TRunAIScriptInstruction.Create(AScript, ALocation: string);
+begin
+  Script:= AScript;
+  Location:= ALocation;
+end;
+
+function TRunAIScriptInstruction.ToString: ansistring;
+begin
+  Result := 'Run AI Script';
+  if not IsAnywhere(Location) then Result += ' At Location';
+  Result += '(' + AddQuotes(Script);
+  if not IsAnywhere(Location) then Result += ', ' + AddQuotes(Location);
+  result += ')';
+end;
+
+{ TPlayWAVInstruction }
+
+constructor TPlayWAVInstruction.Create(AFilename: string; ADurationMs: integer);
+begin
+  Filename:= AFilename;
+  DurationMs:= ADurationMs;
+end;
+
+function TPlayWAVInstruction.ToString: ansistring;
+begin
+  Result:= 'Play WAV(' + AddQuotes(Filename) + ', ' + inttostr(DurationMs) + ')';
 end;
 
 { TPauseCountdownInstruction }
@@ -649,7 +906,7 @@ function TCompareUnitCountCondition.ToString: ansistring;
 begin
   Result:= 'Command ';
   if Highest then result += 'the Most' else result += 'the Least';
-  if Location <> '' then result += ' At(' + AddQuotes(UnitType) + ', ' +AddQuotes(Location)+')'
+  if not IsAnywhere(Location) then result += ' At(' + AddQuotes(UnitType) + ', ' +AddQuotes(Location)+')'
   else result += '(' + AddQuotes(UnitType) + ')';
 end;
 
@@ -805,7 +1062,7 @@ end;
 { TKillUnitInstruction }
 
 constructor TKillUnitInstruction.Create(APlayer: TPlayer;
-  AQuantity: integer; AUnitType, ALocation: string; ADeathAnimation: boolean);
+  AQuantity: integer; AUnitType: string; ALocation: string; ADeathAnimation: boolean);
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   Player:= APlayer;
@@ -818,7 +1075,7 @@ end;
 function TKillUnitInstruction.ToString: ansistring;
 begin
   if DeathAnimation then result := 'Kill Unit' else result := 'Remove Unit';
-  if (Location<>'') or (Quantity <> -1) then
+  if not IsAnywhere(Location) or (Quantity <> -1) then
   begin
     Result += ' At Location';
     result += '("'+ PlayerToStr(Player)+'", ' + AddQuotes(UnitType)+', ';
@@ -856,7 +1113,7 @@ end;
 
 function TBringCondition.ToString: ansistring;
 begin
-  if Location = '' then
+  if IsAnywhere(Location) then
     Result:= 'Command("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' +
          IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')'
   else

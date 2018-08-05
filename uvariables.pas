@@ -10,6 +10,8 @@ uses
 const
   MaxArraySize = MaxTriggerPlayers;
 
+procedure InitVariables;
+
 var
   IntArrays: array of record
     Predefined, Constant: boolean;
@@ -68,6 +70,17 @@ function UnitPropIndexOf(AName: string): integer;
 function FindOrCreateUnitProperty(AProp: TUnitProperties): integer;
 
 var
+  SoundVars: array of record
+    Name: string;
+    Filename: string;
+    DurationMs: integer;
+  end;
+  SoundCount: integer;
+
+function CreateSound(AName: string; AFilename: string; ADurationMs: integer; AConstant: boolean): integer;
+function SoundIndexOf(AName: string): integer;
+
+var
   StringVars: array of record
     Name: string;
     Value: string;
@@ -80,6 +93,16 @@ function StringIndexOf(AName: string): integer;
 implementation
 
 uses uparsevb;
+
+procedure InitVariables;
+begin
+  BoolVarCount:= 0;
+  IntVarCount:= 0;
+  IntArrayCount:= 0;
+  StringCount := 0;
+  UnitPropCount := 0;
+  SoundCount := 0;
+end;
 
 function CreateIntArray(AName: string; ASize: integer;
   AValues: array of integer; AConstant: boolean): integer;
@@ -342,6 +365,35 @@ begin
   end;
   if result = -1 then
     result := CreateUnitProp('_prop'+inttostr(UnitPropCount+1), AProp, True);
+end;
+
+function CreateSound(AName: string; AFilename: string; ADurationMs: integer; AConstant: boolean): integer;
+begin
+  CheckReservedWord(AName);
+
+  if not AConstant then
+    raise Exception.Create('Sounds must be constant');
+
+  if SoundCount >= length(SoundVars) then
+    setlength(SoundVars, SoundCount*2+4);
+  result := SoundCount;
+  inc(SoundCount);
+
+  with SoundVars[result] do
+  begin
+    Name := AName;
+    Filename:= AFilename;
+    DurationMs:= ADurationMs;
+  end;
+end;
+
+function SoundIndexOf(AName: string): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to SoundCount-1 do
+    if CompareText(SoundVars[i].Name,AName)=0 then exit(i);
+  exit(-1);
 end;
 
 function CreateString(AName: string; AValue: string; AConstant: boolean): integer;

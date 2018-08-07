@@ -935,7 +935,7 @@ begin
           if TryBoolean(line,index,boolVal) then
             CreateBoolVar(varName, BoolToSwitch[boolVal], AConstant)
           else
-            raise exception.Create('Expecting boolean value');
+            raise exception.Create('Expecting boolean constant');
         end else
         if varType = 'Integer' then
         begin
@@ -959,7 +959,7 @@ begin
           if TryString(line,index,text) then
             CreateString(varName,text, AConstant)
           else
-            raise exception.Create('Expecting scalar value');
+            raise exception.Create('Expecting constant value');
         end;
       end else
       begin

@@ -779,7 +779,7 @@ begin
     raise exception.Create('End of line expected');
 end;
 
-procedure ProcessDim(ADeclaration: string; AConstant: boolean);
+procedure ProcessDim(ADeclaration: string; AProg: TInstructionList; AInit0: boolean);
 var line: TStringList;
   index: Integer;
   varName, varType, filename, text: String;
@@ -790,6 +790,7 @@ var line: TStringList;
   boolVal: boolean;
   prop: TUnitProperties;
   arrBoolValues: ArrayOfSwitchValue;
+  Constant: boolean;
 
   procedure ExpectArraySize;
   begin
@@ -799,15 +800,63 @@ var line: TStringList;
       raise Exception.Create('Array size can go from 1 to ' + inttostr(MaxIntArraySize));
   end;
 
+  procedure SetupIntVar(AIntVar: integer);
+  begin
+    with IntVars[AIntVar] do
+    begin
+      if not Constant and (AInit0 or (Value <> 0)) then
+      begin
+        if Randomize then
+          AProg.Add( TSetIntegerInstruction.Create(Player,UnitType, simRandomize, Value) )
+        else
+          AProg.Add( TSetIntegerInstruction.Create(Player,UnitType, simSetTo, Value) );
+      end;
+    end;
+  end;
+
+  procedure SetupBoolVar(ABoolVar: integer);
+  begin
+    with BoolVars[ABoolVar] do
+    begin
+      if not Constant and (AInit0 or (Value <> svClear)) then
+        AProg.Add( TSetSwitchInstruction.Create(Switch, Value) );
+    end;
+  end;
+
+  procedure SetupIntArray(AIntArray: integer);
+  var
+    i: Integer;
+  begin
+    with IntArrays[AIntArray] do
+    begin
+      if not Constant then
+        for i := 1 to Size do
+          SetupIntVar(Vars[i-1]);
+    end;
+  end;
+
+  procedure SetupBoolArray(ABoolArray: integer);
+  var
+    i: Integer;
+  begin
+    with BoolArrays[ABoolArray] do
+    begin
+      if not Constant then
+        for i := 1 to Size do
+          SetupBoolVar(Vars[i-1]);
+    end;
+  end;
+
+
 begin
   line := ParseLine(ADeclaration);
   index := 0;
   try
     if TryToken(line,index,'Const') then
-      AConstant := true
+      Constant := true
     else
     begin
-      AConstant := false;
+      Constant := false;
       ExpectToken(line,index,'Dim');
     end;
 
@@ -880,7 +929,7 @@ begin
                 raise exception.Create('Integer array size can go from 1 to ' + inttostr(MaxIntArraySize));
               arraySize:= length(arrValues);
             end;
-            CreateIntArray(varName, arraySize, arrValues, AConstant);
+            SetupIntArray(CreateIntArray(varName, arraySize, arrValues, Constant));
           end else if varType = 'Boolean' then
           begin
             arrBoolValues := ParseBoolArray(line,index);
@@ -892,7 +941,7 @@ begin
                 raise exception.Create('Boolean array size can go from 1 to ' + inttostr(MaxBoolArraySize));
               arraySize:= length(arrBoolValues);
             end;
-            CreateBoolArray(varName, arraySize, arrBoolValues, AConstant);
+            SetupBoolArray(CreateBoolArray(varName, arraySize, arrBoolValues, Constant));
           end else
             raise exception.Create(varType+' arrays not supported');
         end else
@@ -924,26 +973,26 @@ begin
           end;
           if filename = '' then raise exception.Create('Filename not specified');
           if timeMs = -1 then raise exception.Create('Duration not specified');
-          CreateSound(varName, filename, timeMs, AConstant);
+          CreateSound(varName, filename, timeMs, Constant);
         end else
         if varType = 'UnitProperties' then
         begin
           if TryUnitProperties(line,index,prop) then
           begin
-            CreateUnitProp(varName, prop, AConstant);
+            CreateUnitProp(varName, prop, Constant);
           end;
         end else
         if varType = 'String' then
         begin
-          CreateString(varName,ExpectString(line,index), AConstant);
+          CreateString(varName,ExpectString(line,index), Constant);
         end else
         if varType = 'Boolean' then
         begin
           if TryToken(line,index,'Rnd') then
-            CreateBoolVar(varName, svRandomize, AConstant)
+            SetupBoolVar(CreateBoolVar(varName, svRandomize, Constant))
           else
           if TryBoolean(line,index,boolVal) then
-            CreateBoolVar(varName, BoolToSwitch[boolVal], AConstant)
+            SetupBoolVar(CreateBoolVar(varName, BoolToSwitch[boolVal], Constant))
           else
             raise exception.Create('Expecting boolean constant');
         end else
@@ -951,23 +1000,23 @@ begin
         begin
           rndVal := ParseRandom(line, index);
           if rndVal <> -1 then
-            CreateIntVar(varName, rndVal, true, AConstant)
+            SetupIntVar(CreateIntVar(varName, rndVal, true, Constant))
           else
-            CreateIntVar(varName, ExpectInteger(line,index), false, AConstant);
+            SetupIntVar(CreateIntVar(varName, ExpectInteger(line,index), false, Constant));
         end else
         begin
           if varType <> '?' then raise exception.Create('Unhandled case');
 
           if TryBoolean(line,index,boolVal) then
-            CreateBoolVar(varName, BoolToSwitch[boolVal], AConstant)
+            SetupBoolVar(CreateBoolVar(varName, BoolToSwitch[boolVal], Constant))
           else
           if TryInteger(line,index,intVal) then
-            CreateIntVar(varName, intVal, false, AConstant)
+            SetupIntVar(CreateIntVar(varName, intVal, false, Constant))
           else if TryToken(line,index,'Rnd') then
             raise exception.Create('Cannot determine if integer or boolean')
           else
           if TryString(line,index,text) then
-            CreateString(varName,text, AConstant)
+            CreateString(varName,text, Constant)
           else
             raise exception.Create('Expecting constant value');
         end;
@@ -981,16 +1030,16 @@ begin
           if arraySize= 0 then
             raise exception.Create('Array size not specified');
           if varType = 'Boolean' then
-            CreateBoolArray(varName, arraySize, [], AConstant)
+            SetupBoolArray(CreateBoolArray(varName, arraySize, [], Constant))
           else if varType = 'Integer' then
-            CreateIntArray(varName, arraySize, [], AConstant)
+            SetupIntArray(CreateIntArray(varName, arraySize, [], Constant))
           else raise Exception.Create(varType+' arrays not supported')
         end else
         begin
           if varType = 'Boolean' then
-            CreateBoolVar(varName, svClear, AConstant)
+            SetupBoolVar(CreateBoolVar(varName, svClear, Constant))
           else
-            CreateIntVar(varName, 0, false, AConstant);
+            SetupIntVar(CreateIntVar(varName, 0, false, Constant));
         end;
       end;
     end;
@@ -1144,7 +1193,7 @@ begin
 
     AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
   end else
-  if TryToken(ALine,AIndex,'GetUnit') then
+  if TryToken(ALine,AIndex,'Unit') then
   begin
     ExpectToken(ALine,AIndex,'(');
     intVal := ParseOptionalQuantity;
@@ -1467,6 +1516,35 @@ begin
   end;
 end;
 
+function ParseOption(AText: string): boolean;
+var
+  line: TStringList;
+  index: Integer;
+
+  procedure CheckEndOfLine;
+  begin
+    if index <> line.Count then
+      raise exception.Create('Expecting end of line');
+  end;
+
+begin
+  line := ParseLine(AText);
+  index := 0;
+  if TryToken(line,index,'Option') then
+  begin
+    if TryToken(line,index,'Hyper') then
+    begin
+      if TryToken(line,index,'On') then HyperTriggers:= true
+      else If TryToken(line,index,'Off') then HyperTriggers:= false
+      else raise exception.Create('Expecting On or Off');
+    end else
+      raise exception.Create('Unknown option');
+    CheckEndOfLine;
+    exit(true);
+  end;
+  exit(false);
+end;
+
 procedure ParseInstruction(AText: string; AProg: TInstructionList; AThreads: TPlayers; AProcId: integer);
 var
   line: TStringList;
@@ -1522,17 +1600,6 @@ begin
       CheckEndOfLine;
     end
     else
-    if TryToken(line,index,'Option') then
-    begin
-      if TryToken(line,index,'Hyper') then
-      begin
-        if TryToken(line,index,'On') then HyperTriggers:= true
-        else If TryToken(line,index,'Off') then HyperTriggers:= false
-        else raise exception.Create('Expecting On or Off');
-      end else
-        raise exception.Create('Unknown option');
-      CheckEndOfLine;
-    end else
     if TryToken(line,index,'EndIf') then
     begin
       CheckEndOfLine;
@@ -1753,7 +1820,7 @@ begin
   end;
 end;
 
-function RemoveTrailingComment(AText: string): string;
+function RemoveTrailingCommentAndTabs(AText: string): string;
 var inStr: boolean;
   i: Integer;
 begin
@@ -1763,6 +1830,7 @@ begin
     if AText[i] = '"' then inStr := not inStr;
     if (AText[i] = '''') and not inStr then
       exit(copy(AText,1,i-1));
+    if (AText[i] in[#0..#31]) and not inStr then AText[i] := ' ';
   end;
   exit(AText);
 end;
@@ -1796,10 +1864,10 @@ begin
   PredefineIntArray('CustomScore','Custom Score');
   PredefineIntArray('TotalScore','Total Score');
   PredefineIntVar('Countdown', plNone, 'Countdown');
-  ProcessDim('Const vbCr = Chr(13)',True);
-  ProcessDim('Const vbLf = Chr(10)',True);
-  ProcessDim('Const vbTab = Chr(9)',True);
-  ProcessDim('Const vbCrLf = vbCr & vbLf',True);
+  ProcessDim('Const vbCr = Chr(13)',MainProg, False);
+  ProcessDim('Const vbLf = Chr(10)',MainProg, False);
+  ProcessDim('Const vbTab = Chr(9)',MainProg, False);
+  ProcessDim('Const vbCrLf = vbCr & vbLf',MainProg, False);
 
   AssignFile(t, AFilename);
   Reset(t);
@@ -1812,10 +1880,18 @@ begin
   while not Eof(t) and (errorCount < 3) do
   begin
     ReadLn(t, s);
-    s := Trim(RemoveTrailingComment(s));
+    s := Trim(RemoveTrailingCommentAndTabs(s));
+    if s = '' then continue;
     try
-      if compareText(copy(s, 1, 4), 'Dim ') = 0 then ProcessDim(s, false)
-      else if compareText(copy(s, 1, 6), 'Const ') = 0 then ProcessDim(s, true)
+      if (compareText(copy(s, 1, 4), 'Dim ') = 0) or (compareText(copy(s, 1, 6), 'Const ') = 0) then
+      begin
+        if inEvent <> -1 then
+          ProcessDim(s, Events[inEvent].Instructions, true)
+        else if inSub <> -1 then
+          ProcessDim(s, Procedures[inSub].Instructions, true)
+        else
+          ProcessDim(s, MainProg, false);
+      end
       else if (CompareText(copy(s, 1, 4), 'Sub ') = 0) or (CompareText(copy(s, 1, 9), 'Function ') = 0) then
       begin
         if (inSub<>-1) or (inEvent <> -1) or inSubNew then
@@ -1878,7 +1954,7 @@ begin
         players := ParseAs(s);
         if eof(t) then raise exception.Create('End of file not expected');
         readLn(t,s);
-        s := Trim(RemoveTrailingComment(s));
+        s := Trim(RemoveTrailingCommentAndTabs(s));
         if (CompareText(copy(s, 1, 4), 'Sub ') = 0) or (CompareText(copy(s, 1, 9), 'Function ') = 0) then
         begin
           inSub := ProcessSub(s);
@@ -1886,6 +1962,7 @@ begin
             raise exception.Create('You cannot specify the player for a sub or function except for Sub New');
           if subNewDeclared then raise exception.Create('Sub New already declared');
           inSubNew := true;
+          subNewDeclared:= true;
           if not IsUniquePlayer(players) or (players = [plCurrentPlayer]) then
             raise exception.Create('If you specify a player for Sub New, it must be one specific player');
           for pl := plPlayer1 to plPlayer8 do
@@ -1898,7 +1975,9 @@ begin
       begin
         if (inSub<>-1) or (inEvent <> -1) or inSubNew then
           raise exception.Create('Nested events not allowed');
-        inEvent := ProcessEvent(s, [])
+        if not subNewDeclared then
+          raise exception.Create('Events on main thread must appear after Sub New');
+        inEvent := ProcessEvent(s, [AMainThread])
       end
       else if CompareText(s, 'End When') = 0 then
       begin
@@ -1919,9 +1998,15 @@ begin
         else if inEvent<>-1 then
           ParseInstruction(s, Events[inEvent].Instructions, Events[inEvent].Players, -1)
         else if inSubNew then
-          ParseInstruction(s, MainProg, [plCurrentPlayer], -1)
-        else if s <> '' then
-          raise exception.Create('Unexpected instruction. Please put initialization code into Sub New.');
+        begin
+          if AMainThread = plNone then
+            ParseInstruction(s, MainProg, [plCurrentPlayer], -1)
+          else
+            ParseInstruction(s, MainProg, [AMainThread], -1);
+        end
+        else
+          if not ParseOption(s) then
+            raise exception.Create('Unexpected instruction. Please put initialization code into Sub New.');
       end;
     except
       on ex:Exception do

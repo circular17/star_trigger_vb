@@ -306,8 +306,7 @@ end;
 
 procedure WriteTriggers(AFilename: string; AMainThread: TPlayer);
 var
-  i, j, EndIP: Integer;
-  initSub, combineProg: TInstructionList;
+  i, EndIP: Integer;
   mainOutput: TStringList;
   allProcDone: Boolean;
   players: TPlayers;
@@ -318,36 +317,9 @@ begin
   InitArithmetic;
 
   HyperWaitVar := -1;
-
-  initSub := TInstructionList.Create;
-  for i := 0 to IntArrayCount-1 do
-  with IntArrays[i] do
-  if not Constant then
-  begin
-    for j := 1 to Size do
-      if Values[j-1] <> 0 then
-      with IntVars[Vars[j-1]] do
-        initSub.Add(TSetIntegerInstruction.Create(Player, UnitType, simSetTo, Values[j-1]))
-  end;
-
-  for i := 0 to IntVarCount-1 do
-    if (IntVars[i].Value <> 0) and not IntVars[i].Constant and not IntVars[i].Predefined then
-    begin
-      if IntVars[i].Randomize then
-        initSub.Add(TSetIntegerInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simRandomize, IntVars[i].Value))
-      else
-        initSub.Add(TSetIntegerInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simSetTo, IntVars[i].Value));
-    end;
-
-  for i := 0 to BoolVarCount-1 do
-    if (BoolVars[i].Value in [svSet,svRandomize]) and not BoolVars[i].Constant then
-      initSub.Add(TSetSwitchInstruction.Create(BoolVars[i].Switch, BoolVars[i].Value));
-
   mainOutput := TStringList.Create;
-
   EndIP := 0;
 
-  ExpandInstructions(initSub, -1, [AMainThread]);
   ExpandInstructions(MainProg, -1, [AMainThread]);
 
   for i := 0 to EventCount-1 do
@@ -366,25 +338,7 @@ begin
   until allProcDone;
 
   mainOutput.Add('// Program //');
-
-  if initSub.Count > 0 then
-  begin
-    combineProg := TInstructionList.Create;
-    for i := 0 to initSub.Count-1 do
-      combineProg.Add(initSub[i]);
-    for i := 0 to MainProg.Count-1 do
-      combineProg.Add(MainProg[i]);
-
-    WriteProg(mainOutput, [AMainThread], [], combineProg, -1, EndIP, False);
-
-    combineProg.Free;
-
-    for i := 0 to initSub.Count-1 do
-      initSub[i].Free;
-  end else
-    WriteProg(mainOutput, [AMainThread], [], MainProg, -1, EndIP, False);
-
-  initSub.Free;
+  WriteProg(mainOutput, [AMainThread], [], MainProg, -1, EndIP, False);
 
   noSysIP := CheckSysIP(0);
   for i := 0 to ProcedureCount-1 do

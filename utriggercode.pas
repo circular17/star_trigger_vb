@@ -489,7 +489,7 @@ begin
   //stack overflow handler
   cond.Add(CheckSysIP(PushSysIP));
   cond.Add(TIntegerCondition.Create(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, icmAtLeast, StackSize));
-  proc.Add(TDisplayTextMessageInstruction.Create(True, 'Stack overflow', [plAllPlayers]));
+  proc.Add(TDisplayTextMessageInstruction.Create(True, 'Stack overflow'));
   proc.Add(TWaitInstruction.Create(4000));
   WriteProg(AOutput, [plAllPlayers], cond, proc, -1, -1, True);
   EmptyCond;

@@ -98,8 +98,7 @@ type
   TDisplayTextMessageInstruction = class(TInstruction)
     Always: boolean;
     Text: string;
-    Players: TPlayers;
-    constructor Create(AAlways: boolean; AMessage: string; APlayers: TPlayers);
+    constructor Create(AAlways: boolean; AMessage: string);
     function ToString: ansistring; override;
   end;
 
@@ -1499,11 +1498,10 @@ end;
 { TDisplayTextMessageInstruction }
 
 constructor TDisplayTextMessageInstruction.Create(AAlways: boolean;
-  AMessage: string; APlayers: TPlayers);
+  AMessage: string);
 begin
   Always:= AAlways;
   Text:= AMessage;
-  Players:= APlayers;
 end;
 
 function TDisplayTextMessageInstruction.ToString: ansistring;

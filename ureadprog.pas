@@ -7,7 +7,7 @@ interface
 uses
   Classes, SysUtils, uinstructions, fgl, usctypes;
 
-function ReadProg(AFilename: string): boolean;
+function ReadProg(AFilename: string; out AMainThread: TPlayer): boolean;
 
 type
   TIntegerList = specialize TFPGList<Integer>;
@@ -717,6 +717,7 @@ var
   name: String;
   isFunc: boolean;
   returnType: string;
+  paramCount: integer;
 begin
   line := ParseLine(ADeclaration);
   index := 0;
@@ -728,6 +729,7 @@ begin
     raise exception.Create('Invalid procedure name');
   inc(index);
 
+  paramCount := 0;
   if TryToken(line,index,'(') then
   begin
     ExpectToken(line,index,')');
@@ -745,10 +747,18 @@ begin
   end else
     returnType := 'Void';
 
-  result := CreateProcedure(name,0,returnType);
+  if index < line.Count then
+    raise exception.Create('End of line expect but "' + line[index] + '" found');
 
-  if index <> line.Count then
-    raise exception.Create('End of line expected');
+  if CompareText(name,'New')=0 then
+  begin
+    if returnType <> 'Void' then
+      raise exception.Create('The sub New cannot have a return value');
+    if paramCount <> 0 then
+      raise exception.Create('The sub New takes no parameter');
+    exit(-1);
+  end else
+    result := CreateProcedure(name,paramCount,returnType);
 end;
 
 function ProcessEvent(ADeclaration: string; APlayers: TPlayers): integer;
@@ -1272,6 +1282,14 @@ begin
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TCenterViewInstruction.Create(locStr));
     end else
+    if TryToken(ALine,AIndex,'Print') then
+    begin
+      CheckCurrentPlayer;
+      ExpectToken(ALine,AIndex,'(');
+      text := ExpectString(ALine,AIndex);
+      ExpectToken(ALine,AIndex,')');
+      AProg.Add(TDisplayTextMessageInstruction.Create(true, text));
+    end else
     if TryToken(ALine,AIndex,'TalkingPortrait') then
     begin
       CheckCurrentPlayer;
@@ -1700,41 +1718,29 @@ begin
         if (index = line.Count) or
           ((index < line.Count) and (line[index] = '(')) then
         begin
-          if CompareText(name,'Print')=0 then
+          params := TStringList.Create;
+          if TryToken(line,index,'(') then
           begin
-            ExpectToken(line,index,'(');
-            players := ParsePlayers(line, index);
-            ExpectToken(line,index,',');
-            if index >= line.Count then raise exception.Create('Message expected');
-            msg := ExpectString(line,index);
-            ExpectToken(line,index,')');
-            AProg.Add(TDisplayTextMessageInstruction.Create(true, msg, players));
-          end else
-          begin
-            params := TStringList.Create;
-            if TryToken(line,index,'(') then
+            while not TryToken(line,index,')') do
             begin
-              while not TryToken(line,index,')') do
-              begin
-                if params.Count > 0 then ExpectToken(line,index,',');
-                if TryToken(line,index,',') then
-                  raise exception.Create('Empty parameters not allowed');
-                params.Add(line[index]);
-                inc(index);
-              end;
+              if params.Count > 0 then ExpectToken(line,index,',');
+              if TryToken(line,index,',') then
+                raise exception.Create('Empty parameters not allowed');
+              params.Add(line[index]);
+              inc(index);
             end;
-            CheckEndOfLine;
-
-            if CompareText(name,'Wait')=0 then
-            begin
-              if params.Count <> 1 then
-                raise exception.Create('Procedure takes only one parameter');
-              AProg.Add(TWaitInstruction.Create(StrToInt(params[0])));
-            end
-            else
-              AProg.Add(TCallInstruction.Create(name, params));
-            params.Free;
           end;
+          CheckEndOfLine;
+
+          if CompareText(name,'Wait')=0 then
+          begin
+            if params.Count <> 1 then
+              raise exception.Create('Procedure takes only one parameter');
+            AProg.Add(TWaitInstruction.Create(StrToInt(params[0])));
+          end
+          else
+            AProg.Add(TCallInstruction.Create(name, params));
+          params.Free;
         end else
         if scalar.VarType = svtNone then
           raise exception.Create('Unknown instruction "' + name + '"')
@@ -1747,13 +1753,31 @@ begin
   end;
 end;
 
-function ReadProg(AFilename: string): boolean;
+function RemoveTrailingComment(AText: string): string;
+var inStr: boolean;
+  i: Integer;
+begin
+  inStr := false;
+  for i := 1 to length(AText) do
+  begin
+    if AText[i] = '"' then inStr := not inStr;
+    if (AText[i] = '''') and not inStr then
+      exit(copy(AText,1,i-1));
+  end;
+  exit(AText);
+end;
+
+function ReadProg(AFilename: string; out AMainThread: TPlayer): boolean;
 var t: TextFile;
   s: string;
   lineNumber, errorCount: integer;
   inSub, inEvent, i: integer;
+  inSubNew, subNewDeclared: boolean;
   players: TPlayers;
+  pl: TPlayer;
 begin
+  AMainThread := plNone;
+
   HyperTriggers := false;
   InitVariables;
   MainProg.Clear;
@@ -1783,18 +1807,26 @@ begin
   errorCount := 0;
   inSub := -1;
   inEvent := -1;
+  inSubNew := false;
+  subNewDeclared := false;
   while not Eof(t) and (errorCount < 3) do
   begin
     ReadLn(t, s);
-    s := Trim(s);
+    s := Trim(RemoveTrailingComment(s));
     try
       if compareText(copy(s, 1, 4), 'Dim ') = 0 then ProcessDim(s, false)
       else if compareText(copy(s, 1, 6), 'Const ') = 0 then ProcessDim(s, true)
       else if (CompareText(copy(s, 1, 4), 'Sub ') = 0) or (CompareText(copy(s, 1, 9), 'Function ') = 0) then
       begin
-        if (inSub<>-1) or (inEvent <> -1) then
+        if (inSub<>-1) or (inEvent <> -1) or inSubNew then
           raise exception.Create('Nested procedures not allowed');
-        inSub := ProcessSub(s)
+        inSub := ProcessSub(s);
+        if inSub = -1 then
+        begin
+          if subNewDeclared then raise exception.Create('Sub New already declared');
+          inSubNew:= true;
+          subNewDeclared := true;
+        end;
       end
       else if (CompareText(s, 'Return') = 0) and (inEvent <> -1) then
       begin
@@ -1819,34 +1851,52 @@ begin
       end
       else if CompareText(s, 'End Sub') = 0 then
       begin
-        if inSub= -1 then
-          raise Exception.create('Not in a procedure');
-        if Procedures[inSub].ReturnType <> 'Void' then raise exception.Create('Expecting "End Function"');
-        with Procedures[inSub].Instructions do
-          if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
-            Add(TReturnInstruction.Create);
-        inSub := -1;
+        if inSubNew then inSubNew := false
+        else
+        begin
+          if inSub= -1 then
+            raise Exception.create('Not in a procedure');
+          if Procedures[inSub].ReturnType <> 'Void' then raise exception.Create('Expecting "End Function"');
+          with Procedures[inSub].Instructions do
+            if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
+              Add(TReturnInstruction.Create);
+          inSub := -1;
+        end;
       end
       else if CompareText(s, 'End Function') = 0 then
       begin
         if inSub= -1 then
-          raise Exception.create('Not in a procedure');
-        if Procedures[inSub].ReturnType = 'Void' then raise exception.Create('Expecting "End Sub"');
+          raise Exception.create('Not in a function');
+        if Procedures[inSub].ReturnType = 'Void' then raise exception.Create('Expecting "End Sub" instead');
         with Procedures[inSub].Instructions do
           if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
             Add(TReturnInstruction.Create);
         inSub := -1;
       end
-      else if (inSub = -1) and (inEvent = -1) and (CompareText(copy(s,1,3),'As ') = 0) then
+      else if (inSub = -1) and (inEvent = -1) and not inSubNew and (CompareText(copy(s,1,3),'As ') = 0) then
       begin
         players := ParseAs(s);
         if eof(t) then raise exception.Create('End of file not expected');
         readLn(t,s);
-        inEvent := ProcessEvent(s, players)
+        s := Trim(RemoveTrailingComment(s));
+        if (CompareText(copy(s, 1, 4), 'Sub ') = 0) or (CompareText(copy(s, 1, 9), 'Function ') = 0) then
+        begin
+          inSub := ProcessSub(s);
+          if inSub <> -1 then
+            raise exception.Create('You cannot specify the player for a sub or function except for Sub New');
+          if subNewDeclared then raise exception.Create('Sub New already declared');
+          inSubNew := true;
+          if not IsUniquePlayer(players) or (players = [plCurrentPlayer]) then
+            raise exception.Create('If you specify a player for Sub New, it must be one specific player');
+          for pl := plPlayer1 to plPlayer8 do
+            if pl in players then AMainThread:= pl;
+          if AMainThread = plNone then raise exception.Create('This player can''t be used as a main thread');
+        end else
+          inEvent := ProcessEvent(s, players)
       end
       else if CompareText(copy(s, 1, 5), 'When ') = 0 then
       begin
-        if (inSub<>-1) or (inEvent <> -1) then
+        if (inSub<>-1) or (inEvent <> -1) or inSubNew then
           raise exception.Create('Nested events not allowed');
         inEvent := ProcessEvent(s, [])
       end
@@ -1868,8 +1918,10 @@ begin
           ParseInstruction(s, Procedures[inSub].Instructions,[plAllPlayers], inSub)
         else if inEvent<>-1 then
           ParseInstruction(s, Events[inEvent].Instructions, Events[inEvent].Players, -1)
-        else
-          ParseInstruction(s, MainProg, [plCurrentPlayer], -1);
+        else if inSubNew then
+          ParseInstruction(s, MainProg, [plCurrentPlayer], -1)
+        else if s <> '' then
+          raise exception.Create('Unexpected instruction. Please put initialization code into Sub New.');
       end;
     except
       on ex:Exception do

@@ -14,42 +14,6 @@ implementation
 
 uses utriggercode, uarithmetic, ureadprog, uinstructions, uvariables;
 
-// output instructions that have already been expanded
-
-var
-  PrintedBoolVar: integer;
-  PrintingMessageIntVar: integer;
-  Messages: array of record
-    Text: string;
-    Players: TPlayers;
-    Always: boolean;
-  end;
-  MessageCount: integer;
-
-function AddMessage(AText: string; APlayers: TPlayers; AAlways: boolean): integer;
-begin
-  if MessageCount >= length(Messages) then
-    setlength(Messages, MessageCount*2+4);
-
-  result := MessageCount;
-  inc(MessageCount);
-
-  Messages[result].Text:= AText;
-  Messages[result].Players:= APlayers;
-  Messages[result].Always := AAlways;
-
-  if PrintedBoolVar = -1 then
-  begin
-    PrintedBoolVar:= BoolVarIndexOf('_printed');
-    if PrintedBoolVar = -1 then
-      PrintedBoolVar:= CreateBoolVar('_printed', svClear);
-
-    PrintingMessageIntVar:= IntVarIndexOf('_message');
-    if PrintingMessageIntVar = -1 then
-      PrintingMessageIntVar:= CreateIntVar('_message', 0);
-  end;
-end;
-
 var
   HyperWaitVar: integer;
 
@@ -77,7 +41,6 @@ var
   nesting, elseIndex, endIfIndex: integer;
   startWhileIP, msgIdx, k: integer;
   ifInstr: TIfInstruction;
-  disp: TDisplayTextMessageInstruction;
   waitInstr: TWaitConditionInstruction;
   splitInstr: TSplitInstruction;
   thenPart,elsePart: TInstructionList;
@@ -277,23 +240,6 @@ begin
         expanded.Add( TSplitInstruction.Create(NewIP, -1));
       ret.Free;
       continue;
-    end else
-    if AProg[i] is TDisplayTextMessageInstruction then
-    begin
-      disp := TDisplayTextMessageInstruction(AProg[i]);
-      if not ((disp.Players = [plCurrentPlayer]) or (disp.Players = APlayers)) then
-      begin
-        msgIdx := AddMessage(disp.Text, disp.Players, disp.Always);
-        expanded.Add( TWaitConditionInstruction.Create(
-                         TIntegerCondition.Create(IntVars[PrintingMessageIntVar].Player, IntVars[PrintingMessageIntVar].UnitType, icmExactly, 0), NewIP ) );
-        expanded.Add( TSetIntegerInstruction.Create(IntVars[PrintingMessageIntVar].Player, IntVars[PrintingMessageIntVar].UnitType, simSetTo, msgIdx+1) );
-        expanded.Add( TWaitConditionInstruction.Create(
-                         TSwitchCondition.Create(BoolVars[PrintedBoolVar].Switch, true), NewIP ) );
-        expanded.Add( TSetIntegerInstruction.Create(IntVars[PrintingMessageIntVar].Player, IntVars[PrintingMessageIntVar].UnitType, simSetTo, 0) );
-        expanded.Add( TSetSwitchInstruction.Create(BoolVars[PrintedBoolVar].Switch, svClear) );
-        disp.Free;
-        Continue;
-      end;
     end;
     expanded.Add(AProg[i]);
   end;
@@ -336,32 +282,6 @@ begin
   CloseFile(t);
 end;
 
-procedure WriteMessages(AOutput: TStringList);
-var
-  msgIdxCond: TIntegerCondition;
-  msgInstr: TDisplayTextMessageInstruction;
-  setFlag: TSetSwitchInstruction;
-  i: Integer;
-begin
-  If MessageCount = 0 then exit;
-  AOutput.Add('// Messages //');
-
-  msgIdxCond := TIntegerCondition.Create(IntVars[PrintingMessageIntVar].Player, IntVars[PrintingMessageIntVar].UnitType,
-                icmExactly, 0);
-  msgInstr := TDisplayTextMessageInstruction.Create(True,'',[plCurrentPlayer]);
-  setFlag := TSetSwitchInstruction.Create(BoolVars[PrintedBoolVar].Switch, svSet);
-  for i := 0 to MessageCount-1 do
-  begin
-    msgIdxCond.Value := i+1;
-    msgInstr.Always:= Messages[i].Always;
-    msgInstr.Text := Messages[i].Text;
-    WriteTrigger(AOutput, Messages[i].Players, [msgIdxCond.ToString], [msgInstr.ToString, setFlag.ToString], -1, True);
-  end;
-  msgIdxCond.Free;
-  msgInstr.Free;
-  setFlag.Free;
-end;
-
 procedure WriteHyperTriggers(AOutput: TStringList);
 var
   wait: TWaitInstruction;
@@ -397,9 +317,6 @@ begin
   InitTriggerCode;
   InitArithmetic;
 
-  PrintedBoolVar:= -1;
-  PrintingMessageIntVar:= -1;
-  MessageCount := 0;
   HyperWaitVar := -1;
 
   initSub := TInstructionList.Create;
@@ -487,7 +404,6 @@ begin
   end;
 
   //write generated code at the end of the file
-  WriteMessages(mainOutput);
   WriteStackTriggers(mainOutput);
   WriteArithmeticTriggers(mainOutput);
 

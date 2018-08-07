@@ -39,12 +39,13 @@ var
   call: TCallInstruction;
   ret: TReturnInstruction;
   nesting, elseIndex, endIfIndex: integer;
-  startWhileIP, msgIdx, k: integer;
+  startWhileIP, k: integer;
   ifInstr: TIfInstruction;
   waitInstr: TWaitConditionInstruction;
   splitInstr: TSplitInstruction;
   thenPart,elsePart: TInstructionList;
   notCond: TNotCondition;
+  tempExpand: TInstructionList;
 
 begin
   expanded := TInstructionList.Create;
@@ -55,8 +56,13 @@ begin
 
     if AProg[i] is TTransferIntegerInstruction then
     begin
-      ExpandIntegerTransfer(TTransferIntegerInstruction(AProg[i]), expanded);
+      tempExpand := TInstructionList.Create;
+      ExpandIntegerTransfer(TTransferIntegerInstruction(AProg[i]), tempExpand);
       AProg[i].Free;
+      ExpandInstructions(tempExpand, AInProc, APlayers);
+      for j := 0 to tempExpand.Count-1 do
+        expanded.Add(tempExpand[j]);
+      tempExpand.Free;
       Continue;
     end else
     if HyperTriggers and (AProg[i] is TWaitInstruction) then

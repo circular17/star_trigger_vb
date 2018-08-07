@@ -374,7 +374,7 @@ procedure ExpandIntegerTransfer(ATransfer: TTransferIntegerInstruction; AExpande
 var
   nextIP: Integer;
 begin
-  if ATransfer.Player = plNone then
+  if ATransfer.UnitType = 'Const' then
   begin
     NeedAcc;
     case ATransfer.Action of

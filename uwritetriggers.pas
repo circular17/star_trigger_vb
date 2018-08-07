@@ -61,7 +61,7 @@ begin
     begin
       HyperWaitVar := IntArrayIndexOf('_hyperwait');
       if HyperWaitVar = -1 then
-        HyperWaitVar := CreateIntArray('_hyperwait', MaxArraySize, []);
+        HyperWaitVar := CreateIntArray('_hyperwait', MaxTriggerPlayers, []);
     end;
   end;
 end;
@@ -252,6 +252,9 @@ begin
       if procIdx = -1 then
         raise Exception.Create('Procedure not found "' + call.Name + '" with ' + Inttostr(length(call.Params)) + ' parameter(s)');
 
+      if (call.ReturnType <> 'Void') and (Procedures[procIdx].ReturnType <> call.ReturnType) then
+        raise exception.Create('Expecting ' + call.ReturnType + ' return type but ' + Procedures[procIdx].ReturnType + ' found');
+
       if Procedures[procIdx].StartIP = -1 then Procedures[procIdx].StartIP:= NewIP;
 
       If AInProc <> -1 then
@@ -261,8 +264,7 @@ begin
       end;
 
       nextIP := NewIP;
-      AddSysPush(expanded, nextIP);
-      expanded.Add( TJumpReturnInstruction.Create(Procedures[procIdx].StartIP, nextIP) );
+      AddSysCall(expanded, nextIP, Procedures[procIdx].StartIP);
 
       call.Free;
       continue;
@@ -304,18 +306,29 @@ end;
 procedure WriteFile(AFilename: string; ALines: TStringList);
 var
   t: TextFile;
-  i: Integer;
+  i, j: Integer;
 begin
   AssignFile(t, AFilename);
   Rewrite(t);
   for i := 0 to IntArrayCount-1 do
     if not IntArrays[i].Predefined and not IntArrays[i].Constant then
-      writeln(t, '// ', IntArrays[i].Name, '('+ intToStr(IntArrays[i].Size)+') stored in "', IntArrays[i].UnitType, '" //');
+    begin
+      writeln(t, '// ', IntArrays[i].Name, '(1 to '+ intToStr(MaxTriggerPlayers)+') stored in "', IntArrays[i].UnitType, '" //');
+      for j := 1 to IntArrays[i].Size do
+        with IntVars[IntArrays[i].Vars[j-1]] do
+          if UnitType <> IntArrays[i].UnitType then
+            writeln(t, '// ', IntArrays[i].Name, '('+ intToStr(j)+') stored in "', UnitType, '" of "', PlayerToStr(Player),'" //');
+    end;
   for i := 0 to IntVarCount-1 do
     if not IntVars[i].Predefined and not IntVars[i].Constant then
       writeln(t, '// ', IntVars[i].Name, ' stored in "', IntVars[i].UnitType, '" of "', PlayerToStr(IntVars[i].Player),'" //');
+  for i := 0 to BoolArrayCount-1 do
+    if not BoolArrays[i].Constant then
+      writeln(t, '// ', BoolArrays[i].Name, '(1 to '+inttostr(BoolArrays[i].Size)+') stored in ' +
+      '"Switch', BoolVars[BoolArrays[i].Vars[0]].Switch, '" to '+
+      '"Switch', BoolVars[BoolArrays[i].Vars[BoolArrays[i].Size-1]].Switch,'" //');
   for i := 0 to BoolVarCount-1 do
-    if not BoolVars[i].Constant then
+    if not BoolVars[i].Constant and (BoolVars[i].BoolArray = -1) then
       writeln(t, '// ', BoolVars[i].Name, ' stored in "Switch', BoolVars[i].Switch, '" //');
   writeln(t);
   for i := 0 to ALines.Count-1 do
@@ -378,6 +391,7 @@ var
   mainOutput: TStringList;
   allProcDone: Boolean;
   players: TPlayers;
+  noSysIP: TCondition;
 
 begin
   InitTriggerCode;
@@ -394,12 +408,13 @@ begin
   if not Constant then
   begin
     for j := 1 to Size do
-      if Values[j] <> 0 then
-        initSub.Add(TSetIntegerInstruction.Create(IntToPlayer(j), UnitType, simSetTo, Values[j]))
+      if Values[j-1] <> 0 then
+      with IntVars[Vars[j-1]] do
+        initSub.Add(TSetIntegerInstruction.Create(Player, UnitType, simSetTo, Values[j-1]))
   end;
 
   for i := 0 to IntVarCount-1 do
-    if (IntVars[i].Value <> 0) and not IntVars[i].Constant then
+    if (IntVars[i].Value <> 0) and not IntVars[i].Constant and not IntVars[i].Predefined then
     begin
       if IntVars[i].Randomize then
         initSub.Add(TSetIntegerInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simRandomize, IntVars[i].Value))
@@ -454,12 +469,14 @@ begin
 
   initSub.Free;
 
+  noSysIP := CheckSysIP(0);
   for i := 0 to ProcedureCount-1 do
     if Procedures[i].StartIP <> -1 then
     begin
       mainOutput.Add('// Sub ' + Procedures[i].Name + ' //');
-      WriteProg(mainOutput, [plAllPlayers], [], Procedures[i].Instructions, Procedures[i].StartIP, EndIP, true);
+      WriteProg(mainOutput, [plAllPlayers], [noSysIP], Procedures[i].Instructions, Procedures[i].StartIP, EndIP, true);
     end;
+  noSysIP.Free;
 
   for i := 0 to EventCount-1 do
   begin

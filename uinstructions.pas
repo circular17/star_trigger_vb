@@ -68,7 +68,8 @@ type
     function ToString: ansistring; override;
   end;
 
-  TIntegerTransfer = (itCopyToAccumulator, itAddToAccumulator, itCopyFromAccumulator, itAddFromAccumulator);
+  TIntegerTransfer = (itCopyIntoAccumulator, itAddIntoAccumulator, itCopyAccumulator, itAddAccumulator,
+                      itSubtractIntoAccumulator, itSubtractAccumulator, itRandomizeAccumulator);
 
   { TTransferIntegerInstruction }
 
@@ -76,7 +77,9 @@ type
     Player: TPlayer;
     UnitType: string;
     Action: TIntegerTransfer;
+    Value: integer;
     constructor Create(APlayer: TPlayer; AUnitType: string; AAction: TIntegerTransfer);
+    constructor Create(AValue: integer; AAction: TIntegerTransfer);
     function ToString: ansistring; override;
   end;
 
@@ -113,8 +116,9 @@ type
   TCallInstruction = class(TInstruction)
     Name: string;
     Params: array of string;
-    constructor Create(AName: string; AParams: array of string);
-    constructor Create(AName: string; AParams: TStringList);
+    ReturnType: string;
+    constructor Create(AName: string; AParams: array of string; AReturnType: string = 'Void');
+    constructor Create(AName: string; AParams: TStringList; AReturnType: string = 'Void');
     function ToString: ansistring; override;
   end;
 
@@ -1228,17 +1232,46 @@ begin
   Player:= APlayer;
   UnitType:= AUnitType;
   Action:= AAction;
+  Value := 0;
+  if AAction = itRandomizeAccumulator then raise exception.Create('Randomize can only be done with a constant range');
+end;
+
+constructor TTransferIntegerInstruction.Create(AValue: integer;
+  AAction: TIntegerTransfer);
+begin
+  if AAction in [itAddAccumulator,itSubtractAccumulator,itCopyAccumulator] then
+    raise exception.Create('Cannot copy into a constant');
+  Player:= plNone;
+  UnitType:= 'Const';
+  Action:= AAction;
+  Value := AValue;
+  if Value < 0 then
+  begin
+    case Action of
+    itAddIntoAccumulator: Action := itSubtractIntoAccumulator;
+    itSubtractIntoAccumulator: Action := itAddIntoAccumulator;
+    itCopyIntoAccumulator: Value := 0;
+    else raise exception.Create('Case not handled');
+    end;
+  end;
 end;
 
 function TTransferIntegerInstruction.ToString: ansistring;
 var modeStr: string;
 begin
   case Action of
-  itAddToAccumulator: modeStr := 'Add to acc';
-  itCopyFromAccumulator: modeStr := 'Copy from acc';
+  itAddIntoAccumulator: modeStr := 'Add into acc';
+  itSubtractIntoAccumulator: modeStr := 'Subtract into acc';
+  itCopyAccumulator: modeStr := 'Copy acc';
+  itAddAccumulator: modeStr := 'Add acc';
+  itSubtractAccumulator: modeStr := 'Subtract acc';
+  itRandomizeAccumulator: modeStr := 'Randomize acc';
   else modeStr := 'Copy to acc';
   end;
-  Result:= 'TransferInteger("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' + modeStr + ')';
+  if Player <> plNone then
+    Result:= 'TransferInteger("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' + modeStr + ')'
+  else
+    Result:= 'TransferInteger(' + inttostr(Value) + ', ' + modeStr + ')'
 end;
 
 { TConditionList }
@@ -1416,7 +1449,7 @@ end;
 
 { TCallInstruction }
 
-constructor TCallInstruction.Create(AName: string; AParams: array of string);
+constructor TCallInstruction.Create(AName: string; AParams: array of string; AReturnType: string = 'Void');
 var
   i: Integer;
 begin
@@ -1424,9 +1457,10 @@ begin
   setlength(Params, length(AParams));
   for i := 0 to high(AParams) do
     Params[i] := AParams[i];
+  ReturnType:= AReturnType;
 end;
 
-constructor TCallInstruction.Create(AName: string; AParams: TStringList);
+constructor TCallInstruction.Create(AName: string; AParams: TStringList; AReturnType: string = 'Void');
 var
   i: Integer;
 begin
@@ -1434,6 +1468,7 @@ begin
   setlength(Params, AParams.Count);
   for i := 0 to AParams.Count-1 do
     Params[i] := AParams[i];
+  ReturnType:= AReturnType;
 end;
 
 function TCallInstruction.ToString: ansistring;
@@ -1569,6 +1604,20 @@ begin
   UnitType := AUnitType;
   Mode := AMode;
   Value := AValue;
+  if Value < 0 then
+  begin
+    if Mode = simSubtract then
+    begin
+      Value := -Value;
+      Mode := simAdd;
+    end else
+    if Mode = simAdd then
+    begin
+      Value := -Value;
+      Mode := simSubtract;
+    end else
+      Value := 0;
+  end;
 end;
 
 function TSetIntegerInstruction.ToString: ansistring;

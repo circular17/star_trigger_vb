@@ -36,7 +36,7 @@ function CheckSysIP(AValue: integer): TCondition;
 function SetSysParam(AValue: integer): TInstruction;
 function CheckSysParam(AValue: integer): TCondition;
 
-procedure AddSysPush(AInstructions: TInstructionList; AValue: integer);
+procedure AddSysCall(AInstructions: TInstructionList; AReturnIP, ACalledIP: integer);
 procedure AddSysReturn(AInstructions: TInstructionList);
 procedure WriteStackTriggers(AOutput: TStringList);
 
@@ -129,7 +129,7 @@ begin
   begin
     SysIPVar := IntArrayIndexOf('_sysIp');
     if SysIPVar = -1 then
-      SysIPVar := CreateIntArray('_sysIp', MaxArraySize, []);
+      SysIPVar := CreateIntArray('_sysIp', MaxTriggerPlayers, []);
   end;
   result := SysIPVar;
 end;
@@ -150,7 +150,7 @@ begin
   begin
     SysParamArray:= IntArrayIndexOf('_sysParam');
     if SysParamArray = -1 then
-      SysParamArray := CreateIntArray('_sysParam', MaxArraySize, []);
+      SysParamArray := CreateIntArray('_sysParam', MaxTriggerPlayers, []);
   end;
 end;
 
@@ -178,7 +178,7 @@ end;
 
 var
   SPArrayVar: integer;
-  StackArrays: array[1..MaxArraySize] of integer;
+  StackArrays: array[1..MaxStackSize] of integer;
   StackSize: integer;     //number of values that can be on the stack (max is MaxArraySize)
   MaxStackBits: integer;  //number of bits for one value on the stack (max is 32)
   ReturnSysIP, PushSysIP, WaitReturnIP: integer; //return and push functions
@@ -189,7 +189,7 @@ begin
   begin
     SPArrayVar := IntArrayIndexOf('_sp');
     if SPArrayVar = -1 then
-      SPArrayVar := CreateIntArray('_sp', MaxArraySize, []);
+      SPArrayVar := CreateIntArray('_sp', MaxTriggerPlayers, []);
 
     ReturnSysIP := NewSysIP;
     PushSysIP:= NewSysIP;
@@ -243,7 +243,7 @@ begin
   begin
     StackArrays[i]:= IntArrayIndexOf('_stackValue'+inttostr(i));
     if StackArrays[i] = -1 then
-      StackArrays[i] := CreateIntArray('_stackValue'+inttostr(i), MaxArraySize, []);
+      StackArrays[i] := CreateIntArray('_stackValue'+inttostr(i), MaxTriggerPlayers, []);
   end;
 end;
 
@@ -394,11 +394,11 @@ begin
   WriteProg(AOutput, APlayers, cond, AProg, AIPStart, AReturnIP, APreserve, ATempPreserve);
 end;
 
-procedure AddSysPush(AInstructions: TInstructionList; AValue: integer);
+procedure AddSysCall(AInstructions: TInstructionList; AReturnIP, ACalledIP: integer);
 begin
-  AInstructions.Add(SetSysParam(AValue));
+  AInstructions.Add(SetSysParam(AReturnIP));
   AInstructions.Add(SetPushSysIP);
-  AInstructions.Add(TWaitConditionInstruction.Create(CheckSysIP(0), NewIP));
+  AInstructions.Add(TSplitInstruction.Create(AReturnIP, ACalledIP));
 end;
 
 procedure AddSysReturn(AInstructions: TInstructionList);
@@ -533,7 +533,7 @@ procedure InitTriggerCode;
 begin
   IPVar := IntArrayIndexOf('_ip');
   if IPVar = -1 then
-    IPVar := CreateIntArray('_ip', MaxArraySize, []);
+    IPVar := CreateIntArray('_ip', MaxTriggerPlayers, []);
   CurIPValue := 0;
 
   //IntArrays[IPVar].UnitType:= 'Gas'; //debug

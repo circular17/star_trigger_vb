@@ -9,6 +9,7 @@ uses
 
 type
   TSwitchValue = (svClear, svSet, svRandomize, svToggle);
+  ArrayOfSwitchValue = array of TSwitchValue;
 
 const
   BoolToSwitch : array[Boolean] of TSwitchValue = (svClear, svSet);
@@ -28,6 +29,7 @@ function IntToPlayer(APlayer: integer): TPlayer;
 
 const
   MaxTriggerPlayers = 8;
+  MaxSwitches = 256;
   PlayerIdentifiers : array[TPlayer] of string =
     ('', 'Player1', 'Player2', 'Player3', 'Player4',
     'Player5', 'Player6', 'Player7', 'Player8',

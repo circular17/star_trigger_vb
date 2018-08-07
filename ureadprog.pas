@@ -800,10 +800,26 @@ var line: TStringList;
       raise Exception.Create('Array size can go from 1 to ' + inttostr(MaxIntArraySize));
   end;
 
-  procedure SetupIntVar(AIntVar: integer);
+  procedure SetupIntVar(AIntVar: integer; AExpr : TExpression = nil);
   begin
     with IntVars[AIntVar] do
     begin
+      if AExpr <> nil then
+      begin
+        if AExpr.IsConstant then
+        begin
+          Value := AExpr.ConstElement;
+          AExpr.Free;
+        end
+        else
+        begin
+          if Constant then
+            raise exception.Create('Expression is not constant');
+          AExpr.AddToProgram( AProg, Player, UnitType, simSetTo);
+          AExpr.Free;
+          exit;
+        end;
+      end;
       if not Constant and (AInit0 or (Value <> 0)) then
       begin
         if Randomize then
@@ -998,11 +1014,7 @@ begin
         end else
         if varType = 'Integer' then
         begin
-          rndVal := ParseRandom(line, index);
-          if rndVal <> -1 then
-            SetupIntVar(CreateIntVar(varName, rndVal, true, Constant))
-          else
-            SetupIntVar(CreateIntVar(varName, ExpectInteger(line,index), false, Constant));
+          SetupIntVar(CreateIntVar(varName, 0, true, Constant), TryExpression(line,index,true));
         end else
         begin
           if varType <> '?' then raise exception.Create('Unhandled case');
@@ -1038,8 +1050,9 @@ begin
         begin
           if varType = 'Boolean' then
             SetupBoolVar(CreateBoolVar(varName, svClear, Constant))
-          else
-            SetupIntVar(CreateIntVar(varName, 0, false, Constant));
+          else if VarType = 'Integer' then
+            SetupIntVar(CreateIntVar(varName, 0, false, Constant))
+          else raise exception.Create('Initial value needed for '+varType);
         end;
       end;
     end;
@@ -1106,7 +1119,7 @@ end;
 
 function TryPlayerAction(AProg: TInstructionList; ALine: TStringList; var AIndex: Integer; APlayer: TPlayer; AThreads: TPlayers): boolean;
 var
-  intVal, propIndex, propVal, timeMs, varIdx: integer;
+  intVal, propIndex, propVal, timeMs, varIdx, tempInt, i: integer;
   unitType, locStr, destLocStr, orderStr, filename, text: String;
   boolVal, textDefined: boolean;
   destPl: TPlayer;
@@ -1115,6 +1128,7 @@ var
   alliance: TAllianceStatus;
   pl: TPlayer;
   conds: TConditionList;
+  expr: TExpression;
 
   procedure CheckCurrentPlayer;
   begin
@@ -1141,13 +1155,13 @@ begin
   if TryToken(ALine,AIndex,'CreateUnit') then
   begin
     ExpectToken(ALine,AIndex,'(');
-    if TryInteger(ALine,AIndex,intVal) then
+    expr := TryExpression(ALine,AIndex,True);
+    if expr.IsConstant and (expr.ConstElement < 1) then
     begin
-      if intVal <= 0 then raise exception.Create('Quantity must be at least 1');
-      ExpectToken(ALine,AIndex,',');
-    end else
-      intVal := 1;
-
+      expr.Free;
+      raise exception.Create('Quantity must be at least 1');
+    end;
+    ExpectToken(ALine,AIndex,',');
     unitType := ExpectString(ALine,AIndex);
     ExpectToken(ALine,AIndex,',');
     locStr := ExpectString(ALine,AIndex);
@@ -1159,7 +1173,22 @@ begin
     end else
       propIndex := -1;
     ExpectToken(ALine,AIndex,')');
-    AProg.Add(TCreateUnitInstruction.Create(APlayer, intVal, unitType, locStr, propIndex));
+
+    if expr.IsConstant then
+      AProg.Add(TCreateUnitInstruction.Create(APlayer, expr.ConstElement, unitType, locStr, propIndex))
+    else
+    begin
+      tempInt := AllocateTempInt;
+      expr.AddToProgram(AProg, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
+      for i := 10 downto 0 do
+      begin
+        AProg.Add( TIfInstruction.Create( TIntegerCondition.Create( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i) ) );
+        AProg.Add( TCreateUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, propIndex) );
+        AProg.Add( TSetIntegerInstruction.Create(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
+        AProg.Add( TEndIfInstruction.Create );
+      end;
+      ReleaseTempInt(tempInt);
+    end;
 
   end else
   if TryToken(ALine,AIndex,'KillUnit') or TryToken(ALine,AIndex,'RemoveUnit') then
@@ -1558,6 +1587,7 @@ var
   ints: ArrayOfInteger;
   sim: TSetIntegerMode;
   pl: TPlayer;
+  expr: TExpression;
 
   procedure CheckEndOfLine;
   begin
@@ -1582,7 +1612,9 @@ begin
           else
           begin
             idxVar := ProcedureReturnVar(AProcId);
-            TryExpression(line,index,AProg, IntVars[idxVar].Player,IntVars[idxVar].UnitType, simSetTo, true);
+            expr := TryExpression(line,index,true);
+            expr.AddToProgram(AProg, IntVars[idxVar].Player,IntVars[idxVar].UnitType, simSetTo);
+            expr.Free;
           end;
         end else
         if Procedures[AProcId].ReturnType = 'Boolean' then
@@ -1649,7 +1681,11 @@ begin
           done := true;
           if scalar.Constant then raise exception.Create('Constant cannot be assigned to');
           case scalar.VarType of
-          svtInteger: TryExpression(line, index, AProg, scalar.Player, scalar.UnitType, simSetTo, true);
+          svtInteger: begin
+              expr := TryExpression(line, index, true);
+              expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simSetTo);
+              expr.Free;
+            end;
           svtSwitch:
             begin
               intVal := ParseRandom(line, index);
@@ -1689,10 +1725,12 @@ begin
             if scalar.Constant then raise exception.Create('Constant cannot be assigned to');
             if scalar.VarType = svtInteger then
             begin
+              expr := TryExpression(line,index, true);
               if assignOp='+' then
-                TryExpression(line,index,AProg, scalar.Player, scalar.UnitType, simAdd, true)
+                expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simAdd)
               else if assignOp='-' then
-                TryExpression(line,index,AProg, scalar.Player, scalar.UnitType, simSubtract, true);
+                expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simSubtract);
+              expr.Free;
             end
             else raise Exception.Create('Integer variables only can be incremented/decremented');
           end;

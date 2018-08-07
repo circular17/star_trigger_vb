@@ -5,7 +5,7 @@ unit uexpressions;
 interface
 
 uses
-  Classes, SysUtils, usctypes, uinstructions;
+  Classes, SysUtils, usctypes, uinstructions, fgl;
 
 type
   TScalarVariableType = (svtNone, svtInteger, svtSwitch);
@@ -26,13 +26,73 @@ function ExpectInteger(ALine: TStringList; var AIndex: integer): integer;
 function TryBoolean(ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;
 function TryScalarVariable(ALine: TStringList; var AIndex: integer): TScalarVariable;
 function TryString(ALine: TStringList; var AIndex: integer; out AStr: string; ARaiseException: boolean = false): boolean;
-function TryExpression(ALine: TStringList; var AIndex: integer; AProg: TInstructionList;
-                       ADestPlayer: TPlayer; ADestUnitType: string;
-                       AMode: TSetIntegerMode; ARaiseException: boolean): boolean;
+
+type
+  { TExpressionNode }
+
+  TExpressionNode = class
+    Negative: boolean;
+    constructor Create(ANegative: boolean);
+    procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); virtual; abstract;
+    function AlwaysClearAccumulator: boolean; virtual; abstract;
+  end;
+
+  TExpressionNodeList = specialize TFPGList<TExpressionNode>;
+
+  { TVariableNode }
+
+  TVariableNode = class(TExpressionNode)
+    Player: TPlayer;
+    UnitType: string;
+    constructor Create(ANegative: boolean; APlayer: TPlayer; AUnitType: string);
+    procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
+    function AlwaysClearAccumulator: boolean; override;
+  end;
+
+  { TFunctionCallNode }
+
+  TFunctionCallNode = class(TExpressionNode)
+    Name: string;
+    constructor Create(ANegative: boolean; AName: string);
+    procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
+    function AlwaysClearAccumulator: boolean; override;
+  end;
+
+  { TRandomNode }
+
+  TRandomNode = class(TExpressionNode)
+    Range: integer;
+    constructor Create(ANegative: boolean; ARange: integer);
+    procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
+    function AlwaysClearAccumulator: boolean; override;
+  end;
+
+  { TExpression }
+
+  TExpression = class
+  private
+    function GetIsConstant: boolean;
+    function GetNegativeCount: integer;
+    function GetPositiveCount: integer;
+  public
+    Elements: TExpressionNodeList;
+    ConstElement: integer;
+    destructor Destroy; override;
+    constructor Create;
+    procedure NegateAll;
+    procedure AddToProgram(AProg: TInstructionList;
+                     ADestPlayer: TPlayer; ADestUnitType: string;
+                     AMode: TSetIntegerMode);
+    property NegativeCount: integer read GetNegativeCount;
+    property PositiveCount: integer read GetPositiveCount;
+    property IsConstant: boolean read GetIsConstant;
+  end;
+
+function TryExpression(ALine: TStringList; var AIndex: integer; ARaiseException: boolean): TExpression;
 
 implementation
 
-uses uparsevb, uvariables, fgl;
+uses uparsevb, uvariables;
 
 function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string): boolean;
 begin
@@ -429,129 +489,53 @@ begin
   result := true;
 end;
 
-type
-
-  { TExpressionNode }
-
-  TExpressionNode = class
-    Negative: boolean;
-    constructor Create(ANegative: boolean);
-    procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); virtual; abstract;
-    function AlwaysClearAccumulator: boolean; virtual; abstract;
-  end;
-
-  TExpressionNodeList = specialize TFPGList<TExpressionNode>;
-
-  { TVariableNode }
-
-  TVariableNode = class(TExpressionNode)
-    Player: TPlayer;
-    UnitType: string;
-    constructor Create(ANegative: boolean; APlayer: TPlayer; AUnitType: string);
-    procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
-    function AlwaysClearAccumulator: boolean; override;
-  end;
-
-  { TFunctionCallNode }
-
-  TFunctionCallNode = class(TExpressionNode)
-    Name: string;
-    constructor Create(ANegative: boolean; AName: string);
-    procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
-    function AlwaysClearAccumulator: boolean; override;
-  end;
-
-  { TRandomNode }
-
-  TRandomNode = class(TExpressionNode)
-    Range: integer;
-    constructor Create(ANegative: boolean; ARange: integer);
-    procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
-    function AlwaysClearAccumulator: boolean; override;
-  end;
-
-function TryExpression(ALine: TStringList; var AIndex: integer;
-  AProg: TInstructionList; ADestPlayer: TPlayer; ADestUnitType: string; AMode: TSetIntegerMode; ARaiseException: boolean): boolean;
+function TryExpression(ALine: TStringList; var AIndex: integer; ARaiseException: boolean): TExpression;
 var
-  elements: TExpressionNodeList;
-  constElement, intValue: integer;
-  neg, firstElem: boolean;
-  idx, i: integer;
+  intValue: integer;
+  neg: boolean;
+  idx, rnd: integer;
   scalar: TScalarVariable;
   name: string;
-
-  procedure FreeElems;
-  var
-    i: Integer;
-  begin
-    for i := 0 to elements.Count-1 do
-      elements[i].Free;
-    elements.Free;
-  end;
-
-  function NegativeCount: integer;
-  var
-    i: Integer;
-  begin
-    result := 0;
-    for i := 0 to elements.Count-1 do
-      if elements[i].Negative then result += 1;
-  end;
-
-  function PositiveCount: integer;
-  var
-    i: Integer;
-  begin
-    result := 0;
-    for i := 0 to elements.Count-1 do
-      if not elements[i].Negative then result += 1;
-  end;
-
-  procedure NegateAll;
-  var
-    i: Integer;
-  begin
-    for i := 0 to elements.Count-1 do
-      elements[i].Negative := not elements[i].Negative;
-    constElement:= -constElement;
-  end;
-
 begin
-  elements := TExpressionNodeList.Create;
+  result := TExpression.Create;
   idx := AIndex;
   neg := false;
-  constElement := 0;
   if TryToken(ALine,idx,'+') then neg := false
   else if TryToken(ALine,idx,'-') then neg := true;
   repeat
     if TryInteger(ALine,idx,intValue) then
     begin
-      if neg then constElement -= intValue
-      else constElement += intValue;
+      if neg then result.ConstElement -= intValue
+      else result.ConstElement += intValue;
     end else
     begin
-      scalar:= TryScalarVariable(ALine,idx);
-      case scalar.VarType of
-      svtInteger: elements.Add(TVariableNode.Create(neg,scalar.Player,scalar.UnitType));
-      svtSwitch:
-        begin
-          FreeElems;
-          if ARaiseException then
-            raise exception.Create('Expecting integer value but boolean found');
-          exit(false);
-        end
-      else
-        begin
-          if TryIdentifier(ALine,idx,name) then  //function call?
+      rnd := ParseRandom(ALine,idx);
+      if rnd <> -1 then
+        result.Elements.Add(TRandomNode.Create(neg, rnd)) else
+      begin
+        scalar:= TryScalarVariable(ALine,idx);
+        case scalar.VarType of
+        svtInteger: result.Elements.Add(TVariableNode.Create(neg,scalar.Player,scalar.UnitType));
+        svtSwitch:
           begin
-            if TryToken(ALine,idx,'(') then ExpectToken(ALine,idx,')');
-            elements.Add(TFunctionCallNode.Create(neg, name));
-          end else
-          begin
-            FreeElems;
+            FreeAndNil(result);
             if ARaiseException then
-              raise exception.Create('Integer expected');
-            exit(false);
+              raise exception.Create('Expecting integer value but boolean found');
+            exit;
+          end
+        else
+          begin
+            if TryIdentifier(ALine,idx,name) then  //function call?
+            begin
+              if TryToken(ALine,idx,'(') then ExpectToken(ALine,idx,')');
+              result.Elements.Add(TFunctionCallNode.Create(neg, name));
+            end else
+            begin
+              FreeAndNil(result);
+              if ARaiseException then
+                raise exception.Create('Integer expected');
+              exit;
+            end;
           end;
         end;
       end;
@@ -562,15 +546,81 @@ begin
     else break;
   until false;
 
+  AIndex := idx;
+end;
+
+function ExpectString(ALine: TStringList; var AIndex: integer): string;
+begin
+  TryString(ALine,AIndex,result,True);
+end;
+
+{ TExpression }
+
+function TExpression.GetIsConstant: boolean;
+begin
+  result := (PositiveCount = 0) and (NegativeCount = 0);
+end;
+
+function TExpression.GetNegativeCount: integer;
+var
+  i: Integer;
+begin
+  result := 0;
+  for i := 0 to Elements.Count-1 do
+    if Elements[i].Negative then result += 1;
+end;
+
+function TExpression.GetPositiveCount: integer;
+var
+  i: Integer;
+begin
+  result := 0;
+  for i := 0 to Elements.Count-1 do
+    if not Elements[i].Negative then result += 1;
+end;
+
+destructor TExpression.Destroy;
+var
+  i: Integer;
+begin
+  for i := 0 to Elements.Count-1 do
+    Elements[i].Free;
+  Elements.Free;
+  inherited Destroy;
+end;
+
+constructor TExpression.Create;
+begin
+  Elements := TExpressionNodeList.Create;
+  ConstElement := 0;
+end;
+
+procedure TExpression.NegateAll;
+var
+  i: Integer;
+begin
+  for i := 0 to Elements.Count-1 do
+    Elements[i].Negative := not Elements[i].Negative;
+  ConstElement:= -ConstElement;
+end;
+
+procedure TExpression.AddToProgram(AProg: TInstructionList;
+  ADestPlayer: TPlayer; ADestUnitType: string; AMode: TSetIntegerMode);
+var
+  i: LongInt;
+  firstElem: Boolean;
+begin
   if AMode = simSubtract then
   begin
-    AMode := simAdd;
     NegateAll;
+    AddToProgram(AProg, ADestPlayer, ADestUnitType, simAdd);
+    NegateAll;
+    exit;
   end;
 
-  for i := elements.Count-1 downto 0 do
-    if elements[i] is TVariableNode then
-    with TVariableNode(elements[i]) do
+  for i := Elements.Count-1 downto 0 do
+    if Elements[i] is TVariableNode then
+    with TVariableNode(Elements[i]) do
     begin
       if (Player = ADestPlayer) and
          (UnitType = ADestUnitType) then
@@ -578,86 +628,77 @@ begin
         if (AMode = simSetTo) and not Negative then
         begin
           AMode := simAdd;
-          elements[i].Free;
-          elements.Delete(i);
+          Elements[i].Free;
+          Elements.Delete(i);
         end else
         if (AMode = simAdd) and Negative then
         begin
           AMode := simSetTo;
-          elements[i].Free;
-          elements.Delete(i);
+          Elements[i].Free;
+          Elements.Delete(i);
         end;
       end;
     end;
 
   if (PositiveCount = 0) and (NegativeCount = 0) then
   begin
-    if (AMode = simSetTo) or (constElement <> 0) then
-      AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, AMode, constElement) )
+    if (AMode = simSetTo) or (ConstElement <> 0) then
+      AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, AMode, ConstElement) )
   end
   else
   begin
     if AMode = simSetTo then
     begin
-      if constElement > 0 then
+      if ConstElement > 0 then
       begin
-        AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSetTo, constElement) );
-        constElement := 0;
+        AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSetTo, ConstElement) );
+        ConstElement := 0;
       end else
       begin
         AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSetTo, 0) );
       end;
     end else
     begin
-      if constElement > 0 then
+      if ConstElement > 0 then
       begin
-        AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simAdd, constElement) );
-        constElement := 0;
+        AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simAdd, ConstElement) );
+        ConstElement := 0;
       end;
     end;
 
     firstElem := true;
-    for i := 0 to elements.Count-1 do
-      if not elements[i].Negative then
+    for i := 0 to Elements.Count-1 do
+      if not Elements[i].Negative then
       begin
-        if not firstElem and elements[i].AlwaysClearAccumulator then
+        if not firstElem and Elements[i].AlwaysClearAccumulator then
         begin
           AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itAddAccumulator ) );
           firstElem := true;
         end;
-        elements[i].LoadIntoAccumulator(firstElem, AProg);
+        Elements[i].LoadIntoAccumulator(firstElem, AProg);
         firstElem := false;
       end;
     if not firstElem then
       AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itAddAccumulator ) );
 
     firstElem := true;
-    for i := 0 to elements.Count-1 do
-      if elements[i].Negative then
+    for i := 0 to Elements.Count-1 do
+      if Elements[i].Negative then
       begin
-        if not firstElem and elements[i].AlwaysClearAccumulator then
+        if not firstElem and Elements[i].AlwaysClearAccumulator then
         begin
           AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itSubtractAccumulator ) );
           firstElem:= true;
         end;
-        elements[i].LoadIntoAccumulator(firstElem, AProg);
+        Elements[i].LoadIntoAccumulator(firstElem, AProg);
         firstElem := false;
       end;
     if not firstElem then
       AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itSubtractAccumulator ) );
 
-    if constElement < 0 then
-      AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSubtract, -constElement) );
+    if ConstElement < 0 then
+      AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSubtract, -ConstElement) );
   end;
-
-  FreeElems;
-  AIndex := idx;
-  exit(true);
-end;
-
-function ExpectString(ALine: TStringList; var AIndex: integer): string;
-begin
-  TryString(ALine,AIndex,result,True);
 end;
 
 constructor TRandomNode.Create(ANegative: boolean; ARange: integer);

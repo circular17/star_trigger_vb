@@ -1129,6 +1129,7 @@ var
   pl: TPlayer;
   conds: TConditionList;
   expr: TExpression;
+  subInstr: TInstructionList;
 
   procedure CheckCurrentPlayer;
   begin
@@ -1182,10 +1183,10 @@ begin
       expr.AddToProgram(AProg, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
       for i := 10 downto 0 do
       begin
-        AProg.Add( TIfInstruction.Create( TIntegerCondition.Create( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i) ) );
-        AProg.Add( TCreateUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, propIndex) );
-        AProg.Add( TSetIntegerInstruction.Create(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
-        AProg.Add( TEndIfInstruction.Create );
+        subInstr := TInstructionList.Create;
+        subInstr.Add( TCreateUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, propIndex) );
+        subInstr.Add( TSetIntegerInstruction.Create(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
+        AProg.Add( TFastIfInstruction.Create( [TIntegerCondition.Create( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i)], subInstr) );
       end;
       ReleaseTempInt(tempInt);
     end;

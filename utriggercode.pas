@@ -249,8 +249,13 @@ end;
 
 // write instruction block
 
+procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: TConditionList; AProg: TInstructionList;
+                    AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer;
+                    AFirstInstr, ALastInstr: integer); forward;
+
 procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: array of TCondition; AProg: TInstructionList;
-                    AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer = 0);
+                    AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer;
+                    AFirstInstr, ALastInstr: integer);
 var
   i,j: Integer;
   condStr, instrStr: array of string;
@@ -259,10 +264,11 @@ var
   addFromSwitch: TAddIntegerFromSwitchesInstruction;
   NextIP: integer;
   add2: TSetIntegerInstruction;
-  add2prog, remain: TInstructionList;
+  add2prog: TInstructionList;
   switchCheck: TSwitchCondition;
   jumpRet: TJumpReturnInstruction;
   waitCond: TWaitConditionInstruction;
+  fastIf: TFastIfInstruction;
 
 begin
   setlength(condStr, length(AConditions) );
@@ -275,17 +281,17 @@ begin
     condStr[High(condStr)] := CheckIP(AIPStart).ToStringAndFree;
   end;
 
-  setlength(instrStr, AProg.Count+1);
+  setlength(instrStr, ALastInstr - AFirstInstr + 1 + 1);
   instrCount := 0;
-  if ((AProg.Count > 0) and not (AProg[0] is TJumpReturnInstruction) and not
-    (AProg[0] is TChangeIPInstruction) and not (AProg[0] is TWaitConditionInstruction)
-    and not (AProg[0] is TSplitInstruction) ) and (AIPStart <> -1) and (AReturnIP <> -1) then
+  if ((ALastInstr >= AFirstInstr) and not (AProg[AFirstInstr] is TJumpReturnInstruction) and not
+    (AProg[AFirstInstr] is TChangeIPInstruction) and not (AProg[AFirstInstr] is TWaitConditionInstruction)
+    and not (AProg[AFirstInstr] is TSplitInstruction) ) and (AIPStart <> -1) and (AReturnIP <> -1) then
   begin
     instrStr[0] := SetNextIP(BusyIP).ToStringAndFree;
     inc(instrCount);
   end;
 
-  for i := 0 to AProg.Count-1 do
+  for i := AFirstInstr to ALastInstr do
   begin
     if AProg[i] is TAddIntegerFromSwitchesInstruction then
     begin
@@ -311,12 +317,7 @@ begin
       switchCheck.Free;
 
       //carry on with the rest of the prog
-      remain := TInstructionList.Create;
-      for j := i+1 to AProg.Count-1 do
-        remain.Add(AProg[j]);
-      WriteProg(AOutput, APlayers, [], remain, NextIP, AReturnIP, APreserve, ATempPreserve);
-      remain.Free;
-
+      WriteProg(AOutput, APlayers, [], AProg, NextIP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
       exit;
     end else
     if AProg[i] is TJumpReturnInstruction then
@@ -326,12 +327,7 @@ begin
       WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), jumpRet.DestIP, APreserve or (ATempPreserve > 0));
 
       //carry on with the rest of the prog
-      remain := TInstructionList.Create;
-      for j := i+1 to AProg.Count-1 do
-        remain.Add(AProg[j]);
-      WriteProg(AOutput, APlayers, [], remain, jumpRet.ReturnIP, AReturnIP, APreserve, ATempPreserve);
-      remain.Free;
-
+      WriteProg(AOutput, APlayers, [], AProg, jumpRet.ReturnIP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
       exit;
     end else
     if AProg[i] is TWaitConditionInstruction then
@@ -340,12 +336,7 @@ begin
       WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), waitCond.IP, APreserve or (ATempPreserve > 0));
 
       //carry on with the rest of the prog
-      remain := TInstructionList.Create;
-      for j := i+1 to AProg.Count-1 do
-        remain.Add(AProg[j]);
-      WriteProg(AOutput, APlayers, waitCond.Conditions, remain, waitCond.IP, AReturnIP, APreserve, ATempPreserve);
-      remain.Free;
-
+      WriteProg(AOutput, APlayers, waitCond.Conditions, AProg, waitCond.IP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
       exit;
     end else
     if AProg[i] is TSplitInstruction then
@@ -355,12 +346,7 @@ begin
       WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), TSplitInstruction(AProg[i]).EndIP, APreserve or (ATempPreserve > 0));
 
       //carry on with the rest of the prog
-      remain := TInstructionList.Create;
-      for j := i+1 to AProg.Count-1 do
-        remain.Add(AProg[j]);
-      WriteProg(AOutput, APlayers, [], remain, TSplitInstruction(AProg[i]).ResumeIP, AReturnIP, APreserve, ATempPreserve);
-      remain.Free;
-
+      WriteProg(AOutput, APlayers, [], AProg, TSplitInstruction(AProg[i]).ResumeIP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
       exit;
     end else
     if AProg[i] is TChangeIPInstruction then
@@ -368,12 +354,25 @@ begin
       WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), TChangeIPInstruction(AProg[i]).IP, APreserve or (ATempPreserve > 0));
 
       //carry on with the rest of the prog
-      remain := TInstructionList.Create;
-      for j := i+1 to AProg.Count-1 do
-        remain.Add(AProg[j]);
-      WriteProg(AOutput, APlayers, [], remain, TChangeIPInstruction(AProg[i]).IP, AReturnIP, APreserve, ATempPreserve + TChangeIPInstruction(AProg[i]).Preserve);
-      remain.Free;
+      WriteProg(AOutput, APlayers, [], AProg, TChangeIPInstruction(AProg[i]).IP, AReturnIP,
+                APreserve, ATempPreserve + TChangeIPInstruction(AProg[i]).Preserve,  i+1, ALastInstr);
+      exit;
+    end else
+    if AProg[i] is TFastIfInstruction then
+    begin
+      NextIP:= NewIP;
+      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), NextIP, APreserve or (ATempPreserve > 0));
 
+      j := i;
+      while (j <= ALastInstr) and (AProg[j] is TFastIfInstruction) do
+      begin
+        fastIf := TFastIfInstruction(AProg[j]);
+        WriteProg(AOutput, APlayers, fastIf.Conditions, fastIf.Instructions, NextIP, NextIP, APreserve, ATempPreserve);
+        inc(j);
+      end;
+
+      //carry on with the rest of the prog
+      WriteProg(AOutput, APlayers, [], AProg, NextIP, AReturnIP, APreserve, ATempPreserve, j, ALastInstr);
       exit;
     end;
     instrStr[instrCount] := AProg[i].ToString;
@@ -383,15 +382,28 @@ begin
   WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), AReturnIP, APreserve or (ATempPreserve > 0));
 end;
 
-procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: TConditionList; AProg: TInstructionList;
+procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: array of TCondition; AProg: TInstructionList;
                     AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer = 0);
+begin
+  WriteProg(AOutput, APlayers, AConditions, AProg, AIPStart, AReturnIP, APreserve, ATempPreserve, 0, AProg.Count-1);
+end;
+
+procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: TConditionList; AProg: TInstructionList;
+                    AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer;
+                    AFirstInstr, ALastInstr: integer);
 var cond: array of TCondition;
   i: Integer;
 begin
   setlength(cond,AConditions.Count);
   for i := 0 to AConditions.Count-1 do
     cond[i] := AConditions[i];
-  WriteProg(AOutput, APlayers, cond, AProg, AIPStart, AReturnIP, APreserve, ATempPreserve);
+  WriteProg(AOutput, APlayers, cond, AProg, AIPStart, AReturnIP, APreserve, ATempPreserve, AFirstInstr, ALastInstr);
+end;
+
+procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: TConditionList; AProg: TInstructionList;
+                    AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer = 0);
+begin
+  WriteProg(AOutput, APlayers, AConditions, AProg, AIPStart, AReturnIP, APreserve, ATempPreserve, 0, AProg.Count-1);
 end;
 
 procedure AddSysCall(AInstructions: TInstructionList; AReturnIP, ACalledIP: integer);

@@ -146,6 +146,17 @@ type
     function ToString: ansistring; override;
   end;
 
+  { TFastIfInstruction }
+
+  TFastIfInstruction = class(TInstruction)
+    Conditions: TConditionList;
+    Instructions: TInstructionList;
+    constructor Create(AConditions: TConditionList; AInstructions: TInstructionList);
+    constructor Create(AConditions: array of TCondition; AInstructions: TInstructionList);
+    destructor Destroy; override;
+    function ToString: ansistring; override;
+  end;
+
   { TWaitConditionInstruction }
 
   TWaitConditionInstruction = class(TInstruction)
@@ -577,6 +588,41 @@ end;
 function IsAnywhere(ALocation: string): boolean;
 begin
   result := (ALocation = '') or (CompareText(ALocation, AnywhereLocation)=0);
+end;
+
+{ TFastIfInstruction }
+
+constructor TFastIfInstruction.Create(AConditions: TConditionList;
+  AInstructions: TInstructionList);
+begin
+  Conditions := AConditions;
+  Instructions := AInstructions;
+end;
+
+constructor TFastIfInstruction.Create(AConditions: array of TCondition;
+  AInstructions: TInstructionList);
+var
+  i: Integer;
+begin
+  Conditions := TConditionList.Create;
+  for i := 0 to high(AConditions) do Conditions.Add(AConditions[i]);
+  Instructions := AInstructions;
+end;
+
+destructor TFastIfInstruction.Destroy;
+var
+  i: Integer;
+begin
+  Conditions.FreeAll;
+  for i := 0 to Instructions.Count-1 do
+    Instructions[i].Free;
+  Instructions.Free;
+  inherited Destroy;
+end;
+
+function TFastIfInstruction.ToString: ansistring;
+begin
+  Result:= 'if ('+ Conditions.ToString + ') {' + Instructions.ToString + '}';
 end;
 
 { TShowLeaderboardUnitCountInstruction }

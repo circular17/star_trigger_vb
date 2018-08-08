@@ -31,10 +31,10 @@ function CheckIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TConditio
 
 function NewSysIP: integer;
 function SetNextSysIP(AValue: integer): TInstruction;
-function CheckSysIP(AValue: integer): TCondition;
+function CheckSysIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCondition;
 
 function SetSysParam(AValue: integer): TInstruction;
-function CheckSysParam(AValue: integer): TCondition;
+function CheckSysParam(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCondition;
 
 procedure AddSysCall(AInstructions: TInstructionList; AReturnIP, ACalledIP: integer);
 procedure AddSysReturn(AInstructions: TInstructionList);
@@ -139,9 +139,9 @@ begin
   result := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[GetSysIPVar].UnitType, simSetTo, AValue);
 end;
 
-function CheckSysIP(AValue: integer): TCondition;
+function CheckSysIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCondition;
 begin
-  result := TIntegerCondition.Create(plCurrentPlayer, IntArrays[GetSysIPVar].UnitType, icmExactly, AValue);
+  result := TIntegerCondition.Create(APlayer, IntArrays[GetSysIPVar].UnitType, icmExactly, AValue);
 end;
 
 procedure NeedSysParam;
@@ -160,10 +160,10 @@ begin
   result := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[SysParamArray].UnitType, simSetTo, AValue)
 end;
 
-function CheckSysParam(AValue: integer): TCondition;
+function CheckSysParam(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCondition;
 begin
   NeedSysParam;
-  result := TIntegerCondition.Create(plCurrentPlayer, IntArrays[SysParamArray].UnitType, icmExactly, AValue)
+  result := TIntegerCondition.Create(APlayer, IntArrays[SysParamArray].UnitType, icmExactly, AValue)
 end;
 
 function NewSysIP: integer;

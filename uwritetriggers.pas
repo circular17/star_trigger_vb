@@ -30,6 +30,36 @@ begin
   end;
 end;
 
+var
+  MessageSysIP: integer;
+
+procedure WriteMessageTriggers(AOutput: TStringList; AMainThread: TPlayer);
+var
+  i: Integer;
+  proc: TInstructionList;
+  condSysIP, condSysParam: TCondition;
+
+begin
+  If MessageSysIP = -1 then exit;
+  condSysIP := CheckSysIP( MessageSysIP, AMainThread );
+  AOutput.Add('// Messages //');
+  for i := 0 to MessageCount-1 do
+  begin
+    proc := TInstructionList.Create;
+    proc.Add( TDisplayTextMessageInstruction.Create(True, Messages[i].Text) );
+    condSysParam := CheckSysParam( i, AMainThread );
+    WriteProg(AOutput, Messages[i].Players, [condSysIP, condSysParam], proc, -1, -1, True);
+    condSysParam.Free;
+    proc.FreeAll;
+  end;
+
+  proc := TInstructionList.Create;
+  proc.Add( SetNextSysIP(0) );
+  WriteProg(AOutput, [AMainThread], [condSysIP], proc, -1,-1, true);
+  condSysIP.Free;
+  proc.FreeAll;
+end;
+
 procedure ExpandInstructions(AProg: TInstructionList; AInProc: integer; APlayers: TPlayers);
 var
   i, expo, j, nextIP, procIdx: Integer;
@@ -69,6 +99,15 @@ begin
         expanded.Add(tempExpand[j]);
       tempExpand.Free;
       Continue;
+    end else
+    if AProg[i] is TPrintForAnyPlayerInstruction then
+    begin
+       if MessageSysIP = -1 then MessageSysIP := NewSysIP;
+       expanded.Add( SetNextSysIP( MessageSysIP ) );
+       expanded.Add( SetSysParam( TPrintForAnyPlayerInstruction(AProg[i]).Msg ) );
+       expanded.Add( TWaitConditionInstruction.Create( CheckSysIP(0), NewIP ) );
+       AProg[i].Free;
+       Continue;
     end else
     if AProg[i] is TWaitForPresenceDefinedInstruction then
     begin
@@ -413,6 +452,7 @@ begin
   InitArithmetic;
 
   HyperWaitVar := -1;
+  MessageSysIP := -1;
   mainOutput := TStringList.Create;
   EndIP := 0;
 
@@ -432,6 +472,8 @@ begin
         Procedures[i].Done := true;
       end;
   until allProcDone;
+
+  WriteMessageTriggers(mainOutput, AMainThread);
 
   mainOutput.Add('// Program //');
   WriteProg(mainOutput, [AMainThread], [], MainProg, -1, EndIP, False);

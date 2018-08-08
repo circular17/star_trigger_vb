@@ -108,6 +108,14 @@ type
     function ToString: ansistring; override;
   end;
 
+  { TPrintForAnyPlayerInstruction }
+
+  TPrintForAnyPlayerInstruction = class(TInstruction)
+    Msg: integer;
+    constructor Create(AMsg: integer);
+    function ToString: ansistring; override;
+  end;
+
   { TWaitInstruction }
 
   TWaitInstruction = class(TInstruction)
@@ -638,6 +646,18 @@ end;
 function IsAnywhere(ALocation: string): boolean;
 begin
   result := (ALocation = '') or (CompareText(ALocation, AnywhereLocation)=0);
+end;
+
+{ TPrintForAnyPlayerInstruction }
+
+constructor TPrintForAnyPlayerInstruction.Create(AMsg: integer);
+begin
+  Msg := AMsg;
+end;
+
+function TPrintForAnyPlayerInstruction.ToString: ansistring;
+begin
+  Result:= 'Print #' + inttostr(Msg);
 end;
 
 { TWaitForPresenceDefinedInstruction }

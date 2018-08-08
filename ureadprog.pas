@@ -1620,9 +1620,9 @@ end;
 
 procedure ParseInstruction(ALine: TStringList; AProg: TInstructionList; AThreads: TPlayers; AMainThread: TPlayer; AProcId: integer; AInSubNew: boolean);
 var
-  index, intVal, idxArr, i, idxSound, sw, idxVar: integer;
+  index, intVal, idxArr, i, idxSound, sw, idxVar, idxMsg: integer;
   params: TStringList;
-  name, assignOp: String;
+  name, assignOp, text: String;
   done, boolVal, isPresent: boolean;
   scalar: TScalarVariable;
   conds: TConditionList;
@@ -1886,6 +1886,18 @@ begin
         if index >= ALine.Count then
           raise exception.Create('Expecting action but end of line found');
 
+        if (pl <> plCurrentPlayer) and TryToken(ALine,index,'Print') then
+        begin
+          if (AThreads <> []) and (AThreads <> [AMainThread]) then
+            raise exception.Create('Printing for any player is only possible from main thread');
+
+          ExpectToken(ALine,index,'(');
+          text := ExpectString(ALine,index);
+          ExpectToken(ALine,index,')');
+          idxMsg := FindOrCreateMessage(text, [pl]);
+          AProg.Add( TPrintForAnyPlayerInstruction.Create(idxMsg) );
+
+        end else
         if not TryPlayerAction(AProg,ALine,index,pl, AThreads) then
           raise exception.Create('Expecting action but "' + ALine[index] + '" found');
         CheckEndOfLine;

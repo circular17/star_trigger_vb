@@ -130,6 +130,15 @@ var
 function CreateString(AName: string; AValue: string; AConstant: boolean): integer;
 function StringIndexOf(AName: string): integer;
 
+var
+  Messages: array of record
+    Text: string;
+    Players: TPlayers;
+  end;
+  MessageCount: integer;
+
+function FindOrCreateMessage(AText: string; APlayers: TPlayers): integer;
+
 implementation
 
 uses uparsevb;
@@ -151,6 +160,7 @@ begin
     PlayerPresenceVar[i] := -1;
   PlayerPresenceDefinedVar := -1;
   StopEventBoolVar := -1;
+  MessageCount := 0;
 end;
 
 function CreateIntArray(AName: string; ASize: integer;
@@ -674,6 +684,25 @@ begin
   for i := 0 to StringCount-1 do
     if CompareText(StringVars[i].Name,AName)=0 then exit(i);
   exit(-1);
+end;
+
+function FindOrCreateMessage(AText: string; APlayers: TPlayers): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to MessageCount-1 do
+    if (Messages[i].Text = AText) and (Messages[i].Players = APlayers) then
+      exit(i);
+
+  if MessageCount >= length(Messages) then
+    setlength(Messages, MessageCount*2+4);
+  result := MessageCount;
+  inc(MessageCount);
+  with Messages[result] do
+  begin
+    Text:= AText;
+    Players:= APlayers;
+  end;
 end;
 
 end.

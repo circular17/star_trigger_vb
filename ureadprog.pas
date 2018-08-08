@@ -2150,8 +2150,6 @@ begin
       begin
         if (inSub<>-1) or (inEvent <> -1) or inSubNew then
           raise exception.Create('Nested events not allowed');
-        if not subNewDeclared then
-          raise exception.Create('Events on main thread must appear after Sub New');
         inEvent := ProcessEvent(line, [], false)
       end else
       begin

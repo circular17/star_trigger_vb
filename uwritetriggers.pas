@@ -39,17 +39,22 @@ var
   call: TCallInstruction;
   ret: TReturnInstruction;
   nesting, elseIndex, endIfIndex: integer;
-  startWhileIP, k: integer;
+  startWhileIP, k, varIdx: integer;
   ifInstr: TIfInstruction;
   waitInstr: TWaitConditionInstruction;
   splitInstr: TSplitInstruction;
   thenPart,elsePart: TInstructionList;
   notCond: TNotCondition;
   tempExpand: TInstructionList;
+  doAs: TDoAsInstruction;
+  pl: TPlayer;
+  endDoAs: TEndDoAsInstruction;
+  endDoIP: integer;
 
 begin
   expanded := TInstructionList.Create;
   i := -1;
+  endDoIP := -1;
   while i < AProg.Count-1 do
   begin
     inc(i);
@@ -64,6 +69,40 @@ begin
         expanded.Add(tempExpand[j]);
       tempExpand.Free;
       Continue;
+    end else
+    if AProg[i] is TDoAsInstruction then
+    begin
+      doAs := TDoAsInstruction(AProg[i]);
+      if doAs.Players - APlayers <> [] then
+      begin
+        varIdx := GetStopEventBoolVar;
+        expanded.Add( TSetSwitchInstruction.Create(BoolVars[varIdx].Switch, svSet) );
+        expanded.Add( TWaitForPlayersInstruction.Create( doAs.Players - APlayers, False ) );
+      end;
+      nextIP := NewIP;
+      for pl := low(TPlayer) to high(TPlayer) do
+        if pl in (doAs.Players - APlayers) then
+          expanded.Add( SetNextIP(nextIP, pl));
+
+      endDoIP := NewIP;
+      if APlayers <= doAs.Players then
+        expanded.Add( TSplitInstruction.Create(nextIP, nextIP, doAs.Players) )
+      else
+        expanded.Add( TSplitInstruction.Create(nextIP, EndDoIP, doAs.Players) );
+      AProg[i].Free;
+      continue;
+    end else
+    if AProg[i] is TEndDoAsInstruction then
+    begin
+      endDoAs := TEndDoAsInstruction(AProg[i]);
+      if endDoAs.Players - APlayers <> [] then
+      begin
+        expanded.Add( TDropThreadInstruction.Create(0, EndDoIP, endDoAs.Players - APlayers, APlayers) );
+        expanded.Add( TWaitForPlayersInstruction.Create( endDoAs.Players - APlayers, True ) );
+        expanded.Add( TSetSwitchInstruction.Create(BoolVars[GetStopEventBoolVar].Switch, svSet) );
+      end;
+      AProg[i].Free;
+      continue;
     end else
     if HyperTriggers and (AProg[i] is TWaitInstruction) then
     begin
@@ -310,6 +349,50 @@ begin
   wait.Free;
 end;
 
+procedure WritePlayerPresenceTopTrigger(AOutput: TStringList; AMainThread: TPlayer);
+var
+  proc: TInstructionList;
+  pl: TPlayer;
+  tempOutput: TStringList;
+  i: Integer;
+begin
+  //at the begining of the cycle, set presence
+  tempOutput := TstringList.Create;
+  tempOutput.Add('// Player presence');
+  proc := TInstructionList.Create;
+  for pl := plPlayer1 to plPlayer8 do
+    if IsPlayerPresenceUsed(pl) then
+    begin
+      proc.Add(TSetSwitchInstruction.Create(BoolVars[GetPlayerPresenceBoolVar(pl)].Switch, svSet));
+      WriteProg(tempOutput, [pl], [], proc, -1, -1, true);
+      proc[0].Free;
+      proc.Clear;
+    end;
+  proc.Free;
+
+  for i := 0 to tempOutput.Count-1 do
+    AOutput.Insert(i, tempOutput[i]);
+  tempOutput.Free;
+end;
+
+procedure WritePlayerPresenceBottomTrigger(AOutput: TStringList; AMainThread: TPlayer);
+var
+  proc: TInstructionList;
+  pl: TPlayer;
+begin
+  //at the end of main thread cycle, clear presence flags (they will be set until next main thread cycle)
+  proc := TInstructionList.Create;
+  for pl := plPlayer1 to plPlayer8 do
+    if IsPlayerPresenceUsed(pl) then
+      proc.Add(TSetSwitchInstruction.Create(BoolVars[GetPlayerPresenceBoolVar(pl)].Switch, svClear));
+  if proc.Count > 0 then
+  begin
+    proc.Add(TSetSwitchInstruction.Create(BoolVars[GetPlayerPresenceDefinedVar].Switch, svSet)); //will be until next cycle
+    WriteProg(AOutput, [AMainThread], [], proc, -1, -1, true);
+  end;
+  proc.Free;
+end;
+
 procedure WriteTriggers(AFilename: string; AMainThread: TPlayer);
 var
   i, EndIP: Integer;
@@ -329,7 +412,7 @@ begin
   ExpandInstructions(MainProg, -1, [AMainThread]);
 
   for i := 0 to EventCount-1 do
-    ExpandInstructions(Events[i].Instructions, -1, [AMainThread]);
+    ExpandInstructions(Events[i].Instructions, -1, Events[i].Players);
 
   repeat
     allProcDone := true;
@@ -338,7 +421,7 @@ begin
       begin
         allProcDone:= false;
 
-        ExpandInstructions(Procedures[i].Instructions, i, [AMainThread]);
+        ExpandInstructions(Procedures[i].Instructions, i, [plAllPlayers]);
         Procedures[i].Done := true;
       end;
   until allProcDone;
@@ -366,6 +449,8 @@ begin
   //write generated code at the end of the file
   WriteStackTriggers(mainOutput);
   WriteArithmeticTriggers(mainOutput);
+  WritePlayerPresenceBottomTrigger(mainOutput, AMainThread);
+  WritePlayerPresenceTopTrigger(mainOutput, AMainThread);
 
   //it is recommended to put hyper triggers at the end
   WriteHyperTriggers(mainOutput);

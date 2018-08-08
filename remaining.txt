@@ -1,5 +1,4 @@
 - fonctions avec parametres (pb recursivite)
-- thread (for player)
 - string array (for template)
 
 - conditions complexes (or xor)

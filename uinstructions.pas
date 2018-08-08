@@ -24,7 +24,13 @@ type
     function ToString: ansistring; override;
   end;
 
-  TInstructionList = specialize TFPGList<TInstruction>;
+  TCustomInstructionList = specialize TFPGList<TInstruction>;
+
+  { TInstructionList }
+
+  TInstructionList = class(TCustomInstructionList)
+    procedure FreeAll;
+  end;
 
 const
   SwitchToStr : array[TSwitchValue] of string = ('clear','set','randomize','toggle');
@@ -121,11 +127,21 @@ type
     function ToString: ansistring; override;
   end;
 
-  { TJumpReturnInstruction }
+  { TDropThreadInstruction }
 
-  TJumpReturnInstruction = class(TInstruction)
-    DestIP, ReturnIP: integer;
-    constructor Create(ADestIP, AReturnIP: integer);
+  TDropThreadInstruction = class(TInstruction)
+    DropIP, ResumeIP: integer;
+    PlayersToDrop, PlayersToResume: TPlayers;
+    constructor Create(ADropIP, AResumeIP: integer; APlayersToDrop, APlayersToResume: TPlayers);
+    function ToString: ansistring; override;
+  end;
+
+  { TWaitForPlayersInstruction }
+
+  TWaitForPlayersInstruction = class(TInstruction)
+    Players: TPlayers;
+    AwaitPresenceDefined: boolean;
+    constructor Create(APlayers: TPlayers; AAwaitPresenceDefined: boolean);
     function ToString: ansistring; override;
   end;
 
@@ -133,6 +149,22 @@ type
 
   TReturnInstruction = class(TInstruction)
     constructor Create;
+    function ToString: ansistring; override;
+  end;
+
+  { TDoAsInstruction }
+
+  TDoAsInstruction = class(TInstruction)
+    Players: TPlayers;
+    constructor Create(APlayers: TPlayers);
+    function ToString: ansistring; override;
+  end;
+
+  { TEndDoAsInstruction }
+
+  TEndDoAsInstruction = class(TInstruction)
+    Players: TPlayers;
+    constructor Create(APlayers: TPlayers);
     function ToString: ansistring; override;
   end;
 
@@ -179,7 +211,8 @@ type
 
   TSplitInstruction = class(TInstruction)
     ResumeIP, EndIP: integer;
-    constructor Create(AResumeIP, AEndIP: integer);
+    ChangePlayers: TPlayers;
+    constructor Create(AResumeIP, AEndIP: integer; AChangePlayers: TPlayers = []);
     function ToString: ansistring; override;
   end;
 
@@ -598,6 +631,56 @@ end;
 function IsAnywhere(ALocation: string): boolean;
 begin
   result := (ALocation = '') or (CompareText(ALocation, AnywhereLocation)=0);
+end;
+
+{ TInstructionList }
+
+procedure TInstructionList.FreeAll;
+var i: integer;
+begin
+  if self = nil then exit;
+
+  for i := 0 to Count-1 do
+    Items[i].Free;
+  Free;
+end;
+
+{ TWaitForPlayersInstruction }
+
+constructor TWaitForPlayersInstruction.Create(APlayers: TPlayers;
+  AAwaitPresenceDefined: boolean);
+begin
+  Players:= APlayers;
+  AwaitPresenceDefined:= AAwaitPresenceDefined;
+end;
+
+function TWaitForPlayersInstruction.ToString: ansistring;
+begin
+  Result:= 'Wait For Players';
+end;
+
+{ TEndDoAsInstruction }
+
+constructor TEndDoAsInstruction.Create(APlayers: TPlayers);
+begin
+  Players:= APlayers;
+end;
+
+function TEndDoAsInstruction.ToString: ansistring;
+begin
+  Result:= '} //End Do As';
+end;
+
+{ TDoAsInstruction }
+
+constructor TDoAsInstruction.Create(APlayers: TPlayers);
+begin
+  Players:= APlayers;
+end;
+
+function TDoAsInstruction.ToString: ansistring;
+begin
+  Result:= 'Do as {';
 end;
 
 { TMoveLocationInstruction }
@@ -1236,10 +1319,12 @@ end;
 
 { TSplitInstruction }
 
-constructor TSplitInstruction.Create(AResumeIP, AEndIP: integer);
+constructor TSplitInstruction.Create(AResumeIP, AEndIP: integer;
+  AChangePlayers: TPlayers);
 begin
   ResumeIP:= AResumeIP;
   EndIP := AEndIP;
+  ChangePlayers := AChangePlayers;
 end;
 
 function TSplitInstruction.ToString: ansistring;
@@ -1406,7 +1491,7 @@ end;
 
 function TChangeIPInstruction.ToString: ansistring;
 begin
-  Result:=inherited ToString;
+  Result:= '';
 end;
 
 { TNeverCondition }
@@ -1506,15 +1591,18 @@ begin
   Result:= 'Return';
 end;
 
-{ TJumpReturnInstruction }
+{ TDropThreadInstruction }
 
-constructor TJumpReturnInstruction.Create(ADestIP, AReturnIP: integer);
+constructor TDropThreadInstruction.Create(ADropIP, AResumeIP: integer;
+  APlayersToDrop, APlayersToResume: TPlayers);
 begin
-  DestIP:= ADestIP;
-  ReturnIP:= AReturnIP;
+  DropIP:= ADropIP;
+  ResumeIP:= AResumeIP;
+  PlayersToDrop:= APlayersToDrop;
+  PlayersToResume:= APlayersToResume;
 end;
 
-function TJumpReturnInstruction.ToString: ansistring;
+function TDropThreadInstruction.ToString: ansistring;
 begin
   result := '';
 end;

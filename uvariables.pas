@@ -51,7 +51,7 @@ procedure ReleaseTempInt(ATempInt: integer);
 
 var
   BoolArrays: array of record
-    Constant: boolean;
+    Constant, ReadOnly: boolean;
     Name: string;
     Size: integer;
     Values: array of TSwitchValue;
@@ -60,11 +60,12 @@ var
   BoolArrayCount: integer;
 
 function CreateBoolArray(AName: string; ASize: integer; AValues: array of TSwitchValue; AConstant: boolean = false): integer;
+function PredefineBoolArray(AName: string; ASize: integer; AVars: array of integer): integer;
 function BoolArrayIndexOf(AName: string): integer;
 
 var
   BoolVars: array of record
-    Constant: boolean;
+    Constant, ReadOnly: boolean;
     Name: string;
     Switch: integer;
     Value: TSwitchValue;
@@ -76,6 +77,20 @@ var
 function CreateBoolVar(AName: string; AValue: TSwitchValue; AConstant: boolean = false): integer;
 function BoolVarIndexOf(AName: string): integer;
 function GetBoolResultVar: integer;
+
+var
+  PlayerPresenceVar: array[1..MaxTriggerPlayers] of integer;
+  PlayerPresenceDefinedVar: integer;
+
+function GetPlayerPresenceBoolVar(APlayer: TPlayer): integer;
+function IsPlayerPresenceUsed(APlayer: TPlayer): boolean;
+function GetPlayerPresenceDefinedVar: integer;
+function GetPlayerPresentArray: integer;
+
+var
+  StopEventBoolVar: integer;
+
+function GetStopEventBoolVar: integer;
 
 var
   UnitPropVars: array of record
@@ -122,6 +137,8 @@ uses uparsevb;
 var BoolResultVar: integer;
 
 procedure InitVariables;
+var
+  i: Integer;
 begin
   BoolVarCount:= 0;
   IntVarCount:= 0;
@@ -130,6 +147,10 @@ begin
   UnitPropCount := 0;
   SoundCount := 0;
   BoolResultVar := -1;
+  for i := low(PlayerPresenceVar) to high(PlayerPresenceVar) do
+    PlayerPresenceVar[i] := -1;
+  PlayerPresenceDefinedVar := -1;
+  StopEventBoolVar := -1;
 end;
 
 function CreateIntArray(AName: string; ASize: integer;
@@ -361,7 +382,7 @@ begin
   CheckReservedWord(AName);
 
   if length(AValues)>ASize then
-    raise exception.Create('Too many elements in array values');
+    raise exception.Create('Too many elements in value array');
 
   if BoolArrayCount >= length(BoolArrays) then
     setlength(BoolArrays, BoolArrayCount*2+4);
@@ -372,6 +393,7 @@ begin
   with BoolArrays[result] do
   begin
     Constant := AConstant;
+    ReadOnly := AConstant;
     Name := AName;
     Size:= ASize;
 
@@ -390,6 +412,39 @@ begin
         Vars[i-1] := CreateBoolVar(Name+'('+inttostr(i)+')', Values[i-1], Constant);
         BoolVars[Vars[i-1]].BoolArray := result;
       end;
+  end;
+end;
+
+function PredefineBoolArray(AName: string; ASize: integer;
+  AVars: array of integer): integer;
+var
+  i: Integer;
+begin
+  CheckReservedWord(AName);
+
+  if length(AVars)<>ASize then
+    raise exception.Create('Variable array do not match array size');
+
+  if BoolArrayCount >= length(BoolArrays) then
+    setlength(BoolArrays, BoolArrayCount*2+4);
+
+  result := BoolArrayCount;
+  inc(BoolArrayCount);
+
+  with BoolArrays[result] do
+  begin
+    Constant := False;
+    Name := AName;
+    Size:= ASize;
+
+    setlength(Values, Size);
+    SetLength(Vars, Size);
+    for i := 0 to Size-1 do
+    begin
+      Vars[i] := AVars[i];
+      Values[i] := BoolVars[Vars[i]].Value;
+      BoolVars[Vars[i]].BoolArray:= result;
+    end;
   end;
 end;
 
@@ -429,6 +484,7 @@ begin
   with BoolVars[result] do
   begin
     Constant := AConstant;
+    ReadOnly := AConstant;
     Name := AName;
     if AConstant then Switch := 0 else Switch:= CurBoolVarSwitch;
     Value := AValue;
@@ -452,6 +508,70 @@ begin
   if BoolResultVar = -1 then
     BoolResultVar := CreateBoolVar('_boolResult', svClear);
   result := BoolResultVar;
+end;
+
+function GetPlayerPresenceBoolVar(APlayer: TPlayer): integer;
+var
+  num: Integer;
+begin
+  num := ord(APlayer)-ord(plPlayer1)+1;
+  if (num < low(PlayerPresenceVar)) or (num > high(PlayerPresenceVar)) then
+    raise exception.Create('Player presence can be checked only for specific players');
+
+  if PlayerPresenceVar[num] = -1 then
+  begin
+    PlayerPresenceVar[num] := BoolVarIndexOf('_presence'+Inttostr(num));
+    if PlayerPresenceVar[num] = -1 then
+      PlayerPresenceVar[num] := CreateBoolVar('_presence'+Inttostr(num), svClear);
+  end;
+  result := PlayerPresenceVar[num];
+end;
+
+function IsPlayerPresenceUsed(APlayer: TPlayer): boolean;
+var
+  num: Integer;
+begin
+  num := ord(APlayer)-ord(plPlayer1)+1;
+  if (num < low(PlayerPresenceVar)) or (num > high(PlayerPresenceVar)) then
+    raise exception.Create('Player presence can be checked only for specific players');
+
+  result := (PlayerPresenceVar[num] <> -1);
+end;
+
+function GetPlayerPresenceDefinedVar: integer;
+begin
+  If PlayerPresenceDefinedVar = -1 then
+  begin
+    PlayerPresenceDefinedVar := BoolVarIndexOf('_presenceDefined');
+    if PlayerPresenceDefinedVar = -1 then
+      PlayerPresenceDefinedVar := CreateBoolVar('_presenceDefined', svClear);
+  end;
+  result := PlayerPresenceDefinedVar;
+end;
+
+function GetPlayerPresentArray: integer;
+var bools: array of integer;
+  i: Integer;
+begin
+  result := BoolArrayIndexOf('Present');
+  if result = -1 then
+  begin
+    setlength(bools, MaxTriggerPlayers);
+    for i := 0 to high(bools) do
+      bools[i] := GetPlayerPresenceBoolVar(TPlayer(ord(plPLayer1)+i));
+    result := PredefineBoolArray('Present',MaxTriggerPlayers,bools);
+  end;
+end;
+
+function GetStopEventBoolVar: integer;
+begin
+  if StopEventBoolVar = -1 then
+  begin
+    StopEventBoolVar := BoolVarIndexOf('_stopEvent');
+    if StopEventBoolVar = -1 then
+      StopEventBoolVar := CreateBoolVar('_stopEvent', svClear);
+  end;
+  result := StopEventBoolVar;
 end;
 
 function CreateUnitProp(AName: string; AValue: TUnitProperties; AConstant: boolean): integer;

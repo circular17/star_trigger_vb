@@ -23,8 +23,7 @@ procedure ExpectToken(ALine: TStringList; var AIndex: integer; AToken: string);
 function TryConditionOperator(ALine: TStringList; var AIndex: integer): TConditionOperator;
 function ParseRandom(ALine: TStringList; var AIndex: integer): integer;
 function TryParsePlayer(ALine: TStringList; var AIndex: integer): TPlayer;
-function ParsePlayers(ALine: TStringList; var AIndex: integer): TPlayers;
-function ParseAs(ALine: TStringList): TPlayers;
+function ExpectPlayers(ALine: TStringList; var AIndex: integer): TPlayers;
 
 implementation
 
@@ -222,7 +221,7 @@ begin
   exit(plNone);
 end;
 
-function ParsePlayers(ALine: TStringList; var AIndex: integer): TPlayers;
+function ExpectPlayers(ALine: TStringList; var AIndex: integer): TPlayers;
 var
   pl: TPlayer;
 begin
@@ -237,23 +236,15 @@ begin
       if TryToken(ALine, aIndex, '}') then break
       else ExpectToken(ALine,AIndex,',');
     until false;
+
+    if plCurrentPlayer in result then raise exception.Create('Current player does not define a player');
+    if result = [] then raise exception.Create('No player specified');
   end else
   begin
     pl := TryParsePlayer(ALine,AIndex);
     if pl = plNone then raise exception.Create('Expecting player but "' + ALine[AIndex] + '" found');
     result := [pl];
   end;
-end;
-
-function ParseAs(ALine: TStringList): TPlayers;
-var
-  index: Integer;
-begin
-  index := 0;
-  ExpectToken(ALine,index,'As');
-  result := ParsePlayers(ALine,index);
-  if index < ALine.Count then
-    raise exception.Create('Unexpected end of line');
 end;
 
 end.

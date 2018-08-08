@@ -11,7 +11,7 @@ type
   TScalarVariableType = (svtNone, svtInteger, svtSwitch);
   TScalarVariable = record
     VarType: TScalarVariableType;
-    Constant: boolean;
+    Constant, ReadOnly: boolean;
     UnitType: string;
     Player: TPlayer;
     Switch: integer;
@@ -265,6 +265,7 @@ begin
       result.UnitType := IntVars[varIdx].UnitType;
       result.Switch := -1;
       result.Constant:= IntVars[varIdx].Constant;
+      result.ReadOnly := result.Constant;
       result.IntValue:= IntVars[varIdx].Value;
       result.BoolValue:= IntVars[varIdx].Value<>0;
       exit;
@@ -279,6 +280,7 @@ begin
       result.UnitType := '';
       result.Switch := BoolVars[varIdx].Switch;
       result.Constant:= BoolVars[varIdx].Constant;
+      result.ReadOnly := result.Constant;
       result.BoolValue:= BoolVars[varIdx].Value = svSet;
       result.IntValue := integer(result.BoolValue);
       exit;
@@ -293,14 +295,39 @@ begin
         arrayIndex := ExpectInteger(ALine,AIndex);
         if (arrayIndex < 1) or (arrayIndex > BoolArrays[varIdx].Size) then
           raise exception.Create('Array index out of bounds');
+        ExpectToken(ALine, AIndex, ')');
 
         result.VarType := svtSwitch;
         result.Player := plNone;
         result.UnitType := '';
         result.Switch := BoolVars[BoolArrays[varIdx].Vars[arrayIndex-1]].Switch;
         result.Constant:= BoolArrays[varIdx].Constant;
+        result.ReadOnly := result.Constant;
         result.BoolValue:= BoolArrays[varIdx].Values[arrayIndex-1] = svSet;
         result.IntValue := integer(result.BoolValue);
+        exit;
+      end else
+        Dec(AIndex);
+    end else
+    if (CompareText(ALine[AIndex],'Present')=0) then
+    begin
+      Inc(AIndex);
+      if TryToken(ALine,AIndex,'(') then
+      begin
+        arrayIndex := ExpectInteger(ALine,AIndex);
+        if (arrayIndex < 1) or (arrayIndex > MaxTriggerPlayers) then
+          raise exception.Create('Array index out of bounds');
+        ExpectToken(ALine, AIndex, ')');
+
+        result.VarType := svtSwitch;
+        result.Player := plNone;
+        result.UnitType := '';
+        varIdx := GetPlayerPresenceBoolVar(TPlayer(ord(plPlayer1)+arrayIndex-1));
+        result.Switch := BoolVars[varIdx].Switch;
+        result.Constant:= false;
+        result.ReadOnly := true;
+        result.BoolValue:= false;
+        result.IntValue := 0;
         exit;
       end else
         Dec(AIndex);
@@ -337,6 +364,7 @@ begin
         result.VarType := svtInteger;
         result.Switch := -1;
         result.Constant:= IntArrays[varIdx].Constant;
+        result.ReadOnly := result.Constant;
         result.BoolValue:= result.IntValue<>0;
         exit;
       end else
@@ -363,6 +391,7 @@ begin
           result.UnitType := unitType;
           result.Switch := -1;
           result.Constant:= False;
+          result.ReadOnly := result.Constant;
           result.IntValue:= 0;
           result.BoolValue:= false;
 
@@ -384,6 +413,7 @@ begin
             result.UnitType := IntArrays[varIdx].UnitType;
             result.Switch := -1;
             result.Constant:= False;
+            result.ReadOnly := result.Constant;
             result.IntValue:= 0;
             result.BoolValue:= false;
 

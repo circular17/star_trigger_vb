@@ -86,7 +86,7 @@ function TryPlayerConditionFunction(ALine: TStringList; var AIndex: Integer; APl
 var
   unitType, locStr: String;
   op: TConditionOperator;
-  intVal: Integer;
+  intVal, idxVar: Integer;
 
   procedure ExpectCurrentPlayer;
   begin
@@ -304,6 +304,12 @@ begin
     end;
     exit;
   end else
+  if TryToken(ALine,AIndex,'Present') then
+  begin
+    idxVar := GetPlayerPresenceBoolVar(APlayer);
+    result := TSwitchCondition.Create(BoolVars[idxVar].Switch,not ANegation);
+    exit;
+  end else
     result := nil;
 end;
 
@@ -354,10 +360,13 @@ begin
        if result = nil then
          raise exception.Create('Expecting variable or function')
        else
-       if not IsUniquePlayer(AThreads) or (AThreads = [plCurrentPlayer]) then
+       if not IsUniquePlayer(AThreads) or (AThreads = []) then
        begin
          result.Free;
-         raise exception.Create('You need to specify the player to which it applies ("Me" for each player)')
+         if AThreads = [] then
+           raise exception.Create('You need to specify the player to which it applies ("Me" for main thread)')
+         else
+           raise exception.Create('You need to specify the player to which it applies ("Me" for each player)');
        end;
        exit;
       end;
@@ -565,7 +574,8 @@ begin
     begin
       ValueBool;
       AProp.Lifted := boolVal;
-    end;
+    end else
+      raise exception.Create('Unknown member "'+name+'"');
 
     if not TryToken(ALine,idx,',') then
     begin
@@ -604,7 +614,7 @@ function IsVarNameUsed(AName: string; AParamCount: integer): boolean;
 begin
   result := (IntVarIndexOf(AName)<>-1) or (BoolVarIndexOf(AName)<>-1) or (IntArrayIndexOf(AName)<>-1) or
     (ProcedureIndexOf(AName,AParamCount)<>-1) or (UnitPropIndexOf(AName) <> -1) or (StringIndexOf(AName)<>-1) or
-    (SoundIndexOf(AName)<>-1) or (CompareText('AI',AName) = 0);
+    (SoundIndexOf(AName)<>-1) or (CompareText('AI',AName) = 0) or (CompareText('Present',AName) = 0);
 end;
 
 function CreateProcedure(AName: string; AParamCount: integer; AReturnType: string): integer;
@@ -762,15 +772,20 @@ begin
     result := CreateProcedure(name,paramCount,returnType);
 end;
 
-function ProcessEvent(ALine: TStringList; APlayers: TPlayers): integer;
+function ProcessEvent(ALine: TStringList; APlayers: TPlayers; ACheckStop: boolean): integer;
 var
-  index: Integer;
+  index, varIdx: Integer;
   conds: TConditionList;
 begin
   index := 0;
   ExpectToken(ALine,index,'When');
 
   conds := ExpectConditions(ALine,index,APlayers);
+  if ACheckStop then
+  begin
+    varIdx := GetStopEventBoolVar;
+    conds.Add( TSwitchCondition.Create(BoolVars[varIdx].Switch,False) );
+  end;
 
   result := CreateEvent(APlayers, conds, not TryToken(ALine,index,'Once'));
 
@@ -1138,6 +1153,7 @@ var
   conds: TConditionList;
   expr: TExpression;
   subInstr: TInstructionList;
+  players: TPlayers;
 
   procedure CheckCurrentPlayer;
   begin
@@ -1182,6 +1198,16 @@ begin
     end else
       propIndex := -1;
     ExpectToken(ALine,AIndex,')');
+
+    if propIndex = -1 then
+    begin
+      if TryToken(ALine,AIndex,'With') then
+      begin
+        propIndex := TryUnitPropVar(ALine,AIndex);
+        if propIndex = -1 then
+          raise exception.Create('Unit properties expected');
+      end;
+    end;
 
     if expr.IsConstant then
       AProg.Add(TCreateUnitInstruction.Create(APlayer, expr.ConstElement, unitType, locStr, propIndex))
@@ -1505,16 +1531,18 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      pl := TryParsePlayer(ALine,AIndex);
-      if pl = plNone then raise exception.Create('Expecting player identifier');
+      players := ExpectPlayers(ALine,AIndex);
       ExpectToken(ALine,AIndex,')');
       ExpectToken(ALine,AIndex,'=');
+      ExpectToken(ALine,AIndex,'Alliance');
+      ExpectToken(ALine,AIndex,'.');
       if TryToken(ALine,AIndex,'Ennemy') then alliance := asEnnemy
       else if TryToken(ALine,AIndex,'Ally') then alliance := asAlly
       else if TryToken(ALine,AIndex,'AlliedVictory') then alliance := asAlliedVictory
       else raise exception.Create('Expecting alliance status (Ennemy, Ally, AlliedVictory)');
 
-      AProg.Add(TSetAllianceStatus.Create(pl, alliance));
+      for pl := low(TPlayer) to high(TPlayer) do
+        if pl in players then AProg.Add(TSetAllianceStatus.Create(pl, alliance));
     end else
     if TryToken(ALine,AIndex,'NextScenario') then
     begin
@@ -1594,13 +1622,14 @@ var
   index, intVal, idxArr, i, idxSound, sw, idxVar: integer;
   params: TStringList;
   name, assignOp: String;
-  done, boolVal: boolean;
+  done, boolVal, isPresent: boolean;
   scalar: TScalarVariable;
   conds: TConditionList;
   ints: ArrayOfInteger;
   sim: TSetIntegerMode;
   pl: TPlayer;
   expr: TExpression;
+  bools: ArrayOfSwitchValue;
 
   procedure CheckEndOfLine;
   begin
@@ -1691,6 +1720,7 @@ begin
       begin
         done := true;
         if scalar.Constant then raise exception.Create('Constant cannot be assigned to');
+        if scalar.ReadOnly then raise exception.Create('This value is read-only');
         case scalar.VarType of
         svtInteger: begin
             expr := TryExpression(ALine, index, true);
@@ -1734,6 +1764,7 @@ begin
         begin
           done := true;
           if scalar.Constant then raise exception.Create('Constant cannot be assigned to');
+          if scalar.ReadOnly then raise exception.Create('This value is read-only');
           if scalar.VarType = svtInteger then
           begin
             expr := TryExpression(ALine,index, true);
@@ -1786,6 +1817,29 @@ begin
       end;
     end;
 
+    idxArr := BoolArrayIndexOf(ALine[0]);
+    isPresent := CompareText(ALine[0],'Present')=0;
+    if (idxArr <> -1) or isPresent then
+    begin
+      index := 1;
+      if TryToken(ALine,index,'=') then
+      begin
+        done := true;
+        if isPresent then raise exception.Create('Array is readonly');
+
+        if BoolArrays[idxArr].Constant then raise exception.Create('Constant cannot be assigned to');
+        if BoolArrays[idxArr].ReadOnly then raise exception.Create('Array is readonly');
+
+        bools := ParseBoolArray(ALine,index);
+        if length(bools) <> BoolArrays[idxArr].Size then
+          raise exception.Create('Array size mismatch');
+        CheckEndOfLine;
+        for i := 0 to high(bools) do
+          with BoolVars[BoolArrays[idxArr].Vars[i]] do
+            AProg.Add(TSetSwitchInstruction.Create(Switch, bools[i]));
+      end;
+    end;
+
     if not done then
     begin
       index := 0;
@@ -1813,8 +1867,8 @@ begin
 
     if TryPlayerAction(AProg,ALine,index,plCurrentPlayer, AThreads) then
     begin
-      if AThreads = [plCurrentPlayer] then
-        raise exception.Create('You need to specify which players does the action');
+      if AThreads = [] then
+        raise exception.Create('You need to specify which players does the action ("Me" for main thread)');
       CheckEndOfLine;
       done := true;
     end;
@@ -1901,6 +1955,7 @@ var
     begin
       lastToken := line[line.Count-1];
       if (lastToken = '&') or (lastToken = '+') or (lastToken = '-') or (lastToken = '*') or (lastToken = '\')
+       or (lastToken = '=') or (lastToken = '.')
        or (CompareText(lastToken,'Or')=0) or (CompareText(lastToken,'And')=0) or (CompareText(lastToken,'Xor')=0) then
       begin
         readln(t, s);
@@ -1911,13 +1966,20 @@ var
       end else break;
     end;
   end;
+
+  procedure CheckEndOfLine;
+  begin
+    if index <> line.Count then
+      raise exception.Create('Expecting end of line');
+  end;
+
 var
   errorCount: integer;
   inSub, inEvent, i: integer;
-  inSubNew, subNewDeclared, done: boolean;
+  inSubNew, subNewDeclared, done, inDoAs: boolean;
+  doPlayers: TPlayers;
   players: TPlayers;
   pl: TPlayer;
-
 
 begin
   AMainThread := plNone;
@@ -1955,6 +2017,8 @@ begin
   inEvent := -1;
   inSubNew := false;
   subNewDeclared := false;
+  inDoAs := false;
+  doPlayers := [];
 
   while not Eof(t) and (errorCount < 3) do
   begin
@@ -1987,6 +2051,7 @@ begin
       begin
         if not Events[inEvent].Preserve then
           raise exception.Create('If you use Stop in an event, you cannot use Return in the same event');
+        CheckEndOfLine;
         Events[inEvent].Instructions.Add(TReturnInstruction.Create);
       end
       else if TryToken(line,index, 'Stop') then
@@ -2000,15 +2065,25 @@ begin
               if Events[inEvent].Instructions[i] is TReturnInstruction then
                 raise exception.Create('If you use Stop in an event, you cannot use Return in the same event');
           end;
+          CheckEndOfLine;
           Events[inEvent].Instructions.Add(TReturnInstruction.Create);
         end else
           raise exception.Create('Stop instruction only allowed in event');
       end
       else if (inSub = -1) and (inEvent = -1) and not inSubNew and TryToken(line,index,'As') then
       begin
-        players := ParseAs(line);
-        if eof(t) then raise exception.Create('End of file not expected');
-        ReadNextLine;
+        players := ExpectPlayers(line,index);
+        if index < line.Count then
+        begin
+          for i := index-1 downto 0 do
+            line.Delete(i);
+          index := 0;
+        end else
+        begin
+          if eof(t) then raise exception.Create('End of file not expected');
+          ReadNextLine;
+        end;
+
         if TryToken(line,index,'Sub') or TryToken(line,index,'Function') then
         begin
           inSub := ProcessSub(line);
@@ -2023,7 +2098,7 @@ begin
             if pl in players then AMainThread:= pl;
           if AMainThread = plNone then raise exception.Create('This player can''t be used as a main thread');
         end else
-          inEvent := ProcessEvent(line, players)
+          inEvent := ProcessEvent(line, players, true)
       end
       else if TryToken(line,index,'When') then
       begin
@@ -2031,7 +2106,7 @@ begin
           raise exception.Create('Nested events not allowed');
         if not subNewDeclared then
           raise exception.Create('Events on main thread must appear after Sub New');
-        inEvent := ProcessEvent(line, [AMainThread])
+        inEvent := ProcessEvent(line, [], false)
       end else
       begin
         done := false;
@@ -2039,6 +2114,8 @@ begin
         begin
           if TryToken(line,index,'Sub') then
           begin
+            if inDoAs then raise exception.Create('Multi-thread instruction not finished');
+
             if inSubNew then inSubNew := false
             else
             begin
@@ -2050,6 +2127,7 @@ begin
                   Add(TReturnInstruction.Create);
               inSub := -1;
             end;
+            CheckEndOfLine;
             done := true;
           end
           else if TryToken(line,index,'Function') then
@@ -2061,10 +2139,13 @@ begin
               if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
                 Add(TReturnInstruction.Create);
             inSub := -1;
+            CheckEndOfLine;
             done := true;
           end
           else if TryToken(line,index,'When') then
           begin
+            if inDoAs then raise exception.Create('Multi-thread instruction not finished');
+
             if inEvent= -1 then
               raise Exception.create('Not in an event');
             with Events[inEvent] do
@@ -2074,8 +2155,50 @@ begin
                 Instructions.Delete(Instructions.Count-1);
               end;
             inEvent := -1;
+            CheckEndOfLine;
+            done := true;
+          end
+          else if TryToken(line,index,'Do') then
+          begin
+            if inDoAs then
+            begin
+              inDoAs := false;
+              if inSubNew then
+                MainProg.Add(TEndDoAsInstruction.Create(doPlayers) )
+              else
+              if (inEvent<>-1) then
+                Events[inEvent].Instructions.Add(TEndDoAsInstruction.Create(doPlayers) );
+            end
+            else raise exception.Create('Unexpected end of block');
             done := true;
           end;
+        end else
+        if TryToken(line,index,'Do') and TryToken(line,index,'As') then
+        begin
+          if inDoAs then raise exception.Create('Nested multi-thread instruction not allowed');
+
+          doPlayers := ExpectPlayers(line,index);
+          if (plAllPlayers in doPlayers) or ([plForce1,plForce2,plForce3,plForce4] <= doPlayers) then
+            doPlayers := [plPlayer1,plPlayer2,plPlayer3,plPlayer4,
+                      plPlayer5,plPlayer6,plPlayer7,plPlayer8];
+
+          if inEvent<>-1 then
+          begin
+            if (Events[inEvent].Players <> []) and (Events[inEvent].Players <> [AMainThread]) then
+              raise exception.Create('Multi-thread instruction only allowed in main thread');
+            Events[inEvent].Instructions.Add(TDoAsInstruction.Create(doPlayers));
+          end else
+          if inSubNew then
+          begin
+            MainProg.Add(TDoAsInstruction.Create(doPlayers));
+          end
+          else
+            raise exception.Create('Multi-thread instructions must be in the Sub New or in an event of the main thread');
+
+          CheckEndOfLine;
+
+          inDoAs := true;
+          done := true;
         end;
 
         if not done then
@@ -2083,11 +2206,18 @@ begin
           if inSub<>-1 then
             ParseInstruction(line, Procedures[inSub].Instructions,[plAllPlayers], inSub)
           else if inEvent<>-1 then
-            ParseInstruction(line, Events[inEvent].Instructions, Events[inEvent].Players, -1)
+          begin
+            if inDoAs then
+              ParseInstruction(line, Events[inEvent].Instructions, doPlayers, -1)
+            else
+              ParseInstruction(line, Events[inEvent].Instructions, Events[inEvent].Players, -1);
+          end
           else if inSubNew then
           begin
-            if AMainThread = plNone then
-              ParseInstruction(line, MainProg, [plCurrentPlayer], -1)
+            if inDoAs then
+              ParseInstruction(line, MainProg, doPlayers, -1)
+            else if AMainThread = plNone then
+              ParseInstruction(line, MainProg, [], -1)
             else
               ParseInstruction(line, MainProg, [AMainThread], -1);
           end
@@ -2107,6 +2237,18 @@ begin
 
   line.Free;
   CloseFile(t);
+
+  if inSub<>-1 then
+  begin
+    writeln('End of file: Sub or Function not finished');
+    Inc(errorCount);
+  end;
+
+  if inEvent<>-1 then
+  begin
+    writeln('End of file: event not finished');
+    Inc(errorCount);
+  end;
 
   result := errorCount = 0;
 end;

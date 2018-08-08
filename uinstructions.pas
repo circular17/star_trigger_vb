@@ -168,6 +168,13 @@ type
     function ToString: ansistring; override;
   end;
 
+  { TWaitForPresenceDefinedInstruction }
+
+  TWaitForPresenceDefinedInstruction = class(TInstruction)
+    constructor Create;
+    function ToString: ansistring; override;
+  end;
+
   { TIfInstruction }
 
   TIfInstruction = class(TInstruction)
@@ -631,6 +638,18 @@ end;
 function IsAnywhere(ALocation: string): boolean;
 begin
   result := (ALocation = '') or (CompareText(ALocation, AnywhereLocation)=0);
+end;
+
+{ TWaitForPresenceDefinedInstruction }
+
+constructor TWaitForPresenceDefinedInstruction.Create;
+begin
+  //
+end;
+
+function TWaitForPresenceDefinedInstruction.ToString: ansistring;
+begin
+  Result:= '';
 end;
 
 { TInstructionList }

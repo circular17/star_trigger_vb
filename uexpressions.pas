@@ -34,6 +34,7 @@ type
     Negative: boolean;
     constructor Create(ANegative: boolean);
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); virtual; abstract;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); virtual; abstract;
     function AlwaysClearAccumulator: boolean; virtual; abstract;
   end;
 
@@ -46,6 +47,7 @@ type
     UnitType: string;
     constructor Create(ANegative: boolean; APlayer: TPlayer; AUnitType: string);
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
   end;
 
@@ -55,6 +57,29 @@ type
     Name: string;
     constructor Create(ANegative: boolean; AName: string);
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
+    function AlwaysClearAccumulator: boolean; override;
+  end;
+
+  { TCountIfBoolNode }
+
+  TCountIfBoolNode = class(TExpressionNode)
+    BoolArray: integer;
+    TestValue: boolean;
+    constructor Create(ANegative: boolean; ABoolArray: integer; ATestValue: boolean);
+    procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
+    function AlwaysClearAccumulator: boolean; override;
+  end;
+
+  { TCountIfIntNode }
+
+  TCountIfIntNode = class(TExpressionNode)
+    IntArray: integer;
+    TestValue: integer;
+    constructor Create(ANegative: boolean; AIntArray: integer; ATestValue: integer);
+    procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
   end;
 
@@ -64,6 +89,7 @@ type
     Range: integer;
     constructor Create(ANegative: boolean; ARange: integer);
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
   end;
 
@@ -537,8 +563,8 @@ end;
 function TryExpression(ALine: TStringList; var AIndex: integer; ARaiseException: boolean): TExpression;
 var
   intValue: integer;
-  neg: boolean;
-  idx, rnd: integer;
+  neg, boolVal: boolean;
+  idx, rnd, idxVar, intVal: integer;
   scalar: TScalarVariable;
   name: string;
 begin
@@ -570,6 +596,36 @@ begin
           end
         else
           begin
+            if TryToken(ALine,idx,'CountIf') then
+            begin
+              ExpectToken(ALine,idx,'(');
+              if not TryIdentifier(ALine,idx,name) then
+                raise exception.Create('Array identifier expected');
+              ExpectToken(ALine,idx,',');
+
+              if name = 'Present' then
+                idxVar := GetPlayerPresentArray
+              else
+                idxVar := BoolArrayIndexOf(name);
+
+              if idxVar <> -1 then
+              begin
+                if not TryBoolean(ALine,idx, boolVal) then
+                  raise exception.Create('Boolean constant expected');
+                result.Elements.Add(TCountIfBoolNode.Create(neg, idxVar, boolVal));
+              end else
+              begin
+                idxVar := IntArrayIndexOf(name);
+                if idxVar <> -1 then
+                begin
+                  if not TryInteger(ALine,idx, intVal) then
+                    raise exception.Create('Integer constant expected');
+                  result.Elements.Add(TCountIfIntNode.Create(neg, idxVar, intVal));
+                end else
+                  raise exception.Create('Unknown array variable "' + name + '"');
+              end;
+              ExpectToken(ALine,idx,')');
+            end else
             if TryIdentifier(ALine,idx,name) then  //function call?
             begin
               if TryToken(ALine,idx,'(') then ExpectToken(ALine,idx,')');
@@ -597,6 +653,108 @@ end;
 function ExpectString(ALine: TStringList; var AIndex: integer): string;
 begin
   TryString(ALine,AIndex,result,True);
+end;
+
+{ TCountIfIntNode }
+
+constructor TCountIfIntNode.Create(ANegative: boolean; AIntArray: integer;
+  ATestValue: integer);
+begin
+  Negative := ANegative;
+  IntArray := AIntArray;
+  TestValue := ATestValue;
+end;
+
+procedure TCountIfIntNode.LoadIntoAccumulator(AClearAcc: boolean;
+  AProg: TInstructionList);
+var
+  proc: TInstructionList;
+  i: Integer;
+begin
+  if AClearAcc then
+    AProg.Add(TTransferIntegerInstruction.Create(0,itCopyIntoAccumulator));
+
+  with IntArrays[IntArray] do
+    for i := 0 to size-1 do
+    begin
+      proc := TInstructionList.Create;
+      proc.Add(TTransferIntegerInstruction.Create(1,itAddIntoAccumulator));
+      AProg.Add(TFastIfInstruction.Create( [TIntegerCondition.Create(IntVars[Vars[i]].Player, IntVars[Vars[i]].UnitType, icmExactly, TestValue)], proc));
+    end;
+end;
+
+procedure TCountIfIntNode.LoadIntoVariable(AClearVar: boolean;
+  APlayer: TPlayer; AUnitType: string; AProg: TInstructionList);
+var
+  proc: TInstructionList;
+  i: Integer;
+begin
+  if AClearVar then
+    AProg.Add( TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0) );
+
+  with IntArrays[IntArray] do
+    for i := 0 to size-1 do
+    begin
+      proc := TInstructionList.Create;
+      proc.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simAdd,1));
+      AProg.Add(TFastIfInstruction.Create( [TIntegerCondition.Create(IntVars[Vars[i]].Player, IntVars[Vars[i]].UnitType, icmExactly, TestValue)], proc));
+    end;
+end;
+
+function TCountIfIntNode.AlwaysClearAccumulator: boolean;
+begin
+  result := False;
+end;
+
+{ TCountIfBoolNode }
+
+constructor TCountIfBoolNode.Create(ANegative: boolean; ABoolArray: integer;
+  ATestValue: boolean);
+begin
+  Negative := ANegative;
+  BoolArray := ABoolArray;
+  TestValue := ATestValue;
+end;
+
+procedure TCountIfBoolNode.LoadIntoAccumulator(AClearAcc: boolean;
+  AProg: TInstructionList);
+var
+  proc: TInstructionList;
+  i: Integer;
+begin
+  if AClearAcc then
+    AProg.Add(TTransferIntegerInstruction.Create(0,itCopyIntoAccumulator));
+
+  with BoolArrays[BoolArray] do
+    for i := 0 to size-1 do
+    begin
+      proc := TInstructionList.Create;
+      proc.Add(TTransferIntegerInstruction.Create(1,itAddIntoAccumulator));
+      AProg.Add(TFastIfInstruction.Create( [TSwitchCondition.Create(BoolVars[Vars[i]].Switch, TestValue)], proc));
+    end;
+end;
+
+procedure TCountIfBoolNode.LoadIntoVariable(AClearVar: boolean;
+  APlayer: TPlayer; AUnitType: string; AProg: TInstructionList);
+var
+  proc: TInstructionList;
+  i: Integer;
+begin
+  if AClearVar then
+    AProg.Add( TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0) );
+
+  with BoolArrays[BoolArray] do
+    for i := 0 to size-1 do
+    begin
+      proc := TInstructionList.Create;
+      proc.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simAdd,1));
+      AProg.Add(TFastIfInstruction.Create( [TSwitchCondition.Create(BoolVars[Vars[i]].Switch, TestValue)], proc));
+    end;
+end;
+
+function TCountIfBoolNode.AlwaysClearAccumulator: boolean;
+begin
+  result := false;
 end;
 
 { TExpression }
@@ -685,6 +843,12 @@ begin
       end;
     end;
 
+  if (PositiveCount = 1) and (NegativeCount = 0) then
+  begin
+    Elements[0].LoadIntoVariable( AMode = simSetTo, ADestPlayer, ADestUnitType, AProg );
+    if ConstElement <> 0 then
+      AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simAdd, ConstElement) );
+  end else
   if (PositiveCount = 0) and (NegativeCount = 0) then
   begin
     if (AMode = simSetTo) or (ConstElement <> 0) then
@@ -761,6 +925,18 @@ begin
     raise exception.Create('Unhandled case');
 end;
 
+procedure TRandomNode.LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer;
+  AUnitType: string; AProg: TInstructionList);
+begin
+  if AClearVar then
+    AProg.Add( TSetIntegerInstruction.Create(APlayer,AUnitType, simRandomize, Range) )
+  else
+  begin
+    AProg.Add( TTransferIntegerInstruction.Create(Range, itRandomizeAccumulator) );
+    AProg.Add( TTransferIntegerInstruction.Create(APlayer,AUnitType, itAddAccumulator) );
+  end;
+end;
+
 function TRandomNode.AlwaysClearAccumulator: boolean;
 begin
   result := true;
@@ -779,6 +955,16 @@ begin
     AProg.Add(TCallInstruction.Create(Name,[],'Integer'))
   else
     raise exception.Create('Unhandled case');
+end;
+
+procedure TFunctionCallNode.LoadIntoVariable(AClearVar: boolean;
+  APlayer: TPlayer; AUnitType: string; AProg: TInstructionList);
+begin
+  AProg.Add(TCallInstruction.Create(Name,[],'Integer'));
+  if AClearVar then
+    AProg.Add(TTransferIntegerInstruction.Create(APlayer, AUnitType, itCopyAccumulator))
+  else
+    AProg.Add(TTransferIntegerInstruction.Create(APlayer, AUnitType, itAddAccumulator));
 end;
 
 function TFunctionCallNode.AlwaysClearAccumulator: boolean;
@@ -803,6 +989,16 @@ begin
     AProg.Add(TTransferIntegerInstruction.Create(Player,UnitType,itCopyIntoAccumulator))
   else
     AProg.Add(TTransferIntegerInstruction.Create(Player,UnitType,itAddIntoAccumulator));
+end;
+
+procedure TVariableNode.LoadIntoVariable(AClearVar: boolean;
+  APlayer: TPlayer; AUnitType: string; AProg: TInstructionList);
+begin
+  AProg.Add(TTransferIntegerInstruction.Create(Player,UnitType,itCopyIntoAccumulator));
+  if AClearVar then
+    AProg.Add(TTransferIntegerInstruction.Create(APlayer, AUnitType, itCopyAccumulator))
+  else
+    AProg.Add(TTransferIntegerInstruction.Create(APlayer, AUnitType, itAddAccumulator));
 end;
 
 function TVariableNode.AlwaysClearAccumulator: boolean;

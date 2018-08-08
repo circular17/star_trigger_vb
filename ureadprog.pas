@@ -614,7 +614,8 @@ function IsVarNameUsed(AName: string; AParamCount: integer): boolean;
 begin
   result := (IntVarIndexOf(AName)<>-1) or (BoolVarIndexOf(AName)<>-1) or (IntArrayIndexOf(AName)<>-1) or
     (ProcedureIndexOf(AName,AParamCount)<>-1) or (UnitPropIndexOf(AName) <> -1) or (StringIndexOf(AName)<>-1) or
-    (SoundIndexOf(AName)<>-1) or (CompareText('AI',AName) = 0) or (CompareText('Present',AName) = 0);
+    (SoundIndexOf(AName)<>-1) or (CompareText('AI',AName) = 0) or (CompareText('Present',AName) = 0) or
+    (CompareText('CountIf',AName)=0);
 end;
 
 function CreateProcedure(AName: string; AParamCount: integer; AReturnType: string): integer;
@@ -1617,7 +1618,7 @@ begin
   exit(false);
 end;
 
-procedure ParseInstruction(ALine: TStringList; AProg: TInstructionList; AThreads: TPlayers; AProcId: integer; AInSubNew: boolean);
+procedure ParseInstruction(ALine: TStringList; AProg: TInstructionList; AThreads: TPlayers; AMainThread: TPlayer; AProcId: integer; AInSubNew: boolean);
 var
   index, intVal, idxArr, i, idxSound, sw, idxVar: integer;
   params: TStringList;
@@ -1639,6 +1640,22 @@ var
 
 begin
   if (ALine.Count = 0) or ((ALine.Count = 1) and (ALine[0] = '')) then exit;
+
+  for index := 0 to ALine.Count-1 do
+    if CompareText(ALine[index],'Present') = 0 then
+    begin
+      if (AThreads <> []) and (AThreads <> [AMainThread]) then
+        raise exception.Create('"Present" is only valid in the main thread');
+      done := false;
+      for i := 0 to AProg.Count-1 do
+        if AProg[i] is TWaitForPresenceDefinedInstruction then
+        begin
+          done := true;
+          break;
+        end;
+      if not done then
+        AProg.Add(TWaitForPresenceDefinedInstruction.Create);
+    end;
 
   index := 0;
   if TryToken(ALine,index,'Return') then
@@ -2221,22 +2238,22 @@ begin
         if not done then
         begin
           if inSub<>-1 then
-            ParseInstruction(line, Procedures[inSub].Instructions,[plAllPlayers], inSub,false)
+            ParseInstruction(line, Procedures[inSub].Instructions,[plAllPlayers], AMainThread, inSub,false)
           else if inEvent<>-1 then
           begin
             if inDoAs then
-              ParseInstruction(line, Events[inEvent].Instructions, doPlayers, -1, false)
+              ParseInstruction(line, Events[inEvent].Instructions, doPlayers, AMainThread, -1, false)
             else
-              ParseInstruction(line, Events[inEvent].Instructions, Events[inEvent].Players, -1, false);
+              ParseInstruction(line, Events[inEvent].Instructions, Events[inEvent].Players, AMainThread, -1, false);
           end
           else if inSubNew then
           begin
             if inDoAs then
-              ParseInstruction(line, MainProg, doPlayers, -1, true)
+              ParseInstruction(line, MainProg, doPlayers, AMainThread, -1, true)
             else if AMainThread = plNone then
-              ParseInstruction(line, MainProg, [], -1, true)
+              ParseInstruction(line, MainProg, [], AMainThread, -1, true)
             else
-              ParseInstruction(line, MainProg, [AMainThread], -1, true);
+              ParseInstruction(line, MainProg, [AMainThread], AMainThread, -1, true);
           end
           else
             if not ParseOption(line) then

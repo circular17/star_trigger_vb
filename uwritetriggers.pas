@@ -70,6 +70,13 @@ begin
       tempExpand.Free;
       Continue;
     end else
+    if AProg[i] is TWaitForPresenceDefinedInstruction then
+    begin
+       AProg[i].Free;
+       varIdx := GetPlayerPresenceDefinedVar;
+       expanded.Add(TWaitConditionInstruction.Create(TSwitchCondition.Create(BoolVars[varIdx].Switch, true), NewIP));
+       Continue;
+    end else
     if AProg[i] is TDoAsInstruction then
     begin
       doAs := TDoAsInstruction(AProg[i]);

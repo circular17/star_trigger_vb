@@ -40,8 +40,12 @@ end;
 procedure CheckReservedWord(AText: string);
 const
   ReservedWords: array[1..51] of string =
-    ('Dim','As','Const','Sub','When','End','If','EndIf', 'Then','Else','Not','And','Or','Xor','While','Option','Return','On','Off','Hyper','Boolean','Byte','Integer','String','True','False',
-     'For','To','Step','Next','Do','Loop','Until','Len','Chr','Asc','ElseIf','Select','Case','Exit','Function','LBound','UBound','Me','Now','ReDim', 'Preserve', 'Rnd','New','Min','Max');
+    ('Dim','As','Const','Sub','When','End','If','EndIf', 'Then','Else','Not','And','Or','Xor','While','Option','Return',
+     'On','Off','Hyper','Boolean','Byte','Integer','String','True','False',
+     'For','To','Step','Next','Do','Loop','Until','Len','Chr','Asc','ElseIf',
+     'Select','Case','Exit','Function','LBound','UBound','Me','Rnd','New','Min','Max',
+
+     'Date','ReDim','Preserve'); //reserved but never implemented
 var
   i: Integer;
   pl: TPlayer;

@@ -272,6 +272,16 @@ type
     function ToString: ansistring; override;
   end;
 
+  { TMoveLocationInstruction }
+
+  TMoveLocationInstruction = class(TInstruction)
+    Player: TPlayer;
+    UnitType, Location: string;
+    LocationToChange: string;
+    constructor Create(APlayer: TPlayer; AUnitType, ALocation: string; ALocationToChange: string);
+    function ToString: ansistring; override;
+  end;
+
   { TOrderUnitInstruction }
 
   TOrderUnitInstruction = class(TInstruction)
@@ -588,6 +598,23 @@ end;
 function IsAnywhere(ALocation: string): boolean;
 begin
   result := (ALocation = '') or (CompareText(ALocation, AnywhereLocation)=0);
+end;
+
+{ TMoveLocationInstruction }
+
+constructor TMoveLocationInstruction.Create(APlayer: TPlayer; AUnitType,
+  ALocation: string; ALocationToChange: string);
+begin
+  Player:= APlayer;
+  UnitType:= AUnitType;
+  Location:= ALocation;
+  LocationToChange:= ALocationToChange;
+end;
+
+function TMoveLocationInstruction.ToString: ansistring;
+begin
+  Result:= 'Move Location(' + AddQuotes(PlayerToStr(Player)) + ', '+AddQuotes(UnitType)+', ';
+  result += AddQuotes(Location)+', '+AddQuotes(LocationToChange)+')';
 end;
 
 { TFastIfInstruction }

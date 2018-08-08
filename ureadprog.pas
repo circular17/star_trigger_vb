@@ -604,7 +604,7 @@ function IsVarNameUsed(AName: string; AParamCount: integer): boolean;
 begin
   result := (IntVarIndexOf(AName)<>-1) or (BoolVarIndexOf(AName)<>-1) or (IntArrayIndexOf(AName)<>-1) or
     (ProcedureIndexOf(AName,AParamCount)<>-1) or (UnitPropIndexOf(AName) <> -1) or (StringIndexOf(AName)<>-1) or
-    (SoundIndexOf(AName)<>-1);
+    (SoundIndexOf(AName)<>-1) or (CompareText('AI',AName) = 0);
 end;
 
 function CreateProcedure(AName: string; AParamCount: integer; AReturnType: string): integer;
@@ -702,7 +702,10 @@ begin
     if TryBoolean(ALine,AIndex,boolVal) then
       result[Count] := BoolToSwitch[boolval]
     else if TryToken(ALine,AIndex,'Rnd') then
-      result[Count] := svRandomize
+    begin
+      result[Count] := svRandomize;
+      if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
+    end
     else
       raise exception.Create('Expecting boolean or "}"');
     inc(count);
@@ -863,40 +866,40 @@ var
 begin
   index := 0;
   if TryToken(ALine,index,'Const') then
-      Constant := true
-    else
-    begin
-      Constant := false;
+    Constant := true
+  else
+  begin
+    Constant := false;
     ExpectToken(ALine,index,'Dim');
-    end;
+  end;
 
-    index := 1;
+  index := 1;
   while index < ALine.Count do
-    begin
+  begin
     if index > 1 then ExpectToken(ALine,index,',');
 
-      isArray:= false;
+    isArray:= false;
     varName := ALine[index];
-      arraySize := 0;
-      if not IsValidVariableName(varName) then
-        raise exception.Create('Invalid variable name');
+    arraySize := 0;
+    if not IsValidVariableName(varName) then
+      raise exception.Create('Invalid variable name');
 
-      inc(index);
+    inc(index);
 
     if TryToken(ALine,index,'(') then
-      begin
-        isArray:= true;
+    begin
+      isArray:= true;
       if not TryToken(ALine,index,')') then
-        begin
-          ExpectArraySize;
+      begin
+        ExpectArraySize;
         ExpectToken(ALine,index,')');
-        end;
       end;
+    end;
 
     if TryToken(ALine,index,'As') then
-      begin
+    begin
       if index >= ALine.Count then
-          raise Exception.Create('Expecting variable type');
+        raise Exception.Create('Expecting variable type');
 
       if TryToken(ALine,index,'Integer') then varType := 'Integer'
       else if TryToken(ALine,index,'Boolean') then varType := 'Boolean'
@@ -906,153 +909,153 @@ begin
       else raise Exception.Create('Unknown type : ' + ALine[index]);
 
       if not isArray and (varType <> 'UnitProperties') and TryToken(ALine,index,'(') then
-        begin
-          isArray := true;
+      begin
+        isArray := true;
         if not TryToken(ALine,index,')') then
-          begin
-            ExpectArraySize;
+        begin
+          ExpectArraySize;
           ExpectToken(ALine,index,')');
-          end;
         end;
-      end else
-        varType := '?';
+      end;
+    end else
+      varType := '?';
 
-      if IsVarNameUsed(varName, integer(isArray)) then
-        raise exception.Create('This name is already in use');
+    if IsVarNameUsed(varName, integer(isArray)) then
+      raise exception.Create('This name is already in use');
 
     if TryToken(ALine,index,'=') then
+    begin
+      if isArray then
       begin
-        if isArray then
+        if varType = '?' then
         begin
-          if varType = '?' then
-          begin
-            raise exception.Create('Array type not specified');
-          end else
-          if varType = 'Integer' then
-          begin
-          arrValues := ParseIntArray(ALine,index);
-            if (arraySize <> 0) and (length(arrValues) <> arraySize) then
-              raise exception.Create('Array size mismatch');
-            if arraySize = 0 then
-            begin
-              if (length(arrValues) < 1) or (length(arrValues) > MaxIntArraySize) then
-                raise exception.Create('Integer array size can go from 1 to ' + inttostr(MaxIntArraySize));
-              arraySize:= length(arrValues);
-            end;
-            SetupIntArray(CreateIntArray(varName, arraySize, arrValues, Constant));
-          end else if varType = 'Boolean' then
-          begin
-          arrBoolValues := ParseBoolArray(ALine,index);
-            if (arraySize <> 0) and (length(arrValues) <> arraySize) then
-              raise exception.Create('Array size mismatch');
-            if arraySize = 0 then
-            begin
-              if (length(arrBoolValues) < 1) or (length(arrBoolValues) > MaxBoolArraySize) then
-                raise exception.Create('Boolean array size can go from 1 to ' + inttostr(MaxBoolArraySize));
-              arraySize:= length(arrBoolValues);
-            end;
-            SetupBoolArray(CreateBoolArray(varName, arraySize, arrBoolValues, Constant));
-          end else
-            raise exception.Create(varType+' arrays not supported');
+          raise exception.Create('Array type not specified');
         end else
-        if varType = 'Sound' then
+        if varType = 'Integer' then
         begin
-        ExpectToken(ALine,index,'{');
-          filename := '';
-          timeMs := -1;
-        if not TryToken(ALine,index,'}') then
-          while true do
+          arrValues := ParseIntArray(ALine,index);
+          if (arraySize <> 0) and (length(arrValues) <> arraySize) then
+            raise exception.Create('Array size mismatch');
+          if arraySize = 0 then
           begin
+            if (length(arrValues) < 1) or (length(arrValues) > MaxIntArraySize) then
+              raise exception.Create('Integer array size can go from 1 to ' + inttostr(MaxIntArraySize));
+            arraySize:= length(arrValues);
+          end;
+          SetupIntArray(CreateIntArray(varName, arraySize, arrValues, Constant));
+        end else if varType = 'Boolean' then
+        begin
+          arrBoolValues := ParseBoolArray(ALine,index);
+          if (arraySize <> 0) and (length(arrValues) <> arraySize) then
+            raise exception.Create('Array size mismatch');
+          if arraySize = 0 then
+          begin
+            if (length(arrBoolValues) < 1) or (length(arrBoolValues) > MaxBoolArraySize) then
+              raise exception.Create('Boolean array size can go from 1 to ' + inttostr(MaxBoolArraySize));
+            arraySize:= length(arrBoolValues);
+          end;
+          SetupBoolArray(CreateBoolArray(varName, arraySize, arrBoolValues, Constant));
+        end else
+          raise exception.Create(varType+' arrays not supported');
+      end else
+      if varType = 'Sound' then
+      begin
+        ExpectToken(ALine,index,'{');
+        filename := '';
+        timeMs := -1;
+        if not TryToken(ALine,index,'}') then
+        while true do
+        begin
           ExpectToken(ALine,index,'.');
           if TryToken(ALine,index,'Filename') then
-            begin
+          begin
             ExpectToken(ALine,index,'=');
             filename := ExpectString(ALine,index);
-            end else
+          end else
           if TryToken(ALine,index,'Duration') then
-            begin
+          begin
             ExpectToken(ALine,index,'=');
             timeMs := ExpectInteger(ALine,index);
-            end else
-              raise exception.Create('Unknown field. Expecting Filename or Duration');
+          end else
+            raise exception.Create('Unknown field. Expecting Filename or Duration');
           if not TryToken(ALine,index,',') then
-            begin
-            ExpectToken(ALine,index,'}');
-              break;
-            end;
-          end;
-          if filename = '' then raise exception.Create('Filename not specified');
-          if timeMs = -1 then raise exception.Create('Duration not specified');
-          CreateSound(varName, filename, timeMs, Constant);
-        end else
-        if varType = 'UnitProperties' then
-        begin
-        if TryUnitProperties(ALine,index,prop) then
           begin
-            CreateUnitProp(varName, prop, Constant);
+            ExpectToken(ALine,index,'}');
+            break;
           end;
-        end else
-        if varType = 'String' then
+        end;
+        if filename = '' then raise exception.Create('Filename not specified');
+        if timeMs = -1 then raise exception.Create('Duration not specified');
+        CreateSound(varName, filename, timeMs, Constant);
+      end else
+      if varType = 'UnitProperties' then
+      begin
+        if TryUnitProperties(ALine,index,prop) then
         begin
+          CreateUnitProp(varName, prop, Constant);
+        end;
+      end else
+      if varType = 'String' then
+      begin
         CreateString(varName,ExpectString(ALine,index), Constant);
-        end else
-        if varType = 'Boolean' then
-        begin
+      end else
+      if varType = 'Boolean' then
+      begin
         if TryToken(ALine,index,'Rnd') then
         begin
           if TryToken(ALine,index,'(') then ExpectToken(ALine,index,')');
           SetupBoolVar(CreateBoolVar(varName, svRandomize, Constant));
         end
-          else
+        else
         if TryBoolean(ALine,index,boolVal) then
-            SetupBoolVar(CreateBoolVar(varName, BoolToSwitch[boolVal], Constant))
-          else
-            raise exception.Create('Expecting boolean constant');
-        end else
-        if varType = 'Integer' then
-        begin
+          SetupBoolVar(CreateBoolVar(varName, BoolToSwitch[boolVal], Constant))
+        else
+          raise exception.Create('Expecting boolean constant');
+      end else
+      if varType = 'Integer' then
+      begin
         SetupIntVar(CreateIntVar(varName, 0, true, Constant), TryExpression(ALine,index,true));
-        end else
-        begin
-          if varType <> '?' then raise exception.Create('Unhandled case');
-
-        if TryBoolean(ALine,index,boolVal) then
-            SetupBoolVar(CreateBoolVar(varName, BoolToSwitch[boolVal], Constant))
-          else
-        if TryInteger(ALine,index,intVal) then
-            SetupIntVar(CreateIntVar(varName, intVal, false, Constant))
-        else if TryToken(ALine,index,'Rnd') then
-            raise exception.Create('Cannot determine if integer or boolean')
-          else
-        if TryString(ALine,index,text) then
-            CreateString(varName,text, Constant)
-          else
-            raise exception.Create('Expecting constant value');
-        end;
       end else
       begin
-        if varType = '?' then
-          raise Exception.Create('Variable type not specified');
+        if varType <> '?' then raise exception.Create('Unhandled case');
 
-        if isArray then
-        begin
-          if arraySize= 0 then
-            raise exception.Create('Array size not specified');
-          if varType = 'Boolean' then
-            SetupBoolArray(CreateBoolArray(varName, arraySize, [], Constant))
-          else if varType = 'Integer' then
-            SetupIntArray(CreateIntArray(varName, arraySize, [], Constant))
-          else raise Exception.Create(varType+' arrays not supported')
-        end else
-        begin
-          if varType = 'Boolean' then
-            SetupBoolVar(CreateBoolVar(varName, svClear, Constant))
-          else if VarType = 'Integer' then
-            SetupIntVar(CreateIntVar(varName, 0, false, Constant))
-          else raise exception.Create('Initial value needed for '+varType);
-        end;
+        if TryBoolean(ALine,index,boolVal) then
+          SetupBoolVar(CreateBoolVar(varName, BoolToSwitch[boolVal], Constant))
+        else
+        if TryInteger(ALine,index,intVal) then
+          SetupIntVar(CreateIntVar(varName, intVal, false, Constant))
+        else if TryToken(ALine,index,'Rnd') then
+          raise exception.Create('Cannot determine if integer or boolean')
+        else
+        if TryString(ALine,index,text) then
+          CreateString(varName,text, Constant)
+        else
+          raise exception.Create('Expecting constant value');
+      end;
+    end else
+    begin
+      if varType = '?' then
+        raise Exception.Create('Variable type not specified');
+
+      if isArray then
+      begin
+        if arraySize= 0 then
+          raise exception.Create('Array size not specified');
+        if varType = 'Boolean' then
+          SetupBoolArray(CreateBoolArray(varName, arraySize, [], Constant))
+        else if varType = 'Integer' then
+          SetupIntArray(CreateIntArray(varName, arraySize, [], Constant))
+        else raise Exception.Create(varType+' arrays not supported')
+      end else
+      begin
+        if varType = 'Boolean' then
+          SetupBoolVar(CreateBoolVar(varName, svClear, Constant))
+        else if VarType = 'Integer' then
+          SetupIntVar(CreateIntVar(varName, 0, false, Constant))
+        else raise exception.Create('Initial value needed for '+varType);
       end;
     end;
+  end;
 end;
 
 procedure ProcessDim(ADeclaration: string; AProg: TInstructionList; AInit0: boolean);
@@ -1280,6 +1283,14 @@ begin
        ExpectToken(ALine,AIndex,')');
 
        AProg.Add(TTeleportUnitInstruction.Create(APlayer, intVal, unitType, locStr, destLocStr));
+    end else
+    if TryToken(ALine,AIndex,'AttractLocation') then
+    begin
+       ExpectToken(ALine,AIndex,'(');
+       destLocStr := ExpectString(ALine,AIndex);
+       ExpectToken(ALine,AIndex,')');
+       if intVal <> -1 then raise exception.Create('Cannot specify quantity for this action (use All quantity instead)');
+       AProg.Add(TMoveLocationInstruction.Create(APlayer, unitType, locStr, destLocStr));
     end else
     if TryToken(ALine,AIndex,'MoveOrder') or TryToken(ALine,AIndex,'PatrolOrder') or TryToken(ALine,AIndex,'AttackOrder') then
     begin
@@ -1600,259 +1611,259 @@ var
 begin
   if (ALine.Count = 0) or ((ALine.Count = 1) and (ALine[0] = '')) then exit;
 
-    index := 0;
+  index := 0;
   if TryToken(ALine,index,'Return') then
+  begin
+    if AProcId <> -1 then
     begin
-      if AProcId <> -1 then
+      if Procedures[AProcId].ReturnType = 'Integer' then
       begin
-        if Procedures[AProcId].ReturnType = 'Integer' then
-        begin
         if TryInteger(ALine,index,intVal) then
-            AProg.Add( TTransferIntegerInstruction.Create(intVal, itCopyIntoAccumulator) )
-          else
-          begin
-            idxVar := ProcedureReturnVar(AProcId);
-          expr := TryExpression(ALine,index,true);
-            expr.AddToProgram(AProg, IntVars[idxVar].Player,IntVars[idxVar].UnitType, simSetTo);
-            expr.Free;
-          end;
-        end else
-        if Procedures[AProcId].ReturnType = 'Boolean' then
+          AProg.Add( TTransferIntegerInstruction.Create(intVal, itCopyIntoAccumulator) )
+        else
         begin
-        if TryBoolean(ALine,index,boolVal) then
-          begin
-            idxVar := GetBoolResultVar;
-            sw := BoolVars[idxVar].Switch;
-            AProg.Add( TSetSwitchInstruction.Create(sw, BoolToSwitch[boolVal]) );
-          end else
-            raise exception.Create('Expecting boolean value');
+          idxVar := ProcedureReturnVar(AProcId);
+          expr := TryExpression(ALine,index,true);
+          expr.AddToProgram(AProg, IntVars[idxVar].Player,IntVars[idxVar].UnitType, simSetTo);
+          expr.Free;
         end;
+      end else
+      if Procedures[AProcId].ReturnType = 'Boolean' then
+      begin
+        if TryBoolean(ALine,index,boolVal) then
+        begin
+          idxVar := GetBoolResultVar;
+          sw := BoolVars[idxVar].Switch;
+          AProg.Add( TSetSwitchInstruction.Create(sw, BoolToSwitch[boolVal]) );
+        end else
+          raise exception.Create('Expecting boolean value');
       end;
-      AProg.Add( TReturnInstruction.Create );
-      CheckEndOfLine;
-    end
-    else
+    end;
+    AProg.Add( TReturnInstruction.Create );
+    CheckEndOfLine;
+  end
+  else
   if TryToken(ALine,index,'EndIf') then
+  begin
+    CheckEndOfLine;
+    AProg.Add(TEndIfInstruction.Create);
+  end else
+  if TryToken(ALine,index,'End') then
+  begin
+    if TryToken(ALine,index,'While') then
+    begin
+      CheckEndOfLine;
+      AProg.Add(TEndWhileInstruction.Create);
+    end else
+    if TryToken(ALine,index,'If') then
     begin
       CheckEndOfLine;
       AProg.Add(TEndIfInstruction.Create);
     end else
-  if TryToken(ALine,index,'End') then
-    begin
-    if TryToken(ALine,index,'While') then
-      begin
-        CheckEndOfLine;
-        AProg.Add(TEndWhileInstruction.Create);
-      end else
-    if TryToken(ALine,index,'If') then
-      begin
-        CheckEndOfLine;
-        AProg.Add(TEndIfInstruction.Create);
-      end else
-        raise exception.Create('Unknown end instruction');
-    end else
+      raise exception.Create('Unknown end instruction');
+  end else
   if TryToken(ALine,index,'While') then
-    begin
+  begin
     conds := ExpectConditions(ALine,index,AThreads);
-      if (conds.Count = 1) and (conds[0] is TAlwaysCondition) then
-        raise exception.Create('Infinite loop not allowed. You can use When True instead');
-      AProg.Add(TWhileInstruction.Create(conds));
-      CheckEndOfLine;
-    end else
+    if (conds.Count = 1) and (conds[0] is TAlwaysCondition) then
+      raise exception.Create('Infinite loop not allowed. You can use When True instead');
+    AProg.Add(TWhileInstruction.Create(conds));
+    CheckEndOfLine;
+  end else
   if TryToken(ALine,index,'If') then
-    begin
+  begin
     conds := ExpectConditions(ALine,index,AThreads);
-      AProg.Add(TIfInstruction.Create(conds));
+    AProg.Add(TIfInstruction.Create(conds));
     ExpectToken(ALine,index,'Then');
-      CheckEndOfLine;
-    end else
+    CheckEndOfLine;
+  end else
   if TryToken(ALine,index,'Else') then
-    begin
-      CheckEndOfLine;
-      AProg.Add(TElseInstruction.Create);
-    end else
-    begin
-      done := false;
+  begin
+    CheckEndOfLine;
+    AProg.Add(TElseInstruction.Create);
+  end else
+  begin
+    done := false;
     scalar := TryScalarVariable(ALine,index);
-      if scalar.VarType <> svtNone then
-      begin
+    if scalar.VarType <> svtNone then
+    begin
       if TryToken(ALine,index,'=') then
+      begin
+        done := true;
+        if scalar.Constant then raise exception.Create('Constant cannot be assigned to');
+        case scalar.VarType of
+        svtInteger: begin
+            expr := TryExpression(ALine, index, true);
+            expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simSetTo);
+            expr.Free;
+          end;
+        svtSwitch:
+          begin
+            intVal := ParseRandom(ALine, index);
+            if intVal > 0 then
+            begin
+              CheckEndOfLine;
+              if intVal = 2 then
+                AProg.Add(TSetSwitchInstruction.Create(scalar.Switch, svRandomize))
+              else
+                raise exception.Create('Boolean can have only 2 values');
+            end else
+            begin
+              conds := ExpectConditions(ALine,index,AThreads);
+              if (conds.Count = 1) and (conds[0] is TSwitchCondition) and
+                 (TSwitchCondition(conds[0]).Switch = scalar.Switch) then
+              begin
+                //a = Not a
+                if not TSwitchCondition(conds[0]).Value then
+                  AProg.Add(TSetSwitchInstruction.Create(scalar.Switch, svToggle));
+                conds[0].Free;
+                conds.Free;
+              end else
+                AppendConditionalInstruction(AProg, conds,
+                  TSetSwitchInstruction.Create(scalar.Switch, svSet),
+                  TSetSwitchInstruction.Create(scalar.Switch, svClear));
+            end;
+          end;
+        else raise exception.Create('Unhandled case');
+        end;
+      end else
+      If TryToken(ALine,index,'+') or TryToken(ALine,index,'-') then
+      begin
+        assignOp := ALine[index-1];
+        if TryToken(ALine,index,'=') then
         begin
           done := true;
           if scalar.Constant then raise exception.Create('Constant cannot be assigned to');
-          case scalar.VarType of
-          svtInteger: begin
-            expr := TryExpression(ALine, index, true);
-              expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simSetTo);
-              expr.Free;
-            end;
-          svtSwitch:
-            begin
-            intVal := ParseRandom(ALine, index);
-              if intVal > 0 then
-              begin
-                CheckEndOfLine;
-                if intVal = 2 then
-                  AProg.Add(TSetSwitchInstruction.Create(scalar.Switch, svRandomize))
-                else
-                  raise exception.Create('Boolean can have only 2 values');
-              end else
-              begin
-              conds := ExpectConditions(ALine,index,AThreads);
-                if (conds.Count = 1) and (conds[0] is TSwitchCondition) and
-                   (TSwitchCondition(conds[0]).Switch = scalar.Switch) then
-                begin
-                  //a = Not a
-                  if not TSwitchCondition(conds[0]).Value then
-                    AProg.Add(TSetSwitchInstruction.Create(scalar.Switch, svToggle));
-                  conds[0].Free;
-                  conds.Free;
-                end else
-                  AppendConditionalInstruction(AProg, conds,
-                    TSetSwitchInstruction.Create(scalar.Switch, svSet),
-                    TSetSwitchInstruction.Create(scalar.Switch, svClear));
-              end;
-            end;
-          else raise exception.Create('Unhandled case');
-          end;
-        end else
-      If TryToken(ALine,index,'+') or TryToken(ALine,index,'-') then
-        begin
-        assignOp := ALine[index-1];
-        if TryToken(ALine,index,'=') then
+          if scalar.VarType = svtInteger then
           begin
-            done := true;
-            if scalar.Constant then raise exception.Create('Constant cannot be assigned to');
-            if scalar.VarType = svtInteger then
-            begin
             expr := TryExpression(ALine,index, true);
-              if assignOp='+' then
-                expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simAdd)
-              else if assignOp='-' then
-                expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simSubtract);
-              expr.Free;
-            end
-            else raise Exception.Create('Integer variables only can be incremented/decremented');
-          end;
+            if assignOp='+' then
+              expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simAdd)
+            else if assignOp='-' then
+              expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simSubtract);
+            expr.Free;
+          end
+          else raise Exception.Create('Integer variables only can be incremented/decremented');
         end;
-
       end;
 
+    end;
+
     idxSound := SoundIndexOf(ALine[0]);
-      if idxSound <> -1 then
-      begin
-        index := 1;
+    if idxSound <> -1 then
+    begin
+      index := 1;
       ExpectToken(ALine,index,'.');
       ExpectToken(ALine,index,'Play');
       if TryToken(ALine,index,'(') then ExpectToken(ALine,index,')');
 
-        AProg.Add(TPlayWAVInstruction.Create(SoundVars[idxSound].Filename, SoundVars[idxSound].DurationMs));
-        done := true;
-      end;
+      AProg.Add(TPlayWAVInstruction.Create(SoundVars[idxSound].Filename, SoundVars[idxSound].DurationMs));
+      done := true;
+    end;
 
     idxArr := IntArrayIndexOf(ALine[0]);
-      if idxArr <> -1 then
-      begin
-        index := 1;
+    if idxArr <> -1 then
+    begin
+      index := 1;
       If TryToken(ALine,index,'+') or TryToken(ALine,index,'-') then
         assignOp := ALine[index-1] else assignOp := '';
 
       if TryToken(ALine,index,'=') then
-        begin
-          done := true;
-          if IntArrays[idxArr].Constant then raise exception.Create('Constant cannot be assigned to');
+      begin
+        done := true;
+        if IntArrays[idxArr].Constant then raise exception.Create('Constant cannot be assigned to');
 
         ints := ParseIntArray(ALine,index);
-          if length(ints) <> IntArrays[idxArr].Size then
-            raise exception.Create('Array size mismatch');
-          CheckEndOfLine;
-          if assignOp = '+' then sim := simAdd
-          else if assignOp = '-' then sim := simSubtract
-          else sim := simSetTo;
-          for i := 0 to high(ints) do
-            with IntVars[IntArrays[idxArr].Vars[i]] do
-            AProg.Add(TSetIntegerInstruction.Create(Player, UnitType, sim, ints[i]));
-        end;
+        if length(ints) <> IntArrays[idxArr].Size then
+          raise exception.Create('Array size mismatch');
+        CheckEndOfLine;
+        if assignOp = '+' then sim := simAdd
+        else if assignOp = '-' then sim := simSubtract
+        else sim := simSetTo;
+        for i := 0 to high(ints) do
+          with IntVars[IntArrays[idxArr].Vars[i]] do
+          AProg.Add(TSetIntegerInstruction.Create(Player, UnitType, sim, ints[i]));
       end;
+    end;
 
-      if not done then
-      begin
-        index := 0;
+    if not done then
+    begin
+      index := 0;
       pl := TryParsePlayer(ALine,index);
-        if pl <> plNone then
-        begin
-          done := true;
+      if pl <> plNone then
+      begin
+        done := true;
 
         ExpectToken(ALine,index,'.');
         if index >= ALine.Count then
-            raise exception.Create('Expecting action but end of line found');
+          raise exception.Create('Expecting action but end of line found');
 
         if not TryPlayerAction(AProg,ALine,index,pl, AThreads) then
           raise exception.Create('Expecting action but "' + ALine[index] + '" found');
-          CheckEndOfLine;
-        end;
-      end;
-
-      index := 0;
-    if TryNeutralAction(AProg,ALine,index, AThreads) then
-      begin
         CheckEndOfLine;
-        done := true;
       end;
+    end;
+
+    index := 0;
+    if TryNeutralAction(AProg,ALine,index, AThreads) then
+    begin
+      CheckEndOfLine;
+      done := true;
+    end;
 
     if TryPlayerAction(AProg,ALine,index,plCurrentPlayer, AThreads) then
-      begin
-        if AThreads = [plCurrentPlayer] then
-          raise exception.Create('You need to specify which players does the action');
-        CheckEndOfLine;
-        done := true;
-      end;
+    begin
+      if AThreads = [plCurrentPlayer] then
+        raise exception.Create('You need to specify which players does the action');
+      CheckEndOfLine;
+      done := true;
+    end;
 
 
-      if not done then
-      begin
-        index := 0;
-        name := '';
+    if not done then
+    begin
+      index := 0;
+      name := '';
       while (index < ALine.Count) and IsValidVariableName(ALine[index]) do
-        begin
-          if index > 0 then name += ' ';
+      begin
+        if index > 0 then name += ' ';
         name += ALine[index];
-          inc(index);
-        end;
+        inc(index);
+      end;
 
       if (index = ALine.Count) or
         ((index < ALine.Count) and (ALine[index] = '(')) then
-        begin
-          params := TStringList.Create;
+      begin
+        params := TStringList.Create;
         if TryToken(ALine,index,'(') then
-          begin
+        begin
           while not TryToken(ALine,index,')') do
-            begin
+          begin
             if params.Count > 0 then ExpectToken(ALine,index,',');
             if TryToken(ALine,index,',') then
-                raise exception.Create('Empty parameters not allowed');
+              raise exception.Create('Empty parameters not allowed');
             params.Add(ALine[index]);
-              inc(index);
-            end;
+            inc(index);
           end;
-          CheckEndOfLine;
+        end;
+        CheckEndOfLine;
 
-          if CompareText(name,'Wait')=0 then
-          begin
-            if params.Count <> 1 then
-              raise exception.Create('Procedure takes only one parameter');
-            AProg.Add(TWaitInstruction.Create(StrToInt(params[0])));
-          end
-          else
-            AProg.Add(TCallInstruction.Create(name, params));
-          params.Free;
-        end else
-        if scalar.VarType = svtNone then
-          raise exception.Create('Unknown instruction "' + name + '"')
+        if CompareText(name,'Wait')=0 then
+        begin
+          if params.Count <> 1 then
+            raise exception.Create('Procedure takes only one parameter');
+          AProg.Add(TWaitInstruction.Create(StrToInt(params[0])));
+        end
         else
-          raise exception.Create('Expecting assignment');
-      end;
+          AProg.Add(TCallInstruction.Create(name, params));
+        params.Free;
+      end else
+      if scalar.VarType = svtNone then
+        raise exception.Create('Unknown instruction "' + name + '"')
+      else
+        raise exception.Create('Expecting assignment');
     end;
+  end;
 end;
 
 function RemoveTrailingCommentAndTabs(AText: string): string;
@@ -2027,63 +2038,63 @@ begin
         if TryToken(line,index,'End') then
         begin
           if TryToken(line,index,'Sub') then
-      begin
-        if inSubNew then inSubNew := false
-        else
-        begin
-          if inSub= -1 then
-            raise Exception.create('Not in a procedure');
-          if Procedures[inSub].ReturnType <> 'Void' then raise exception.Create('Expecting "End Function"');
-          with Procedures[inSub].Instructions do
-            if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
-              Add(TReturnInstruction.Create);
-          inSub := -1;
-        end;
-            done := true;
-      end
-          else if TryToken(line,index,'Function') then
-      begin
-        if inSub= -1 then
-          raise Exception.create('Not in a function');
-        if Procedures[inSub].ReturnType = 'Void' then raise exception.Create('Expecting "End Sub" instead');
-        with Procedures[inSub].Instructions do
-          if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
-            Add(TReturnInstruction.Create);
-        inSub := -1;
-            done := true;
-      end
-          else if TryToken(line,index,'When') then
-      begin
-        if inEvent= -1 then
-          raise Exception.create('Not in an event');
-        with Events[inEvent] do
-          while Instructions[Instructions.Count-1] is TReturnInstruction do
           begin
-            Instructions[Instructions.Count-1].Free;
-            Instructions.Delete(Instructions.Count-1);
-          end;
-        inEvent := -1;
+            if inSubNew then inSubNew := false
+            else
+            begin
+              if inSub= -1 then
+                raise Exception.create('Not in a procedure');
+              if Procedures[inSub].ReturnType <> 'Void' then raise exception.Create('Expecting "End Function"');
+              with Procedures[inSub].Instructions do
+                if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
+                  Add(TReturnInstruction.Create);
+              inSub := -1;
+            end;
+            done := true;
+          end
+          else if TryToken(line,index,'Function') then
+          begin
+            if inSub= -1 then
+              raise Exception.create('Not in a function');
+            if Procedures[inSub].ReturnType = 'Void' then raise exception.Create('Expecting "End Sub" instead');
+            with Procedures[inSub].Instructions do
+              if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
+                Add(TReturnInstruction.Create);
+            inSub := -1;
+            done := true;
+          end
+          else if TryToken(line,index,'When') then
+          begin
+            if inEvent= -1 then
+              raise Exception.create('Not in an event');
+            with Events[inEvent] do
+              while Instructions[Instructions.Count-1] is TReturnInstruction do
+              begin
+                Instructions[Instructions.Count-1].Free;
+                Instructions.Delete(Instructions.Count-1);
+              end;
+            inEvent := -1;
             done := true;
           end;
         end;
 
         if not done then
-      begin
-        if inSub<>-1 then
-            ParseInstruction(line, Procedures[inSub].Instructions,[plAllPlayers], inSub)
-        else if inEvent<>-1 then
-            ParseInstruction(line, Events[inEvent].Instructions, Events[inEvent].Players, -1)
-        else if inSubNew then
         begin
-          if AMainThread = plNone then
+          if inSub<>-1 then
+            ParseInstruction(line, Procedures[inSub].Instructions,[plAllPlayers], inSub)
+          else if inEvent<>-1 then
+            ParseInstruction(line, Events[inEvent].Instructions, Events[inEvent].Players, -1)
+          else if inSubNew then
+          begin
+            if AMainThread = plNone then
               ParseInstruction(line, MainProg, [plCurrentPlayer], -1)
-          else
+            else
               ParseInstruction(line, MainProg, [AMainThread], -1);
-        end
-        else
+          end
+          else
             if not ParseOption(line) then
-            raise exception.Create('Unexpected instruction. Please put initialization code into Sub New.');
-      end;
+              raise exception.Create('Unexpected instruction. Please put initialization code into Sub New.');
+        end;
       end;
     except
       on ex:Exception do

@@ -402,8 +402,9 @@ var
   scalar: TScalarVariable;
   idxVar, intVal: Integer;
   boolVal: boolean;
-  idx: integer;
-  firstElem: boolean;
+  idx, i: integer;
+  firstElem, found: boolean;
+  ident: string;
 begin
   idx := AIndex;
   AStr := '';
@@ -446,6 +447,20 @@ begin
         firstElem := false;
         continue;
       end;
+    end else
+    if TryToken(ALine,idx,'AI') then
+    begin
+      ExpectToken(ALine,idx,'.');
+      if not TryIdentifier(ALine,idx,ident) then raise exception.Create('Expecting script name');
+      found := false;
+      for i := low(AIScripts) to high(AIScripts) do
+        if CompareText(ident, AIScripts[i].Identifier)=0 then
+        begin
+          AStr += AIScripts[i].Code;
+          found := true;
+          break;
+        end;
+      if not found then raise exception.Create('Unknown AI script');
     end else
     begin
      idxVar := StringIndexOf(ALine[idx]);

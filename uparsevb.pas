@@ -187,9 +187,9 @@ begin
   if (AIndex < ALine.Count) and (CompareText(ALine[AIndex], 'Rnd') = 0) then
   begin
     inc(AIndex);
-    if (AIndex < ALine.Count) and (ALine[AIndex] = '*') then
+    if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
+    if TryToken(ALine,AIndex,'*') then
     begin
-      inc(AIndex);
       if AIndex >= ALine.Count then
         raise exception.Create('Expecting integer value');
       val(ALine[AIndex], result, errPos);

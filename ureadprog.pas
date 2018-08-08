@@ -1617,7 +1617,7 @@ begin
   exit(false);
 end;
 
-procedure ParseInstruction(ALine: TStringList; AProg: TInstructionList; AThreads: TPlayers; AProcId: integer);
+procedure ParseInstruction(ALine: TStringList; AProg: TInstructionList; AThreads: TPlayers; AProcId: integer; AInSubNew: boolean);
 var
   index, intVal, idxArr, i, idxSound, sw, idxVar: integer;
   params: TStringList;
@@ -1672,6 +1672,23 @@ begin
     CheckEndOfLine;
   end
   else
+  if TryToken(ALine,index,'Exit') then
+  begin
+    if TryToken(ALine,index,'Sub') then
+    begin
+      if (AProcId = -1) and not AInSubNew then raise exception.Create('Not in a subroutine');
+      if not AInSubNew and (Procedures[AProcId].ReturnType <> 'Void') then raise exception.Create('Currently in a function, not a subroutine');
+      AProg.Add( TReturnInstruction.Create );
+      CheckEndOfLine;
+    end else
+    if TryToken(ALine,index,'Function') then
+    begin
+      if AProcId = -1 then raise exception.Create('Not in a function');
+      if Procedures[AProcId].ReturnType = 'Void' then raise exception.Create('Currently in a subroutine, not a function');
+      raise exception.Create('Exit Function not allowed. Use Return to specify value');
+    end else
+      raise exception.Create('Unexpected instruction');
+  end else
   if TryToken(ALine,index,'EndIf') then
   begin
     CheckEndOfLine;
@@ -2204,22 +2221,22 @@ begin
         if not done then
         begin
           if inSub<>-1 then
-            ParseInstruction(line, Procedures[inSub].Instructions,[plAllPlayers], inSub)
+            ParseInstruction(line, Procedures[inSub].Instructions,[plAllPlayers], inSub,false)
           else if inEvent<>-1 then
           begin
             if inDoAs then
-              ParseInstruction(line, Events[inEvent].Instructions, doPlayers, -1)
+              ParseInstruction(line, Events[inEvent].Instructions, doPlayers, -1, false)
             else
-              ParseInstruction(line, Events[inEvent].Instructions, Events[inEvent].Players, -1);
+              ParseInstruction(line, Events[inEvent].Instructions, Events[inEvent].Players, -1, false);
           end
           else if inSubNew then
           begin
             if inDoAs then
-              ParseInstruction(line, MainProg, doPlayers, -1)
+              ParseInstruction(line, MainProg, doPlayers, -1, true)
             else if AMainThread = plNone then
-              ParseInstruction(line, MainProg, [], -1)
+              ParseInstruction(line, MainProg, [], -1, true)
             else
-              ParseInstruction(line, MainProg, [AMainThread], -1);
+              ParseInstruction(line, MainProg, [AMainThread], -1, true);
           end
           else
             if not ParseOption(line) then

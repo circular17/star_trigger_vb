@@ -24,7 +24,7 @@ function TryConditionOperator(ALine: TStringList; var AIndex: integer): TConditi
 function ParseRandom(ALine: TStringList; var AIndex: integer): integer;
 function TryParsePlayer(ALine: TStringList; var AIndex: integer): TPlayer;
 function ParsePlayers(ALine: TStringList; var AIndex: integer): TPlayers;
-function ParseAs(AText: string): TPlayers;
+function ParseAs(ALine: TStringList): TPlayers;
 
 implementation
 
@@ -245,16 +245,14 @@ begin
   end;
 end;
 
-function ParseAs(AText: string): TPlayers;
+function ParseAs(ALine: TStringList): TPlayers;
 var
-  line: TStringList;
   index: Integer;
 begin
-  line := ParseLine(AText);
   index := 0;
-  ExpectToken(line,index,'As');
-  result := ParsePlayers(line,index);
-  if index < line.Count then
+  ExpectToken(ALine,index,'As');
+  result := ParsePlayers(ALine,index);
+  if index < ALine.Count then
     raise exception.Create('Unexpected end of line');
 end;
 

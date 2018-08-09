@@ -129,7 +129,7 @@ begin
   begin
     SysIPVar := IntArrayIndexOf('_sysIp');
     if SysIPVar = -1 then
-      SysIPVar := CreateIntArray('_sysIp', MaxTriggerPlayers, []);
+      SysIPVar := CreateIntArray('_sysIp', MaxTriggerPlayers, [], 16);
   end;
   result := SysIPVar;
 end;
@@ -150,7 +150,7 @@ begin
   begin
     SysParamArray:= IntArrayIndexOf('_sysParam');
     if SysParamArray = -1 then
-      SysParamArray := CreateIntArray('_sysParam', MaxTriggerPlayers, []);
+      SysParamArray := CreateIntArray('_sysParam', MaxTriggerPlayers, [], 16);
   end;
 end;
 
@@ -189,7 +189,7 @@ begin
   begin
     SPArrayVar := IntArrayIndexOf('_sp');
     if SPArrayVar = -1 then
-      SPArrayVar := CreateIntArray('_sp', MaxTriggerPlayers, []);
+      SPArrayVar := CreateIntArray('_sp', MaxTriggerPlayers, [], 16);
 
     ReturnSysIP := NewSysIP;
     PushSysIP:= NewSysIP;
@@ -243,7 +243,7 @@ begin
   begin
     StackArrays[i]:= IntArrayIndexOf('_stackValue'+inttostr(i));
     if StackArrays[i] = -1 then
-      StackArrays[i] := CreateIntArray('_stackValue'+inttostr(i), MaxTriggerPlayers, []);
+      StackArrays[i] := CreateIntArray('_stackValue'+inttostr(i), MaxTriggerPlayers, [], 16);
   end;
 end;
 
@@ -619,7 +619,7 @@ procedure InitTriggerCode;
 begin
   IPVar := IntArrayIndexOf('_ip');
   if IPVar = -1 then
-    IPVar := CreateIntArray('_ip', MaxTriggerPlayers, []);
+    IPVar := CreateIntArray('_ip', MaxTriggerPlayers, [], 16);
   CurIPValue := 0;
 
   //IntArrays[IPVar].UnitType:= 'Gas'; //debug

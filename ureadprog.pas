@@ -20,6 +20,7 @@ var
     Instructions: TInstructionList;
     StartIP: integer;
     ReturnType: string;
+    ReturnBitCount: integer;
     ReturnIntVar: integer;
     Done: boolean;
     Calls: TIntegerList;
@@ -636,6 +637,7 @@ begin
     Instructions := TInstructionList.Create;
     StartIP := -1;
     ReturnType := AReturnType;
+    ReturnBitCount:= GetBitCountOfType(AReturnType);
     Done := false;
     Calls := TIntegerList.Create;
     ReturnIntVar := -1;
@@ -658,7 +660,7 @@ end;
 function ProcedureReturnVar(AProcId: integer): integer;
 begin
   if Procedures[AProcId].ReturnIntVar = -1 then
-    Procedures[AProcId].ReturnIntVar:= CreateIntVar('_' + Procedures[AProcId].Name + '_result', 0);
+    Procedures[AProcId].ReturnIntVar:= CreateIntVar('_' + Procedures[AProcId].Name + '_result', 0, Procedures[AProcId].ReturnBitCount);
   result := Procedures[AProcId].ReturnIntVar;
 end;
 
@@ -798,7 +800,7 @@ procedure ProcessDim(ALine: TStringList; AProg: TInstructionList; AInit0: boolea
 var
   index: Integer;
   varName, varType, filename, text: String;
-  arraySize: integer;
+  arraySize, bitCount: integer;
   isArray: boolean;
   timeMs, intVal: integer;
   arrValues: ArrayOfInteger;
@@ -897,6 +899,7 @@ begin
     isArray:= false;
     varName := ALine[index];
     arraySize := 0;
+    bitCount := 0;
     if not IsValidVariableName(varName) then
       raise exception.Create('Invalid variable name');
 
@@ -917,7 +920,15 @@ begin
       if index >= ALine.Count then
         raise Exception.Create('Expecting variable type');
 
-      if TryToken(ALine,index,'Integer') then varType := 'Integer'
+      if TryToken(ALine,index,'Integer') or TryToken(ALine,index,'UInteger') then
+        raise exception.Create('Please specify the bit count of the integer by using Byte, UInt16 or UInt24');
+
+      bitCount := GetBitCountOfType(ALine[index]);
+      if (bitCount<>0) then
+      begin
+        varType := ALine[index];
+        inc(index);
+      end
       else if TryToken(ALine,index,'Boolean') then varType := 'Boolean'
       else if TryToken(ALine,index,'String') then varType := 'String'
       else if TryToken(ALine,index,'UnitProperties') then varType := 'UnitProperties'
@@ -947,7 +958,7 @@ begin
         begin
           raise exception.Create('Array type not specified');
         end else
-        if varType = 'Integer' then
+        if IsIntegerType(varType) then
         begin
           arrValues := ParseIntArray(ALine,index);
           if (arraySize <> 0) and (length(arrValues) <> arraySize) then
@@ -958,7 +969,7 @@ begin
               raise exception.Create('Integer array size can go from 1 to ' + inttostr(MaxIntArraySize));
             arraySize:= length(arrValues);
           end;
-          SetupIntArray(CreateIntArray(varName, arraySize, arrValues, Constant));
+          SetupIntArray(CreateIntArray(varName, arraySize, arrValues, bitCount, Constant));
         end else if varType = 'Boolean' then
         begin
           arrBoolValues := ParseBoolArray(ALine,index);
@@ -1028,9 +1039,9 @@ begin
         else
           raise exception.Create('Expecting boolean constant');
       end else
-      if varType = 'Integer' then
+      if IsIntegerType(varType) then
       begin
-        SetupIntVar(CreateIntVar(varName, 0, true, Constant), TryExpression(ALine,index,true));
+        SetupIntVar(CreateIntVar(varName, 0, bitCount, false, Constant), TryExpression(ALine,index,true));
       end else
       begin
         if varType <> '?' then raise exception.Create('Unhandled case');
@@ -1039,7 +1050,11 @@ begin
           SetupBoolVar(CreateBoolVar(varName, BoolToSwitch[boolVal], Constant))
         else
         if TryInteger(ALine,index,intVal) then
-          SetupIntVar(CreateIntVar(varName, intVal, false, Constant))
+        begin
+          bitCount := BitCountNeededFor(intVal);
+          if not Constant then Writeln('Warning: assuming ', bitCount, ' bit value for ', varName);
+          SetupIntVar(CreateIntVar(varName, intVal, bitCount, false, Constant));
+        end
         else if TryToken(ALine,index,'Rnd') then
           raise exception.Create('Cannot determine if integer or boolean')
         else
@@ -1059,15 +1074,15 @@ begin
           raise exception.Create('Array size not specified');
         if varType = 'Boolean' then
           SetupBoolArray(CreateBoolArray(varName, arraySize, [], Constant))
-        else if varType = 'Integer' then
-          SetupIntArray(CreateIntArray(varName, arraySize, [], Constant))
+        else if IsIntegerType(varType) then
+          SetupIntArray(CreateIntArray(varName, arraySize, [], bitCount, Constant))
         else raise Exception.Create(varType+' arrays not supported')
       end else
       begin
         if varType = 'Boolean' then
           SetupBoolVar(CreateBoolVar(varName, svClear, Constant))
-        else if VarType = 'Integer' then
-          SetupIntVar(CreateIntVar(varName, 0, false, Constant))
+        else if IsIntegerType(varType) then
+          SetupIntVar(CreateIntVar(varName, 0, bitCount, false, Constant))
         else raise exception.Create('Initial value needed for '+varType);
       end;
     end;
@@ -1214,7 +1229,7 @@ begin
       AProg.Add(TCreateUnitInstruction.Create(APlayer, expr.ConstElement, unitType, locStr, propIndex))
     else
     begin
-      tempInt := AllocateTempInt;
+      tempInt := AllocateTempInt(16);
       expr.AddToProgram(AProg, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
       for i := 10 downto 0 do
       begin
@@ -2001,7 +2016,7 @@ var
     begin
       lastToken := line[line.Count-1];
       if (lastToken = '&') or (lastToken = '+') or (lastToken = '-') or (lastToken = '*') or (lastToken = '\')
-       or (lastToken = '=') or (lastToken = '.')
+       or (lastToken = '=') or (lastToken = ',')
        or (CompareText(lastToken,'Or')=0) or (CompareText(lastToken,'And')=0) or (CompareText(lastToken,'Xor')=0) then
       begin
         readln(t, s);
@@ -2034,20 +2049,20 @@ begin
   InitVariables;
   MainProg.Clear;
 
-  PredefineIntArray('Ore','ore');
-  PredefineIntArray('Minerals','ore');
-  PredefineIntArray('Gas','gas');
-  PredefineIntArray('OreAndGas','ore and gas');
-  PredefineIntArray('MineralsAndGas','ore and gas');
-  PredefineIntArray('UnitScore','Units Score');
-  PredefineIntArray('BuildingScore','Buildings Score');
-  PredefineIntArray('UnitAndBuildingScore','Units and buildings Score');
-  PredefineIntArray('KillScore','Kills Score');
-  PredefineIntArray('RazingScore','Razings Score');
-  PredefineIntArray('KillAndRazingScore','Kills and razings Score');
-  PredefineIntArray('CustomScore','Custom Score');
-  PredefineIntArray('TotalScore','Total Score');
-  PredefineIntVar('Countdown', plNone, 'Countdown');
+  PredefineIntArray('Ore','ore',24);
+  PredefineIntArray('Minerals','ore',24);
+  PredefineIntArray('Gas','gas',24);
+  PredefineIntArray('OreAndGas','ore and gas',24);
+  PredefineIntArray('MineralsAndGas','ore and gas',24);
+  PredefineIntArray('UnitScore','Units Score',24);
+  PredefineIntArray('BuildingScore','Buildings Score',24);
+  PredefineIntArray('UnitAndBuildingScore','Units and buildings Score',24);
+  PredefineIntArray('KillScore','Kills Score',24);
+  PredefineIntArray('RazingScore','Razings Score',24);
+  PredefineIntArray('KillAndRazingScore','Kills and razings Score',24);
+  PredefineIntArray('CustomScore','Custom Score',24);
+  PredefineIntArray('TotalScore','Total Score',24);
+  PredefineIntVar('Countdown', plNone, 'Countdown',16);
   ProcessDim('Const vbCr = Chr(13)',MainProg, False);
   ProcessDim('Const vbLf = Chr(10)',MainProg, False);
   ProcessDim('Const vbTab = Chr(9)',MainProg, False);

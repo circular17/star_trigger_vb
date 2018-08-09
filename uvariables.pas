@@ -21,12 +21,13 @@ var
     UnitType: string;
     Values: array of integer;
     Vars: array of integer;
+    BitCount: integer;
   end;
   IntArrayCount: integer;
   CurIntArrayUnitNameIndex: integer;
 
-function CreateIntArray(AName: string; ASize: integer; AValues: array of integer; AConstant: boolean = false): integer;
-function PredefineIntArray(AName: string; AUnitType: string): integer;
+function CreateIntArray(AName: string; ASize: integer; AValues: array of integer; ABitCount: integer; AConstant: boolean = false): integer;
+function PredefineIntArray(AName: string; AUnitType: string; ABitCount: integer): integer;
 function IntArrayIndexOf(AName: string): integer;
 
 var
@@ -35,6 +36,7 @@ var
     Name: string;
     Player: TPlayer;
     UnitType: string;
+    BitCount: integer;
     Value: integer;
     Randomize: boolean;
     AddToAcc,AddFromAcc: boolean;
@@ -43,10 +45,10 @@ var
   CurIntVarPlayer: TPlayer;
   CurIntVarUnitNameIndex: integer;
 
-function CreateIntVar(AName: string; AValue: integer; ARandomize: boolean = false; AConstant: boolean = false): integer;
-function PredefineIntVar(AName: string; APlayer: TPlayer; AUnitType: string): integer;
+function CreateIntVar(AName: string; AValue: integer; ABitCount: integer; ARandomize: boolean = false; AConstant: boolean = false): integer;
+function PredefineIntVar(AName: string; APlayer: TPlayer; AUnitType: string; ABitCount: integer): integer;
 function IntVarIndexOf(AName: string): integer;
-function AllocateTempInt: integer;
+function AllocateTempInt(ABitCount: integer): integer;
 procedure ReleaseTempInt(ATempInt: integer);
 
 var
@@ -164,7 +166,7 @@ begin
 end;
 
 function CreateIntArray(AName: string; ASize: integer;
-  AValues: array of integer; AConstant: boolean): integer;
+  AValues: array of integer; ABitCount: integer; AConstant: boolean): integer;
 var
   i: Integer;
 begin
@@ -172,6 +174,10 @@ begin
 
   if length(AValues)>ASize then
     raise exception.Create('Too many elements in array values');
+
+  for i := 0 to high(AValues) do
+    if (AValues[i]<0) or (AValues[i] >= 1 shl ABitCount) then
+      raise exception.Create('Value out of bounds');
 
   if IntArrayCount = 0 then
     CurIntArrayUnitNameIndex:= high(NonKillableUnits)+1;
@@ -199,6 +205,7 @@ begin
     Size:= ASize;
     if AConstant then UnitType := 'Const'
     else UnitType := NonKillableUnits[CurIntArrayUnitNameIndex];
+    BitCount:= ABitCount;
 
     setlength(Values, Size);
     for i := 0 to high(AValues) do
@@ -211,23 +218,23 @@ begin
       if (i <= MaxTriggerPlayers) or Constant then
       begin
         if i <= MaxTriggerPlayers then
-          Vars[i-1] := PredefineIntVar(Name+'('+IntToStr(i)+')', IntToPlayer(i), UnitType)
+          Vars[i-1] := PredefineIntVar(Name+'('+IntToStr(i)+')', IntToPlayer(i), UnitType, ABitCount)
         else
-          Vars[i-1] := PredefineIntVar(Name+'('+IntToStr(i)+')', plNone, UnitType);
+          Vars[i-1] := PredefineIntVar(Name+'('+IntToStr(i)+')', plNone, UnitType, ABitCount);
         IntVars[Vars[i-1]].Value := Values[i-1];
         IntVars[Vars[i-1]].Constant:= Constant;
       end
       else
       begin
-        Vars[i-1] := CreateIntVar(Name+'('+IntToStr(i)+')', Values[i-1], false, Constant);
+        Vars[i-1] := CreateIntVar(Name+'('+IntToStr(i)+')', Values[i-1], ABitCount, false, Constant);
         IntVars[Vars[i-1]].Predefined := true;
       end;
 
-    PredefineIntVar(Name+'(Me)', plCurrentPlayer, UnitType);
+    PredefineIntVar(Name+'(Me)', plCurrentPlayer, UnitType, ABitCount);
   end;
 end;
 
-function PredefineIntArray(AName: string; AUnitType: string): integer;
+function PredefineIntArray(AName: string; AUnitType: string; ABitCount: integer): integer;
 var
   i: Integer;
 begin
@@ -249,12 +256,13 @@ begin
     UnitType := AUnitType;
     setlength(Values, Size);
     setlength(Vars, Size);
+    BitCount:= ABitCount;
     for i := 1 to MaxTriggerPlayers do
     begin
       Values[i-1] := 0;
-      Vars[i-1] := PredefineIntVar(Name+'('+IntToStr(i)+')', IntToPlayer(i), UnitType);
+      Vars[i-1] := PredefineIntVar(Name+'('+IntToStr(i)+')', IntToPlayer(i), UnitType, ABitCount);
     end;
-    PredefineIntVar(Name+'(Me)', plCurrentPlayer, UnitType);
+    PredefineIntVar(Name+'(Me)', plCurrentPlayer, UnitType, ABitCount);
   end;
 end;
 
@@ -267,13 +275,16 @@ begin
   exit(-1);
 end;
 
-function CreateIntVar(AName: string; AValue: integer; ARandomize: boolean;
-  AConstant: boolean): integer;
+function CreateIntVar(AName: string; AValue: integer; ABitCount: integer;
+  ARandomize: boolean; AConstant: boolean): integer;
 begin
   CheckReservedWord(AName);
 
   if AConstant and ARandomize then
     raise exception.Create('A constant cannot be random');
+
+  if (AValue < 0) or (AValue > 1 shl ABitCount) or ((AValue = 1 shl ABitCount) and not ARandomize) then
+    raise exception.Create('Value out of bounds');
 
   if IntVarCount = 0 then
   begin
@@ -316,11 +327,13 @@ begin
       UnitType := NonKillableUnits[CurIntVarUnitNameIndex];
     end;
     Value := AValue;
+    BitCount:= ABitCount;
     Randomize:= ARandomize;
   end;
 end;
 
-function PredefineIntVar(AName: string; APlayer: TPlayer; AUnitType: string): integer;
+function PredefineIntVar(AName: string; APlayer: TPlayer; AUnitType: string;
+  ABitCount: integer): integer;
 begin
   if IntVarCount = 0 then
   begin
@@ -341,6 +354,7 @@ begin
     Player := APlayer;
     UnitType := AUnitType;
     Value := 0;
+    BitCount:= ABitCount;
     Randomize:= false;
   end;
 end;
@@ -355,30 +369,95 @@ begin
 end;
 
 var
-  TempInts: array of record
+  TempInts8: array of record
     IntVar: integer;
+    Used: boolean;
   end;
-  TempIntCount: integer;
+  TempInt8Count: integer;
+  TempInts16: array of record
+    IntVar: integer;
+    Used: boolean;
+  end;
+  TempInt16Count: integer;
+  TempInts24: array of record
+    IntVar: integer;
+    Used: boolean;
+  end;
+  TempInt24Count: integer;
 
-function AllocateTempInt: integer;
+function AllocateTempInt(ABitCount: integer): integer;
+var
+  i: Integer;
 begin
-  if TempIntCount >= length(tempInts) then
-    setlength(TempInts, TempIntCount*2+4);
-  TempInts[TempIntCount].IntVar:= CreateIntVar('_tempInt',0);
-  result := TempInts[TempIntCount].IntVar;
-  inc(TempIntCount);
+  if ABitCount > 16 then
+  begin
+    for i := 0 to TempInt24Count-1 do
+      if not TempInts24[i].Used then
+      begin
+        TempInts24[i].Used := true;
+        exit(TempInts24[i].IntVar);
+      end;
+
+    if TempInt24Count >= length(tempInts24) then
+      setlength(TempInts24, TempInt24Count*2+4);
+    TempInts24[TempInt24Count].IntVar:= CreateIntVar('_tempInt24('+inttostr(TempInt24Count+1)+')',0,ABitCount);
+    TempInts24[TempInt24Count].Used := true;
+    result := TempInts24[TempInt24Count].IntVar;
+    inc(TempInt24Count);
+  end else
+  if ABitCount > 8 then
+  begin
+    for i := 0 to TempInt16Count-1 do
+      if not TempInts16[i].Used then
+      begin
+        TempInts16[i].Used := true;
+        exit(TempInts16[i].IntVar);
+      end;
+
+    if TempInt16Count >= length(tempInts16) then
+      setlength(TempInts16, TempInt16Count*2+4);
+    TempInts16[TempInt16Count].IntVar:= CreateIntVar('_tempInt16('+inttostr(TempInt16Count+1)+')',0,ABitCount);
+    TempInts16[TempInt16Count].Used := true;
+    result := TempInts16[TempInt16Count].IntVar;
+    inc(TempInt16Count);
+  end else
+  begin
+    for i := 0 to TempInt8Count-1 do
+      if not TempInts8[i].Used then
+      begin
+        TempInts8[i].Used := true;
+        exit(TempInts8[i].IntVar);
+      end;
+
+    if TempInt8Count >= length(tempInts8) then
+      setlength(TempInts8, TempInt8Count*2+4);
+    TempInts8[TempInt8Count].IntVar:= CreateIntVar('_tempInt8('+inttostr(TempInt8Count+1)+')',0,ABitCount);
+    TempInts8[TempInt8Count].Used := true;
+    result := TempInts8[TempInt8Count].IntVar;
+    inc(TempInt8Count);
+  end;
 end;
 
 procedure ReleaseTempInt(ATempInt: integer);
 var
-  i, j: Integer;
+  i: Integer;
 begin
-  for i := 0 to high(tempInts) do
-    if TempInts[i].IntVar = ATempInt then
+  for i := 0 to TempInt24Count-1 do
+    if TempInts24[i].IntVar = ATempInt then
     begin
-      for j := i to high(tempInts)-1 do
-        tempInts[j] := tempInts[j+1];
-      dec(TempIntCount);
+      tempInts24[i].Used:= false;
+      exit;
+    end;
+  for i := 0 to TempInt16Count-1 do
+    if TempInts16[i].IntVar = ATempInt then
+    begin
+      tempInts16[i].Used:= false;
+      exit;
+    end;
+  for i := 0 to TempInt8Count-1 do
+    if TempInts8[i].IntVar = ATempInt then
+    begin
+      tempInts8[i].Used:= false;
       exit;
     end;
   raise exception.Create('Integer variable not found');

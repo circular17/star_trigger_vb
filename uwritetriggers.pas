@@ -25,7 +25,7 @@ begin
     begin
       HyperWaitVar := IntArrayIndexOf('_hyperwait');
       if HyperWaitVar = -1 then
-        HyperWaitVar := CreateIntArray('_hyperwait', MaxTriggerPlayers, []);
+        HyperWaitVar := CreateIntArray('_hyperwait', MaxTriggerPlayers, [], 24);
     end;
   end;
 end;
@@ -401,14 +401,17 @@ var
   pl: TPlayer;
   tempOutput: TStringList;
   i: Integer;
+  someEntry: Boolean;
 begin
   //at the begining of the cycle, set presence
   tempOutput := TstringList.Create;
-  tempOutput.Add('// Player presence');
+  tempOutput.Add('// Player presence //');
   proc := TInstructionList.Create;
+  someEntry := false;
   for pl := plPlayer1 to plPlayer8 do
     if IsPlayerPresenceUsed(pl) then
     begin
+      someEntry := true;
       proc.Add(TSetSwitchInstruction.Create(BoolVars[GetPlayerPresenceBoolVar(pl)].Switch, svSet));
       WriteProg(tempOutput, [pl], [], proc, -1, -1, true);
       proc[0].Free;
@@ -416,8 +419,11 @@ begin
     end;
   proc.Free;
 
-  for i := 0 to tempOutput.Count-1 do
-    AOutput.Insert(i, tempOutput[i]);
+  if someEntry then
+  begin
+    for i := 0 to tempOutput.Count-1 do
+      AOutput.Insert(i, tempOutput[i]);
+  end;
   tempOutput.Free;
 end;
 

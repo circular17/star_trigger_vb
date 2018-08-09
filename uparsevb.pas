@@ -24,6 +24,9 @@ function TryConditionOperator(ALine: TStringList; var AIndex: integer): TConditi
 function ParseRandom(ALine: TStringList; var AIndex: integer): integer;
 function TryParsePlayer(ALine: TStringList; var AIndex: integer): TPlayer;
 function ExpectPlayers(ALine: TStringList; var AIndex: integer): TPlayers;
+function GetBitCountOfType(AName: string): integer;
+function IsIntegerType(AName: string): boolean;
+function BitCountNeededFor(AValue: integer): integer;
 
 implementation
 
@@ -249,6 +252,27 @@ begin
     if pl = plNone then raise exception.Create('Expecting player but "' + ALine[AIndex] + '" found');
     result := [pl];
   end;
+end;
+
+function GetBitCountOfType(AName: string): integer;
+begin
+  if (CompareText(AName,'Byte')=0) or (CompareText(AName,'UInt8')=0) then result := 8
+  else if (CompareText(AName,'UShort')=0) or (CompareText(AName,'UInt16')=0) then result := 16
+  else if (CompareText(AName,'UInt24')=0) then result := 24
+  else result := 0;
+end;
+
+function IsIntegerType(AName: string): boolean;
+begin
+  result := GetBitCountOfType(AName) > 0;
+end;
+
+function BitCountNeededFor(AValue: integer): integer;
+begin
+  if AValue >= 1 shl 24 then raise exception.Create('Value too big') else
+  if AValue >= 1 shl 16 then result := 24 else
+  if AValue >= 1 shl 8 then result := 16 else
+    result := 8;
 end;
 
 end.

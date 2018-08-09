@@ -812,6 +812,8 @@ procedure TExpression.AddToProgram(AProg: TInstructionList;
 var
   i: LongInt;
   firstElem: Boolean;
+  removedElem: TExpressionNode;
+  bitCount: integer;
 begin
   if AMode = simSubtract then
   begin
@@ -821,6 +823,15 @@ begin
     exit;
   end;
 
+  bitCount := 0;
+  for i := 0 to IntVarCount-1 do
+    if (IntVars[i].Player = ADestPlayer) and (IntVars[i].UnitType = ADestUnitType) then
+    begin
+      bitCount:= IntVars[i].BitCount;
+    end;
+  if bitCount = 0 then raise exception.Create('Variable not found');
+
+  removedElem := nil;
   for i := Elements.Count-1 downto 0 do
     if Elements[i] is TVariableNode then
     with TVariableNode(Elements[i]) do
@@ -831,28 +842,51 @@ begin
         if (AMode = simSetTo) and not Negative then
         begin
           AMode := simAdd;
-          Elements[i].Free;
+          removedElem := Elements[i];
           Elements.Delete(i);
+          break;
         end else
         if (AMode = simAdd) and Negative then
         begin
           AMode := simSetTo;
-          Elements[i].Free;
+          removedElem := Elements[i];
           Elements.Delete(i);
+          break;
         end;
       end;
     end;
 
-  if (PositiveCount = 1) and (NegativeCount = 0) then
+  if (PositiveCount = 1) and (NegativeCount = 0) and (ConstElement >= 0) then
   begin
-    Elements[0].LoadIntoVariable( AMode = simSetTo, ADestPlayer, ADestUnitType, AProg );
-    if ConstElement <> 0 then
+    if ConstElement = 0 then
+      Elements[0].LoadIntoVariable( AMode = simSetTo, ADestPlayer, ADestUnitType, AProg )
+    else
+    begin
+      Elements[0].LoadIntoVariable( AMode = simSetTo, ADestPlayer, ADestUnitType, AProg );
       AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simAdd, ConstElement) );
+      AProg.Add( TFastIfInstruction.Create( [TIntegerCondition.Create( ADestPlayer, ADestUnitType, icmAtLeast, 1 shl bitCount)],
+                    [TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSetTo, (1 shl bitCount) -1 )] ) );
+    end;
   end else
   if (PositiveCount = 0) and (NegativeCount = 0) then
   begin
-    if (AMode = simSetTo) or (ConstElement <> 0) then
-      AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, AMode, ConstElement) )
+    if AMode = simSetTo then
+    begin
+      if (ConstElement < 0) or (ConstElement >= 1 shl bitCount) then
+        raise exception.Create('Value out of bounds (' + IntToStr(ConstElement) + ')');
+
+      AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSetTo, ConstElement) );
+    end else
+    if ConstElement <> 0 then
+    begin
+      if (ConstElement <= - (1 shl bitCount)) or (ConstElement >= 1 shl bitCount) then
+        raise exception.Create('Value out of bounds (' + IntToStr(ConstElement) + ')');
+
+      AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, AMode, ConstElement) );
+      if ConstElement > 0 then
+        AProg.Add( TFastIfInstruction.Create( [TIntegerCondition.Create( ADestPlayer, ADestUnitType, icmAtLeast, 1 shl bitCount)],
+                      [TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSetTo, (1 shl bitCount) -1 )] ) );
+    end;
   end
   else
   begin
@@ -908,6 +942,8 @@ begin
     if ConstElement < 0 then
       AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSubtract, -ConstElement) );
   end;
+
+  if assigned(removedElem) then Elements.Add(removedElem);
 end;
 
 constructor TRandomNode.Create(ANegative: boolean; ARange: integer);

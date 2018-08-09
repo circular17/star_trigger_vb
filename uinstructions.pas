@@ -200,6 +200,7 @@ type
     Instructions: TInstructionList;
     constructor Create(AConditions: TConditionList; AInstructions: TInstructionList);
     constructor Create(AConditions: array of TCondition; AInstructions: TInstructionList);
+    constructor Create(AConditions: array of TCondition; AInstructions: array of TInstruction);
     destructor Destroy; override;
     function ToString: ansistring; override;
   end;
@@ -756,6 +757,17 @@ begin
   Conditions := TConditionList.Create;
   for i := 0 to high(AConditions) do Conditions.Add(AConditions[i]);
   Instructions := AInstructions;
+end;
+
+constructor TFastIfInstruction.Create(AConditions: array of TCondition;
+  AInstructions: array of TInstruction);
+var
+  i: Integer;
+begin
+  Conditions := TConditionList.Create;
+  for i := 0 to high(AConditions) do Conditions.Add(AConditions[i]);
+  Instructions := TInstructionList.Create;
+  for i := 0 to high(AInstructions) do Instructions.Add(AInstructions[i]);
 end;
 
 destructor TFastIfInstruction.Destroy;

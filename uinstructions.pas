@@ -75,7 +75,7 @@ type
   end;
 
   TIntegerTransfer = (itCopyIntoAccumulator, itAddIntoAccumulator, itCopyAccumulator, itAddAccumulator,
-                      itSubtractIntoAccumulator, itSubtractAccumulator, itRandomizeAccumulator);
+                      itSubtractIntoAccumulator, itSubtractAccumulator, itRandomizeAccumulator, itLimitAccumulator);
 
   { TTransferIntegerInstruction }
 
@@ -1442,6 +1442,7 @@ begin
   Action:= AAction;
   Value := 0;
   if AAction = itRandomizeAccumulator then raise exception.Create('Randomize can only be done with a constant range');
+  if AAction = itLimitAccumulator then raise exception.Create('Limit can only be done with a constant range');
 end;
 
 constructor TTransferIntegerInstruction.Create(AValue: integer;
@@ -1456,9 +1457,15 @@ begin
   if Value < 0 then
   begin
     case Action of
-    itAddIntoAccumulator: Action := itSubtractIntoAccumulator;
-    itSubtractIntoAccumulator: Action := itAddIntoAccumulator;
-    itCopyIntoAccumulator: Value := 0;
+    itAddIntoAccumulator: begin
+                            Action := itSubtractIntoAccumulator;
+                            Value := -Value;
+                          end;
+    itSubtractIntoAccumulator: begin
+                                 Action := itAddIntoAccumulator;
+                                 Value := -Value;
+                               end;
+    itCopyIntoAccumulator, itLimitAccumulator: Value := 0;
     else raise exception.Create('Case not handled');
     end;
   end;
@@ -1474,6 +1481,7 @@ begin
   itAddAccumulator: modeStr := 'Add acc';
   itSubtractAccumulator: modeStr := 'Subtract acc';
   itRandomizeAccumulator: modeStr := 'Randomize acc';
+  itLimitAccumulator: modeStr := 'Limit acc';
   else modeStr := 'Copy to acc';
   end;
   if Player <> plNone then

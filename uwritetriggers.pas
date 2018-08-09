@@ -12,7 +12,7 @@ procedure WriteUnitProperties(AFilename: string);
 
 implementation
 
-uses utriggercode, uarithmetic, ureadprog, uinstructions, uvariables;
+uses utriggercode, uarithmetic, ureadprog, uinstructions, uvariables, uparsevb;
 
 var
   HyperWaitVar: integer;
@@ -306,7 +306,9 @@ begin
       if procIdx = -1 then
         raise Exception.Create('Procedure not found "' + call.Name + '" with ' + Inttostr(length(call.Params)) + ' parameter(s)');
 
-      if (call.ReturnType <> 'Void') and (Procedures[procIdx].ReturnType <> call.ReturnType) then
+      if (call.ReturnType <> 'Void') and not
+      ((IsIntegerType(Procedures[procIdx].ReturnType) and IsIntegerType(call.ReturnType))
+      or (Procedures[procIdx].ReturnType = call.ReturnType)) then
         raise exception.Create('Expecting ' + call.ReturnType + ' return type but ' + Procedures[procIdx].ReturnType + ' found');
 
       if Procedures[procIdx].StartIP = -1 then Procedures[procIdx].StartIP:= NewIP;

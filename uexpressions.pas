@@ -97,9 +97,11 @@ type
 
   TExpression = class
   private
+    function GetCanPutInAccumulator: boolean;
     function GetIsConstant: boolean;
     function GetNegativeCount: integer;
     function GetPositiveCount: integer;
+    procedure PutClearAccFirst;
   public
     Elements: TExpressionNodeList;
     ConstElement: integer;
@@ -109,6 +111,8 @@ type
     procedure AddToProgram(AProg: TInstructionList;
                      ADestPlayer: TPlayer; ADestUnitType: string;
                      AMode: TSetIntegerMode);
+    procedure AddToProgramInAccumulator(AProg: TInstructionList);
+    property CanPutInAccumulator: boolean read GetCanPutInAccumulator;
     property NegativeCount: integer read GetNegativeCount;
     property PositiveCount: integer read GetPositiveCount;
     property IsConstant: boolean read GetIsConstant;
@@ -648,6 +652,8 @@ begin
   until false;
 
   AIndex := idx;
+
+  result.PutClearAccFirst;
 end;
 
 function ExpectString(ALine: TStringList; var AIndex: integer): string;
@@ -759,6 +765,15 @@ end;
 
 { TExpression }
 
+function TExpression.GetCanPutInAccumulator: boolean;
+var
+  i: Integer;
+begin
+  for i := 0 to Elements.Count-1 do
+    if Elements[i].AlwaysClearAccumulator or Elements[i].Negative then exit(false);
+  exit(true);
+end;
+
 function TExpression.GetIsConstant: boolean;
 begin
   result := (PositiveCount = 0) and (NegativeCount = 0);
@@ -780,6 +795,21 @@ begin
   result := 0;
   for i := 0 to Elements.Count-1 do
     if not Elements[i].Negative then result += 1;
+end;
+
+procedure TExpression.PutClearAccFirst;
+var
+  i: Integer;
+  clearAccPos: integer;
+begin
+  clearAccPos := 0;
+  for i := 0 to Elements.Count-1 do
+    if Elements[i].AlwaysClearAccumulator then
+    begin
+      if i > clearAccPos then
+        Elements.Move(i, clearAccPos);
+      inc(clearAccPoS);
+    end;
 end;
 
 destructor TExpression.Destroy;
@@ -946,6 +976,26 @@ begin
   if assigned(removedElem) then Elements.Add(removedElem);
 end;
 
+procedure TExpression.AddToProgramInAccumulator(AProg: TInstructionList);
+var
+  i: Integer;
+  firstElem: Boolean;
+begin
+  firstElem := true;
+  for i := 0 to Elements.Count-1 do
+    if not Elements[i].Negative then
+    begin
+      Elements[i].LoadIntoAccumulator(firstElem, AProg);
+      firstElem := false;
+    end;
+
+  if firstElem then
+    AProg.Add( TTransferIntegerInstruction.Create( ConstElement, itCopyIntoAccumulator) )
+  else
+  if ConstElement <> 0 then
+    AProg.Add( TTransferIntegerInstruction.Create( ConstElement, itAddIntoAccumulator) );
+end;
+
 constructor TRandomNode.Create(ANegative: boolean; ARange: integer);
 begin
   inherited Create(ANegative);
@@ -988,7 +1038,7 @@ procedure TFunctionCallNode.LoadIntoAccumulator(AClearAcc: boolean;
   AProg: TInstructionList);
 begin
   if AClearAcc then
-    AProg.Add(TCallInstruction.Create(Name,[],'Integer'))
+    AProg.Add(TCallInstruction.Create(Name,[],'UInt24'))
   else
     raise exception.Create('Unhandled case');
 end;
@@ -996,7 +1046,7 @@ end;
 procedure TFunctionCallNode.LoadIntoVariable(AClearVar: boolean;
   APlayer: TPlayer; AUnitType: string; AProg: TInstructionList);
 begin
-  AProg.Add(TCallInstruction.Create(Name,[],'Integer'));
+  AProg.Add(TCallInstruction.Create(Name,[],'UInt24'));
   if AClearVar then
     AProg.Add(TTransferIntegerInstruction.Create(APlayer, AUnitType, itCopyAccumulator))
   else

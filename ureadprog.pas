@@ -485,7 +485,7 @@ var idx, intVal: integer;
 
   procedure ValueInteger(AMin,AMax: integer);
   begin
-    if valueType <> 'Integer' then
+    if valueType <> 'UInt24' then
       raise exception.Create('Expecting integer value');
     if (intVal < AMin) or (intVal > AMax) then
       raise exception.Create('Value out of range (' + inttostr(AMin)+' to '+Inttostr(AMax)+')');
@@ -522,7 +522,7 @@ begin
     if not IsValidVariableName(name) then raise exception.Create('Expecting variable name but "' + name + '" found');
     inc(idx);
     ExpectToken(ALine,idx,'=');
-    if TryInteger(ALine,idx,intVal) then valueType := 'Integer'
+    if TryInteger(ALine,idx,intVal) then valueType := 'UInt24'
     else if TryBoolean(ALine,idx,boolVal) then valueType := 'Boolean'
     else raise exception.Create('Expecting boolean or integer value');
 
@@ -543,12 +543,12 @@ begin
     end else
     if CompareText(name,'Resource')=0 then
     begin
-      ValueInteger(0,maxLongint);
+      ValueInteger(0,65535);
       AProp.Resource := intVal;
     end else
     if CompareText(name,'HangarCount')=0 then
     begin
-      ValueInteger(0,maxLongint);
+      ValueInteger(0,65535);
       AProp.HangarCount := intVal;
     end else
     if CompareText(name,'Burrowed')=0 then
@@ -752,12 +752,21 @@ begin
   if isFunc then
   begin
     ExpectToken(ALine,index,'As');
-    if TryToken(ALine,index,'Integer') then
-      returnType := 'Integer'
-    else if TryToken(ALine,index,'Boolean') then
+    if TryToken(ALine,index,'Boolean') then
       returnType := 'Boolean'
     else
-      raise exception.Create('Expecting return type (Integer, Boolean)');
+    begin
+      if index >= ALine.Count then
+        returnType := ''
+      else
+      begin
+        returnType := ALine[index];
+        inc(index);
+      end;
+
+      if not IsIntegerType(returnType) then
+        raise exception.Create('Expecting return type (Byte, UInt16, UInt24, Boolean)');
+    end;
   end else
     returnType := 'Void';
 
@@ -1677,15 +1686,28 @@ begin
   begin
     if AProcId <> -1 then
     begin
-      if Procedures[AProcId].ReturnType = 'Integer' then
+      if IsIntegerType(Procedures[AProcId].ReturnType) then
       begin
         if TryInteger(ALine,index,intVal) then
-          AProg.Add( TTransferIntegerInstruction.Create(intVal, itCopyIntoAccumulator) )
+        begin
+          if (intVal < 0) or (intVal >= 1 shl Procedures[AProcId].ReturnBitCount) then
+            raise exception.Create('Value out of bounds')
+          else
+            AProg.Add( TTransferIntegerInstruction.Create(intVal, itCopyIntoAccumulator) );
+        end
         else
         begin
-          idxVar := ProcedureReturnVar(AProcId);
           expr := TryExpression(ALine,index,true);
-          expr.AddToProgram(AProg, IntVars[idxVar].Player,IntVars[idxVar].UnitType, simSetTo);
+          if expr.CanPutInAccumulator then
+          begin
+            expr.AddToProgramInAccumulator(AProg);
+            AProg.Add(TTransferIntegerInstruction.Create((1 shl Procedures[AProcId].ReturnBitCount)-1, itLimitAccumulator));
+          end else
+          begin
+            idxVar := ProcedureReturnVar(AProcId);
+            expr.AddToProgram(AProg, IntVars[idxVar].Player,IntVars[idxVar].UnitType, simSetTo);
+            AProg.Add(TTransferIntegerInstruction.Create( IntVars[idxVar].Player,IntVars[idxVar].UnitType, itCopyIntoAccumulator));
+          end;
           expr.Free;
         end;
       end else

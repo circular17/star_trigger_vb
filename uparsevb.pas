@@ -42,9 +42,9 @@ end;
 
 procedure CheckReservedWord(AText: string);
 const
-  ReservedWords: array[1..51] of string =
+  ReservedWords: array[1..60] of string =
     ('Dim','As','Const','Sub','When','End','If','EndIf', 'Then','Else','Not','And','Or','Xor','While','Option','Return',
-     'On','Off','Hyper','Boolean','Byte','Integer','String','True','False',
+     'On','Off','Hyper','Boolean','Byte','SByte','UInt8','UShort','UInt16','Short','Int16','Int24','UInt24','UInteger','Integer','String','True','False',
      'For','To','Step','Next','Do','Loop','Until','Len','Chr','Asc','ElseIf',
      'Select','Case','Exit','Function','LBound','UBound','Me','Rnd','New','Min','Max',
 

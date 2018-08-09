@@ -28,7 +28,7 @@ begin
 
     if ANegation then op := NotConditionOperator[op];
 
-    intVal := ExpectInteger(ALine,AIndex);
+    intVal := ExpectIntegerConstant(ALine,AIndex);
     case op of
     coEqual: result := TElapsedTimeCondition.Create(icmExactly, intVal);
     coGreaterThanOrEqual: result := TElapsedTimeCondition.Create(icmAtLeast, intVal);
@@ -117,7 +117,7 @@ begin
     end
     else
     begin
-      intVal := ExpectInteger(ALine,AIndex);
+      intVal := ExpectIntegerConstant(ALine,AIndex);
       case op of
       coEqual: result := TBringCondition.Create(APlayer, unitType, locStr, icmExactly, intVal);
       coGreaterThanOrEqual: result := TBringCondition.Create(APlayer, unitType, locStr, icmAtLeast, intVal);
@@ -189,7 +189,7 @@ begin
     end
     else
     begin
-      intVal := ExpectInteger(ALine,AIndex);
+      intVal := ExpectIntegerConstant(ALine,AIndex);
       case op of
       coEqual: result := TKillCountCondition.Create(APlayer, unitType, icmExactly, intVal);
       coGreaterThanOrEqual: result := TKillCountCondition.Create(APlayer, unitType, icmAtLeast, intVal);
@@ -225,7 +225,7 @@ begin
 
     if ANegation then op := NotConditionOperator[op];
 
-    intVal := ExpectInteger(ALine,AIndex);
+    intVal := ExpectIntegerConstant(ALine,AIndex);
     case op of
     coEqual: result := TIntegerCondition.Create(APlayer, unitType, icmExactly, intVal);
     coGreaterThanOrEqual: result := TIntegerCondition.Create(APlayer, unitType, icmAtLeast, intVal);
@@ -252,7 +252,7 @@ begin
 
     if ANegation then op := NotConditionOperator[op];
 
-    intVal := ExpectInteger(ALine,AIndex);
+    intVal := ExpectIntegerConstant(ALine,AIndex);
     case op of
     coEqual: result := TOpponentCountCondition.Create(APlayer, icmExactly, intVal);
     coGreaterThanOrEqual: result := TOpponentCountCondition.Create(APlayer, icmAtLeast, intVal);
@@ -280,9 +280,83 @@ begin
     result := nil;
 end;
 
+function TryArithmeticCondition(ALine: TStringList; var AIndex: integer; ANot: boolean): TCondition;
+var
+  op: TConditionOperator;
+  merged, secondExpr, firstExpr: TExpression;
+  mergeComp: TIntegerConditionMode;
+  mergeCompValue: integer;
+
+  procedure AppendFirst;
+  var
+    i: Integer;
+  begin
+    for i := 0 to firstExpr.Elements.Count-1 do
+      merged.Elements.Add(firstExpr.Elements[i]);
+    firstExpr.Elements.Clear;
+    merged.ConstElement += firstExpr.ConstElement;
+  end;
+
+  procedure AppendSecond;
+  var
+    i: Integer;
+  begin
+    for i := 0 to secondExpr.Elements.Count-1 do
+      merged.Elements.Add(secondExpr.Elements[i]);
+    secondExpr.Elements.Clear;
+    merged.ConstElement += secondExpr.ConstElement;
+  end;
+
+begin
+  firstExpr := TryExpression(ALine,AIndex,false);
+  if firstExpr = nil then exit(nil);
+  op := TryConditionOperator(ALine,AIndex);
+  if op = coNone then exit(nil);
+  secondExpr := TryExpression(ALine,AIndex,True);
+  if ANot then
+  begin
+    op := NotConditionOperator[op];
+    ANot := false;
+  end;
+
+  merged := TExpression.Create;
+  case op of
+  coGreaterThan,coGreaterThanOrEqual: begin
+      AppendFirst;
+      secondExpr.NegateAll;
+      AppendSecond;
+      if op = coGreaterThanOrEqual then merged.ConstElement += 1;
+      mergeComp := icmAtLeast;
+      mergeCompValue := 1;
+    end;
+  coLowerThan,coLowerThanOrEqual: begin
+      AppendSecond;
+      firstExpr.NegateAll;
+      AppendFirst;
+      if op = coLowerThanOrEqual then merged.ConstElement += 1;
+      mergeComp := icmAtLeast;
+      mergeCompValue := 1;
+    end;
+  coEqual,coNotEqual: begin
+      AppendSecond;
+      firstExpr.NegateAll;
+      AppendFirst;
+      merged.ConstElement += 1;
+      mergeComp := icmExactly;
+      mergeCompValue := 1;
+      ANot := (op = coNotEqual);
+    end;
+  end;
+
+  firstExpr.Free;
+  secondExpr.Free;
+  result := TArithmeticCondition.Create(merged, mergeComp, mergeCompValue);
+  if ANot then result := TNotCondition.Create([result]);
+end;
+
 function ExpectCondition(ALine: TStringList; var AIndex: integer; AThreads: TPlayers): TCondition;
 var
-  intVal: Integer;
+  intVal, afterNotIndex: Integer;
   op: TConditionOperator;
   boolNot: Boolean;
   scalar: TScalarVariable;
@@ -299,6 +373,7 @@ begin
   begin
     boolNot := TryToken(ALine,AIndex,'Not');
 
+    afterNotIndex := AIndex;
     scalar := TryScalarVariable(ALine,AIndex);
     if scalar.VarType = svtNone then
     begin
@@ -324,8 +399,8 @@ begin
       end else
       begin
        result := TryPlayerConditionFunction(ALine, AIndex, plCurrentPlayer, boolNot);
-       if result = nil then
-         raise exception.Create('Expecting variable or function')
+       if result = nil then result := TryArithmeticCondition(ALine, AIndex, boolNot);
+       if result = nil then raise exception.Create('Expecting condition')
        else
        if not IsUniquePlayer(AThreads) or (AThreads = []) then
        begin
@@ -339,12 +414,24 @@ begin
       end;
     end;
 
+    if scalar.Constant then
+    begin
+      AIndex := afterNotIndex;
+      result := TryArithmeticCondition(ALine, AIndex, boolNot);
+      if result = nil then raise exception.Create('Expecting condition');
+      exit;
+    end;
+
     case scalar.VarType of
     svtInteger:
     begin
       op := TryConditionOperator(ALine,AIndex);
       if op = coNone then
-        raise exception.Create('Comparison expected')
+      begin
+        AIndex := afterNotIndex;
+        result := TryArithmeticCondition(ALine, AIndex, boolNot);
+        if result = nil then raise exception.Create('Expecting condition');
+      end
       else
       begin
         if boolNot then op := NotConditionOperator[op];
@@ -382,7 +469,13 @@ begin
         end
         else
         begin
-          intVal := ExpectInteger(ALine,AIndex);
+          if not TryIntegerConstant(ALine,AIndex,intVal) then
+          begin
+            AIndex := afterNotIndex;
+            result := TryArithmeticCondition(ALine, AIndex, boolNot);
+            if result = nil then raise exception.Create('Expecting condition');
+            exit;
+          end;
           case op of
           coEqual: result := TIntegerCondition.Create(scalar.Player, scalar.UnitType, icmExactly, intVal);
           coGreaterThanOrEqual: result := TIntegerCondition.Create(scalar.Player, scalar.UnitType, icmAtLeast, intVal);

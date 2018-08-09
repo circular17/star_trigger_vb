@@ -93,7 +93,7 @@ begin
     if not IsValidVariableName(name) then raise exception.Create('Expecting variable name but "' + name + '" found');
     inc(idx);
     ExpectToken(ALine,idx,'=');
-    if TryInteger(ALine,idx,intVal) then valueType := 'UInt24'
+    if TryIntegerConstant(ALine,idx,intVal) then valueType := 'UInt24'
     else if TryBoolean(ALine,idx,boolVal) then valueType := 'Boolean'
     else raise exception.Create('Expecting boolean or integer value');
 
@@ -263,7 +263,7 @@ begin
       setlength(result, Count*2 + 4);
 
     if Count > 0 then ExpectToken(ALine, AIndex, ',');
-    if not TryInteger(ALine, AIndex, result[count]) then
+    if not TryIntegerConstant(ALine, AIndex, result[count]) then
       raise exception.Create('Expecting integer or "}"');
     inc(count);
   end;
@@ -391,7 +391,7 @@ var
 
   procedure ExpectArraySize;
   begin
-    if not TryInteger(ALine,index,arraySize) then
+    if not TryIntegerConstant(ALine,index,arraySize) then
       raise exception.Create('Expecting array size or "]"');
     if (arraySize < 1) or (arraySize > MaxIntArraySize) then
       raise Exception.Create('Array size can go from 1 to ' + inttostr(MaxIntArraySize));
@@ -582,7 +582,7 @@ begin
           if TryToken(ALine,index,'Duration') then
           begin
             ExpectToken(ALine,index,'=');
-            timeMs := ExpectInteger(ALine,index);
+            timeMs := ExpectIntegerConstant(ALine,index);
           end else
             raise exception.Create('Unknown field. Expecting Filename or Duration');
           if not TryToken(ALine,index,',') then
@@ -629,7 +629,7 @@ begin
         if TryBoolean(ALine,index,boolVal) then
           SetupBoolVar(CreateBoolVar(varName, BoolToSwitch[boolVal], Constant))
         else
-        if TryInteger(ALine,index,intVal) then
+        if TryIntegerConstant(ALine,index,intVal) then
         begin
           bitCount := BitCountNeededFor(intVal);
           if not Constant then Writeln('Warning: assuming ', bitCount, ' bit value for ', varName);
@@ -764,7 +764,7 @@ var
       result := -1;
       ExpectToken(ALine,AIndex,',');
     end else
-    if TryInteger(ALine,AIndex,result) then
+    if TryIntegerConstant(ALine,AIndex,result) then
     begin
       ExpectToken(ALine,AIndex,',');
     end else
@@ -976,7 +976,7 @@ begin
       end
       else
       begin
-        propVal:= ExpectInteger(ALine,AIndex);
+        propVal:= ExpectIntegerConstant(ALine,AIndex);
         AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, propVal));
       end;
     end;
@@ -1013,7 +1013,7 @@ begin
       ExpectToken(ALine,AIndex,'(');
       unitType := ExpectString(ALine,AIndex);
       ExpectToken(ALine,AIndex,',');
-      timeMs := ExpectInteger(ALine,AIndex);
+      timeMs := ExpectIntegerConstant(ALine,AIndex);
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TTalkingPortraitInstruction.Create(unitType, timeMs));
     end else
@@ -1053,7 +1053,7 @@ begin
             intVal := MaxLongInt;
             if TryToken(ALine,AIndex,',') then
             begin
-              if not TryInteger(ALine,AIndex,intVal) then
+              if not TryIntegerConstant(ALine,AIndex,intVal) then
                 raise exception.Create('Expecting integer value');
             end;
             AProg.Add(TShowLeaderboardOreAndGasIconInstruction.Create(intVal));
@@ -1259,7 +1259,7 @@ begin
     begin
       if IsIntegerType(Procedures[AProcId].ReturnType) then
       begin
-        if TryInteger(ALine,index,intVal) then
+        if TryIntegerConstant(ALine,index,intVal) then
         begin
           if (intVal < 0) or (intVal >= 1 shl Procedures[AProcId].ReturnBitCount) then
             raise exception.Create('Value out of bounds')

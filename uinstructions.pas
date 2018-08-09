@@ -40,6 +40,8 @@ type
 
   TCondition = class
     function ToStringAndFree: ansistring;
+    function IsArithmetic: boolean; virtual;
+    function IsComputed: boolean; virtual;
   end;
 
   TCustomConditionList = specialize TFPGList<TCondition>;
@@ -510,6 +512,8 @@ type
     constructor Create(AConditions: array of TCondition);
     constructor Create(AConditions: TConditionList);
     function ToString: ansistring; override;
+    function IsArithmetic: boolean; override;
+    function IsComputed: boolean; override;
   end;
 
   { TSwitchCondition }
@@ -1223,6 +1227,20 @@ begin
   Result:= '!' + Conditions.ToString;
 end;
 
+function TNotCondition.IsArithmetic: boolean;
+var
+  i: Integer;
+begin
+  for i := 0 to Conditions.Count-1 do
+    if Conditions[i].IsArithmetic then exit(true);
+  exit(false);
+end;
+
+function TNotCondition.IsComputed: boolean;
+begin
+  Result:= true;
+end;
+
 { TOrderUnitInstruction }
 
 constructor TOrderUnitInstruction.Create(APlayer: TPlayer; AUnitType,
@@ -1755,6 +1773,16 @@ function TCondition.ToStringAndFree: ansistring;
 begin
   result := ToString;
   Free;
+end;
+
+function TCondition.IsArithmetic: boolean;
+begin
+  result := false;
+end;
+
+function TCondition.IsComputed: boolean;
+begin
+  result := IsArithmetic;
 end;
 
 { TInstruction }

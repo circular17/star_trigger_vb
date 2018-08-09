@@ -280,7 +280,11 @@ var
 begin
   setlength(condStr, length(AConditions) );
   for i := 0 to high(AConditions) do
+  begin
+    if AConditions[i].IsComputed then
+      raise exception.Create('Computed conditions cannot be used as trigger conditions');
     condStr[i] := AConditions[i].ToString;
+  end;
 
   if AIPStart <> -1 then
   begin

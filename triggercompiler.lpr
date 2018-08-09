@@ -7,7 +7,7 @@ uses
   cthreads,
   {$ENDIF}{$ENDIF}
   Classes, SysUtils, CustApp, ureadprog, uwritetriggers, uinstructions,
-  utriggercode, uarithmetic, usctypes, uparsevb, uvariables, uexpressions
+  utriggercode, uarithmetic, usctypes, uparsevb, uvariables, uexpressions, uparseconditions
   { you can add units after this };
 
 type

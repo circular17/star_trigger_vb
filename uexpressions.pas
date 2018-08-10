@@ -158,6 +158,7 @@ type
     constructor Create(AExpr: TExpression; AFactor: integer);
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
+    function FactorBitSize: integer;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
     function Duplicate: TExpressionNode; override;
@@ -786,15 +787,21 @@ var
     end else
     if AValue <> 1 then
     begin
-      if lastNode is TSubExpression then
+      if lastNode is TConstantNode then
       begin
-        mult := TMultiplyNode.Create(TSubExpression(lastNode).Expr, AValue);
-        TSubExpression(lastNode).Expr := nil;
-        lastNode.Free;
-      end
-      else
-        mult := TMultiplyNode.Create(TExpression.Create(lastNode), AValue);
-      result.Elements[result.Elements.Count-1] := mult;
+        TConstantNode(lastNode).Value *= AValue;
+      end else
+      begin
+        if lastNode is TSubExpression then
+        begin
+          mult := TMultiplyNode.Create(TSubExpression(lastNode).Expr, AValue);
+          TSubExpression(lastNode).Expr := nil;
+          lastNode.Free;
+        end
+        else
+          mult := TMultiplyNode.Create(TExpression.Create(lastNode), AValue);
+        result.Elements[result.Elements.Count-1] := mult;
+      end;
     end;
   end;
 
@@ -828,7 +835,7 @@ begin
     end;
     result.Elements.Add(node);
 
-    if TryToken(ALine,idx,'*') then
+    while TryToken(ALine,idx,'*') do
     begin
       if TryToken(ALine,idx,'(') then
       begin
@@ -965,7 +972,7 @@ var
 begin
   if AClearAcc then
   begin
-    multiplicand := GetMultiplicandIntArray;
+    multiplicand := GetMultiplicandIntArray(BitCount);
     if Expr.CanPutInAccumulator then
       Expr.AddToProgramInAccumulator(AProg)
     else
@@ -993,7 +1000,7 @@ begin
     Expr.AddToProgramInAccumulator(AProg)
   else
   begin
-    multiplicand := GetMultiplicandIntArray;
+    multiplicand := GetMultiplicandIntArray(Expr.MaxBitCount);
     Expr.AddToProgram(AProg, plCurrentPlayer, IntArrays[multiplicand].UnitType, simSetTo);
     AProg.Add(TTransferIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, itCopyIntoAccumulator));
   end;
@@ -1005,6 +1012,15 @@ begin
       AProg.Add(TTransferIntegerInstruction.Create(APlayer,AUnitType, itAddAccumulator, bit));
 end;
 
+function TMultiplyNode.FactorBitSize: integer;
+var
+  i: Integer;
+begin
+  for i := 1 to 23 do
+    if (1 shl i) > abs(Factor) then exit(i);
+  exit(24);
+end;
+
 function TMultiplyNode.AlwaysClearAccumulator: boolean;
 begin
   result := true;
@@ -1012,7 +1028,7 @@ end;
 
 function TMultiplyNode.BitCount: integer;
 begin
-  result := Expr.MaxBitCount + 8;
+  result := FactorBitSize + Expr.MaxBitCount;
   if result > 24 then result := 24;
 end;
 

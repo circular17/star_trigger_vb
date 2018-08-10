@@ -100,7 +100,8 @@ begin
         end;
       end;
 
-      if not inStr and not inSpace and not (ALine[p] in['A'..'Z','a'..'z','_','0'..'9']) then
+      if not inStr and not inSpace and not (ALine[p] in['A'..'Z','a'..'z','_','0'..'9']) and
+        not ((Aline[p]='&') and (p < length(ALine)) and (ALine[p+1] in['h','H'])) then
       begin
         token := copy(ALine, start, p-start+1);
         result.Add(token);

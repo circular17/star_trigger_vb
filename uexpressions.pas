@@ -216,7 +216,9 @@ begin
   AValue := 0;
   if AIndex < ALine.Count then
   begin
-    val(ALine[AIndex], AValue, errPos);
+    s := ALine[AIndex];
+    if copy(s,1,2)='&H' then s := '$'+copy(s,3,length(s)-2);
+    val(s, AValue, errPos);
     if errPos = 0 then
     begin
       inc(AIndex);

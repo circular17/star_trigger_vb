@@ -159,6 +159,7 @@ type
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
     function FactorBitSize: integer;
+    function IsFewTimesVar: boolean;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
     function Duplicate: TExpressionNode; override;
@@ -695,7 +696,7 @@ function TryExpression(ALine: TStringList; var AIndex: integer; ARaiseException:
 var
   intValue: integer;
   neg, boolVal: boolean;
-  idx, rnd, idxVar, intVal: integer;
+  idx, rnd, idxVar, intVal, j: integer;
   scalar: TScalarVariable;
   name: string;
   i: LongInt;
@@ -703,8 +704,21 @@ var
   subExpr: TExpression;
 
   function ParseSimpleNode: TExpressionNode;
+  var
+    expr: TExpression;
   begin
     result := nil;
+    if TryToken(ALine,idx,'(') then
+    begin
+      expr := TryExpression(ALine,idx, ARaiseException, AAcceptCalls);
+      if expr = nil then
+      begin
+        if ARaiseException then raise exception.Create('Expecting integer value');
+        exit;
+      end;
+      ExpectToken(ALine,idx,')');
+      result := TSubExpression.Create(expr);
+    end else
     if TryInteger(ALine,idx,intValue) then
     begin
       result := TConstantNode.Create(neg, intValue);
@@ -887,6 +901,25 @@ begin
   until false;
 
   for i := result.Elements.Count-1 downto 0 do
+    if result.Elements[i] is TSubExpression then
+    begin
+      with TSubExpression(result.Elements[i]) do
+      begin
+        if Negative then
+        begin
+          Expr.NegateAll;
+          Negative := false;
+        end;
+        for j := 0 to Expr.Elements.Count-1 do
+          result.Elements.Add(Expr.Elements[j]);
+        Expr.Elements.Clear;
+        result.ConstElement += Expr.ConstElement;
+      end;
+      result.Elements[i].Free;
+      result.Elements.Delete(i);
+    end;
+
+  for i := result.Elements.Count-1 downto 0 do
     if result.Elements[i] is TConstantNode then
     begin
       if TConstantNode(result.Elements[i]).Negative then
@@ -970,33 +1003,51 @@ end;
 procedure TMultiplyNode.LoadIntoAccumulator(AClearAcc: boolean;
   AProg: TInstructionList);
 var
-  multiplicand, bit: Integer;
+  multiplicand, bit, i: Integer;
 begin
-  if AClearAcc then
+  if IsFewTimesVar then
   begin
-    multiplicand := GetMultiplicandIntArray(BitCount);
-    if Expr.CanPutInAccumulator then
-      Expr.AddToProgramInAccumulator(AProg)
-    else
-    begin
-      Expr.AddToProgram(AProg, plCurrentPlayer, IntArrays[multiplicand].UnitType, simSetTo);
-      AProg.Add(TTransferIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, itCopyIntoAccumulator));
-    end;
-
-    AProg.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, simSetTo,0));
-    for bit := 23 downto 0 do
-      if (factor and (1 shl bit)) <> 0 then
-        AProg.Add(TTransferIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, itAddAccumulator, bit));
-    AProg.Add(TTransferIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, itCopyIntoAccumulator));
-
+    if AClearAcc then AProg.Add(TTransferIntegerInstruction.Create(0, itCopyIntoAccumulator));
+    for i := 1 to factor do
+      Expr.Elements[0].LoadIntoAccumulator(False, AProg);
+    if Expr.ConstElement <> 0 then
+      AProg.Add(TTransferIntegerInstruction.Create(Expr.ConstElement*factor, itAddIntoAccumulator));
   end else
-    raise exception.Create('Case not handled');
+  begin
+    if AClearAcc then
+    begin
+      if Expr.CanPutInAccumulator then
+        Expr.AddToProgramInAccumulator(AProg)
+      else
+      begin
+        multiplicand := GetMultiplicandIntArray(Expr.MaxBitCount);
+        Expr.AddToProgram(AProg, plCurrentPlayer, IntArrays[multiplicand].UnitType, simSetTo);
+        AProg.Add(TTransferIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, itCopyIntoAccumulator));
+      end;
+
+      multiplicand := GetMultiplicandIntArray(BitCount);
+      AProg.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, simSetTo,0));
+      if factor <= 3 then
+      begin
+        for i := 1 to factor do
+          AProg.Add(TTransferIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, itAddAccumulator, 0));
+      end else
+      begin
+        for bit := 23 downto 0 do
+          if (factor and (1 shl bit)) <> 0 then
+            AProg.Add(TTransferIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, itAddAccumulator, bit));
+      end;
+      AProg.Add(TTransferIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, itCopyIntoAccumulator));
+
+    end else
+      raise exception.Create('Case not handled');
+  end;
 end;
 
 procedure TMultiplyNode.LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer;
   AUnitType: string; AProg: TInstructionList);
 var
-  multiplicand, bit: Integer;
+  multiplicand, bit, i: Integer;
 begin
   if Expr.CanPutInAccumulator then
     Expr.AddToProgramInAccumulator(AProg)
@@ -1009,6 +1060,11 @@ begin
 
   if AClearVar then
     AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType, simSetTo,0));
+  if factor <= 3 then
+  begin
+    for i := 1 to factor do
+      AProg.Add(TTransferIntegerInstruction.Create(APlayer,AUnitType, itAddAccumulator, 0));
+  end else
   for bit := 23 downto 0 do
     if (factor and (1 shl bit)) <> 0 then
       AProg.Add(TTransferIntegerInstruction.Create(APlayer,AUnitType, itAddAccumulator, bit));
@@ -1023,9 +1079,14 @@ begin
   exit(24);
 end;
 
+function TMultiplyNode.IsFewTimesVar: boolean;
+begin
+  result := (Expr.Elements.Count = 1) and (Expr.Elements[0] is TVariableNode) and (factor <= 3);
+end;
+
 function TMultiplyNode.AlwaysClearAccumulator: boolean;
 begin
-  result := true;
+  result := not IsFewTimesVar;
 end;
 
 function TMultiplyNode.BitCount: integer;

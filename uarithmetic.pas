@@ -464,20 +464,19 @@ begin
     EmptyProc;
     condValue.Free;
 
-    if hasShift then // restore accumulator for successive shifted adds
+    // restore accumulator for successive additions
+    condSwitch := TSwitchCondition.Create(0,true);
+    addAcc := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simAdd, 0);
+    proc.Add(addAcc);
+    for j := ArithmeticMaxAccBits-1 downto 0 do
     begin
-      condSwitch := TSwitchCondition.Create(0,true);
-      addAcc := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simAdd, 0);
-      proc.Add(addAcc);
-      for j := ArithmeticMaxAccBits-1 downto 0 do
-      begin
-        condSwitch.Switch := BoolVars[TempBools[j]].Switch;
-        addAcc.Value := 1 shl j;
-        WriteProg(AOutput, [plAllPlayers], [condSub, condSwitch], proc, -1,-1, True);
-      end;
-      EmptyProc;
-      condSwitch.Free;
+      condSwitch.Switch := BoolVars[TempBools[j]].Switch;
+      addAcc.Value := 1 shl j;
+      WriteProg(AOutput, [plAllPlayers], [condSub, condSwitch], proc, -1,-1, True);
     end;
+    EmptyProc;
+    condSwitch.Free;
+
     condSub.Free;
   end;
 

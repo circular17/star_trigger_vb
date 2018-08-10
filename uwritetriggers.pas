@@ -523,11 +523,14 @@ end;
 
 procedure WriteTriggers(AFilename: string; AMainThread: TPlayer);
 var
-  i, EndIP: Integer;
+  i, EndIP, tempInt, j: Integer;
   mainOutput: TStringList;
   allProcDone: Boolean;
   players: TPlayers;
   noSysIP: TCondition;
+  proc : TInstructionList;
+  computedConds, nonComputedConds: TConditionList;
+  tempCond: TIntegerCondition;
 
 begin
   InitTriggerCode;
@@ -575,7 +578,31 @@ begin
     mainOutput.Add('// When //');
     players := Events[i].Players;
     if players = [] then players := [AMainThread];
-    WriteProg(mainOutput, players, Events[i].Conditions, Events[i].Instructions, EndIP, EndIP, Events[i].Preserve);
+
+    if Events[i].Conditions.IsComputed then
+    begin
+      tempInt := GetGlobalExprTempVarInt(8);
+      proc := TInstructionList.Create;
+      nonComputedConds := TConditionList.Create;
+
+      computedConds := TConditionList.Create;
+      for j := 0 to Events[i].Conditions.Count-1 do
+        if Events[i].Conditions[j].IsComputed then
+          computedConds.Add(Events[i].Conditions[j])
+        else
+          nonComputedConds.Add(Events[i].Conditions[j]);
+      computedConds.Compute(proc, IntVars[tempInt].Player, IntVars[tempInt].UnitType);
+      WriteProg(mainOutput, players, [], proc, EndIP, EndIP, Events[i].Preserve);
+      computedConds.Free;
+      proc.Free;
+
+      tempCond := TIntegerCondition.Create(IntVars[tempInt].Player, IntVars[tempInt].UnitType, icmAtLeast, 1);
+      nonComputedConds.Add(tempCond);
+      WriteProg(mainOutput, players, nonComputedConds, Events[i].Instructions, EndIP, EndIP, Events[i].Preserve);
+      tempCond.Free;
+      nonComputedConds.Free;
+    end else
+      WriteProg(mainOutput, players, Events[i].Conditions, Events[i].Instructions, EndIP, EndIP, Events[i].Preserve);
   end;
 
   //write generated code at the end of the file

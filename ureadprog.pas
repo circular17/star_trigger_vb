@@ -248,6 +248,9 @@ end;
 
 function CreateEvent(APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
 begin
+  if AConditions.IsArithmetic then
+    raise exception.Create('Arithmetic expressions cannot be used in When clause');
+
   if EventCount >= length(Events) then
     setlength(Events, EventCount*2+4);
   result := EventCount;

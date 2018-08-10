@@ -352,6 +352,12 @@ begin
 
   firstExpr.Free;
   secondExpr.Free;
+
+  if merged.ConstElement < 0 then
+  begin
+    mergeCompValue += -merged.ConstElement;
+    merged.ConstElement := 0;
+  end;
   result := TArithmeticCondition.Create(merged, mergeComp, mergeCompValue);
   if ANot then result := TNotCondition.Create([result]);
 end;

@@ -29,6 +29,7 @@ var
 function CreateIntArray(AName: string; ASize: integer; AValues: array of integer; ABitCount: integer; AConstant: boolean = false): integer;
 function PredefineIntArray(AName: string; AUnitType: string; ABitCount: integer): integer;
 function IntArrayIndexOf(AName: string): integer;
+function GetMultiplicandIntArray: integer;
 
 var
   IntVars: array of record
@@ -273,6 +274,13 @@ begin
   for i := 0 to IntArrayCount-1 do
     if CompareText(IntArrays[i].Name, AName)=0 then exit(i);
   exit(-1);
+end;
+
+function GetMultiplicandIntArray: integer;
+begin
+  result := IntArrayIndexOf('_multiplicand');
+  if result = -1 then
+    result := CreateIntArray('_multiplicand', MaxTriggerPlayers, [], 24);
 end;
 
 function CreateIntVar(AName: string; AValue: integer; ABitCount: integer;

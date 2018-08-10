@@ -30,8 +30,9 @@ function SetNextIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TInstru
 function CheckIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCondition;
 
 function NewSysIP: integer;
-function SetNextSysIP(AValue: integer): TInstruction;
+function SetNextSysIP(AValue: integer; AMode: TSetIntegerMode = simSetTo): TInstruction;
 function CheckSysIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCondition;
+procedure CheckSysIPRange(AMinValue, AMaxValue: integer; out ACond1, ACond2: TCondition);
 
 function SetSysParam(AValue: integer): TInstruction;
 function CheckSysParam(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCondition;
@@ -134,14 +135,21 @@ begin
   result := SysIPVar;
 end;
 
-function SetNextSysIP(AValue: integer): TInstruction;
+function SetNextSysIP(AValue: integer; AMode: TSetIntegerMode): TInstruction;
 begin
-  result := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[GetSysIPVar].UnitType, simSetTo, AValue);
+  result := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[GetSysIPVar].UnitType, AMode, AValue);
 end;
 
 function CheckSysIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCondition;
 begin
   result := TIntegerCondition.Create(APlayer, IntArrays[GetSysIPVar].UnitType, icmExactly, AValue);
+end;
+
+procedure CheckSysIPRange(AMinValue, AMaxValue: integer; out ACond1,
+  ACond2: TCondition);
+begin
+  ACond1 := TIntegerCondition.Create(plCurrentPlayer, IntArrays[GetSysIPVar].UnitType, icmAtLeast, AMinValue);
+  ACond2 := TIntegerCondition.Create(plCurrentPlayer, IntArrays[GetSysIPVar].UnitType, icmAtMost, AMaxValue);
 end;
 
 procedure NeedSysParam;

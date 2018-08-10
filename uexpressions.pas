@@ -39,9 +39,23 @@ type
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); virtual; abstract;
     function AlwaysClearAccumulator: boolean; virtual; abstract;
     function BitCount: integer; virtual; abstract;
+    function Duplicate: TExpressionNode; virtual; abstract;
   end;
 
   TExpressionNodeList = specialize TFPGList<TExpressionNode>;
+
+  { TConstantNode }
+
+  TConstantNode = class(TExpressionNode)
+    Value: integer;
+    constructor Create(ANegative: boolean; AValue: integer);
+    procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
+    function AlwaysClearAccumulator: boolean; override;
+    function BitCount: integer; override;
+    function Duplicate: TExpressionNode; override;
+  end;
+
 
   { TVariableNode }
 
@@ -53,6 +67,7 @@ type
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
+    function Duplicate: TExpressionNode; override;
   end;
 
   { TFunctionCallNode }
@@ -63,6 +78,8 @@ type
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
+    function BitCount: integer; override;
+    function Duplicate: TExpressionNode; override;
   end;
 
   { TCountIfBoolNode }
@@ -74,6 +91,8 @@ type
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
+    function BitCount: integer; override;
+    function Duplicate: TExpressionNode; override;
   end;
 
   { TCountIfIntNode }
@@ -85,6 +104,8 @@ type
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
+    function BitCount: integer; override;
+    function Duplicate: TExpressionNode; override;
   end;
 
   { TRandomNode }
@@ -95,6 +116,8 @@ type
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
+    function BitCount: integer; override;
+    function Duplicate: TExpressionNode; override;
   end;
 
   { TExpression }
@@ -112,6 +135,7 @@ type
     ConstElement: integer;
     destructor Destroy; override;
     constructor Create;
+    constructor Create(ANode: TExpressionNode);
     procedure NegateAll;
     procedure AddToProgram(AProg: TInstructionList;
                      ADestPlayer: TPlayer; ADestUnitType: string;
@@ -122,6 +146,34 @@ type
     property PositiveCount: integer read GetPositiveCount;
     property IsConstant: boolean read GetIsConstant;
     property MaxBitCount: integer read GetMaxBitCount;
+    function Duplicate: TExpression;
+  end;
+
+  { TMultiplyNode }
+
+  TMultiplyNode = class(TExpressionNode)
+    Expr: TExpression;
+    Factor: integer;
+    destructor Destroy; override;
+    constructor Create(AExpr: TExpression; AFactor: integer);
+    procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
+    function AlwaysClearAccumulator: boolean; override;
+    function BitCount: integer; override;
+    function Duplicate: TExpressionNode; override;
+  end;
+
+  { TSubExpression }
+
+  TSubExpression = class(TExpressionNode)
+    Expr: TExpression;
+    destructor Destroy; override;
+    constructor Create(AExpr: TExpression);
+    procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
+    function AlwaysClearAccumulator: boolean; override;
+    function BitCount: integer; override;
+    function Duplicate: TExpressionNode; override;
   end;
 
   { TArithmeticCondition }
@@ -133,13 +185,14 @@ type
     constructor Create(AExpression: TExpression; ACompareMode: TIntegerConditionMode; ACompareValue: integer);
     function IsArithmetic: Boolean; override;
     function GetBitCount: integer;
+    function Duplicate: TCondition; override;
   end;
 
 function TryExpression(ALine: TStringList; var AIndex: integer; ARaiseException: boolean; AAcceptCalls: boolean = true): TExpression;
 
 implementation
 
-uses uparsevb, uvariables;
+uses uparsevb, uvariables, uarithmetic;
 
 function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string): boolean;
 begin
@@ -642,29 +695,27 @@ var
   idx, rnd, idxVar, intVal: integer;
   scalar: TScalarVariable;
   name: string;
-begin
-  result := TExpression.Create;
-  idx := AIndex;
-  neg := false;
-  if TryToken(ALine,idx,'+') then neg := false
-  else if TryToken(ALine,idx,'-') then neg := true;
-  repeat
+  i: LongInt;
+  node: TExpressionNode;
+  subExpr: TExpression;
+
+  function ParseSimpleNode: TExpressionNode;
+  begin
+    result := nil;
     if TryInteger(ALine,idx,intValue) then
     begin
-      if neg then result.ConstElement -= intValue
-      else result.ConstElement += intValue;
+      result := TConstantNode.Create(neg, intValue);
     end else
     begin
       rnd := ParseRandom(ALine,idx);
       if rnd <> -1 then
-        result.Elements.Add(TRandomNode.Create(neg, rnd)) else
+        result := TRandomNode.Create(neg, rnd) else
       begin
         scalar:= TryScalarVariable(ALine,idx);
         case scalar.VarType of
-        svtInteger: result.Elements.Add(TVariableNode.Create(neg,scalar.Player,scalar.UnitType));
+        svtInteger: result := TVariableNode.Create(neg,scalar.Player,scalar.UnitType);
         svtSwitch:
           begin
-            FreeAndNil(result);
             if ARaiseException then
               raise exception.Create('Expecting integer value but boolean found');
             exit;
@@ -687,7 +738,7 @@ begin
               begin
                 if not TryBoolean(ALine,idx, boolVal) then
                   raise exception.Create('Boolean constant expected');
-                result.Elements.Add(TCountIfBoolNode.Create(neg, idxVar, boolVal));
+                result := TCountIfBoolNode.Create(neg, idxVar, boolVal);
               end else
               begin
                 idxVar := IntArrayIndexOf(name);
@@ -695,7 +746,7 @@ begin
                 begin
                   if not TryIntegerConstant(ALine,idx, intVal) then
                     raise exception.Create('Integer constant expected');
-                  result.Elements.Add(TCountIfIntNode.Create(neg, idxVar, intVal));
+                  result := TCountIfIntNode.Create(neg, idxVar, intVal);
                 end else
                   raise exception.Create('Unknown array variable "' + name + '"');
               end;
@@ -704,15 +755,119 @@ begin
             if AAcceptCalls and TryIdentifier(ALine,idx,name) then  //function call?
             begin
               if TryToken(ALine,idx,'(') then ExpectToken(ALine,idx,')');
-              result.Elements.Add(TFunctionCallNode.Create(neg, name));
+              result := TFunctionCallNode.Create(neg, name);
             end else
             begin
-              FreeAndNil(result);
               if ARaiseException then
                 raise exception.Create('Integer expected');
               exit;
             end;
           end;
+        end;
+      end;
+    end;
+  end;
+
+  procedure MultiplyByConst(AValue: integer);
+  var
+    lastNode: TExpressionNode;
+    mult: TMultiplyNode;
+  begin
+    lastNode := result.Elements[result.Elements.Count-1];
+    if AValue < 0 then
+    begin
+      AValue := -AValue;
+      lastNode.Negative := not lastNode.Negative;
+    end;
+    if AValue = 0 then
+    begin
+      lastNode.Free;
+      result.Elements[result.Elements.Count-1] := TConstantNode.Create(false,0);
+    end else
+    if AValue <> 1 then
+    begin
+      if lastNode is TSubExpression then
+      begin
+        mult := TMultiplyNode.Create(TSubExpression(lastNode).Expr, AValue);
+        TSubExpression(lastNode).Expr := nil;
+        lastNode.Free;
+      end
+      else
+        mult := TMultiplyNode.Create(TExpression.Create(lastNode), AValue);
+      result.Elements[result.Elements.Count-1] := mult;
+    end;
+  end;
+
+  procedure MultiplyByExpr(AExpr: TExpression);
+  var
+    lastNode: TExpressionNode;
+    mult: TMultiplyNode;
+  begin
+    lastNode := result.Elements[result.Elements.Count-1];
+    if not (lastNode is TConstantNode) then
+      raise exception.Create('One term of a multiplication must be a constant');
+
+    mult := TMultiplyNode.Create(AExpr, TConstantNode(lastNode).Value);
+    mult.Negative := lastNode.Negative;
+    lastNode.Free;
+    result.Elements[result.Elements.Count-1] := mult;
+  end;
+
+begin
+  result := TExpression.Create;
+  idx := AIndex;
+  neg := false;
+  if TryToken(ALine,idx,'+') then neg := false
+  else if TryToken(ALine,idx,'-') then neg := true;
+  repeat
+    node := ParseSimpleNode;
+    if node = nil then
+    begin
+      FreeAndNil(result);
+      exit;
+    end;
+    result.Elements.Add(node);
+
+    if TryToken(ALine,idx,'*') then
+    begin
+      if TryToken(ALine,idx,'(') then
+      begin
+        subExpr := TryExpression(ALine,idx,ARaiseException,AAcceptCalls);
+        ExpectToken(ALine,idx,')');
+        if subExpr.IsConstant then
+        begin
+          MultiplyByConst(subExpr.ConstElement);
+          subExpr.Free;
+        end else
+          MultiplyByExpr(subExpr);
+      end else
+      begin
+        neg := false;
+        if TryToken(ALine,idx,'+') then neg := false
+        else if TryToken(ALine,idx,'-') then neg := true;
+
+        node := ParseSimpleNode;
+        if node = nil then
+        begin
+          result.Free;
+          raise exception.Create('Expecting second term of multiplication');
+        end;
+        if node is TConstantNode then
+        begin
+          if TConstantNode(node).Negative then
+            MultiplyByConst(-TConstantNode(node).Value)
+          else
+            MultiplyByConst(TConstantNode(node).Value);
+          node.Free;
+        end else
+        begin
+          if node is TSubExpression then
+          begin
+            MultiplyByExpr(TSubExpression(node).Expr);
+            TSubExpression(node).Expr := nil;
+            node.Free;
+          end else
+            MultiplyByExpr(TExpression.Create(node));
         end;
       end;
     end;
@@ -722,6 +877,17 @@ begin
     else break;
   until false;
 
+  for i := result.Elements.Count-1 downto 0 do
+    if result.Elements[i] is TConstantNode then
+    begin
+      if TConstantNode(result.Elements[i]).Negative then
+        result.ConstElement -= TConstantNode(result.Elements[i]).Value
+      else
+        result.ConstElement += TConstantNode(result.Elements[i]).Value;
+      result.Elements[i].Free;
+      result.Elements.Delete(i);
+    end;
+
   AIndex := idx;
 
   result.PutClearAccFirst;
@@ -730,6 +896,172 @@ end;
 function ExpectString(ALine: TStringList; var AIndex: integer): string;
 begin
   TryString(ALine,AIndex,result,True);
+end;
+
+{ TSubExpression }
+
+destructor TSubExpression.Destroy;
+begin
+  Expr.Free;
+  inherited Destroy;
+end;
+
+constructor TSubExpression.Create(AExpr: TExpression);
+begin
+  Expr := AExpr;
+end;
+
+procedure TSubExpression.LoadIntoAccumulator(AClearAcc: boolean;
+  AProg: TInstructionList);
+begin
+  if AClearAcc then
+    Expr.AddToProgramInAccumulator(AProg)
+  else
+    raise exception.Create('Not handled');
+end;
+
+procedure TSubExpression.LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer;
+  AUnitType: string; AProg: TInstructionList);
+begin
+  if AClearVar then
+    Expr.AddToProgram(AProg,APlayer,AUnitType, simSetTo)
+  else
+    Expr.AddToProgram(AProg,APlayer,AUnitType, simAdd);
+end;
+
+function TSubExpression.AlwaysClearAccumulator: boolean;
+begin
+  result := true;
+end;
+
+function TSubExpression.BitCount: integer;
+begin
+  result := Expr.MaxBitCount;
+end;
+
+function TSubExpression.Duplicate: TExpressionNode;
+begin
+  result := TSubExpression.Create(Expr.Duplicate);
+end;
+
+{ TMultiplyNode }
+
+destructor TMultiplyNode.Destroy;
+begin
+  Expr.Free;
+  inherited Destroy;
+end;
+
+constructor TMultiplyNode.Create(AExpr: TExpression; AFactor: integer);
+begin
+  Expr := AExpr;
+  Factor:= AFactor;
+end;
+
+procedure TMultiplyNode.LoadIntoAccumulator(AClearAcc: boolean;
+  AProg: TInstructionList);
+var
+  multiplicand, bit: Integer;
+begin
+  if AClearAcc then
+  begin
+    multiplicand := GetMultiplicandIntArray;
+    if Expr.CanPutInAccumulator then
+      Expr.AddToProgramInAccumulator(AProg)
+    else
+    begin
+      Expr.AddToProgram(AProg, plCurrentPlayer, IntArrays[multiplicand].UnitType, simSetTo);
+      AProg.Add(TTransferIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, itCopyIntoAccumulator));
+    end;
+
+    AProg.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, simSetTo,0));
+    for bit := 23 downto 0 do
+      if (factor and (1 shl bit)) <> 0 then
+        AProg.Add(TTransferIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, itAddAccumulator, bit));
+    AProg.Add(TTransferIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, itCopyIntoAccumulator));
+
+  end else
+    raise exception.Create('Case not handled');
+end;
+
+procedure TMultiplyNode.LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer;
+  AUnitType: string; AProg: TInstructionList);
+var
+  multiplicand, bit: Integer;
+begin
+  if Expr.CanPutInAccumulator then
+    Expr.AddToProgramInAccumulator(AProg)
+  else
+  begin
+    multiplicand := GetMultiplicandIntArray;
+    Expr.AddToProgram(AProg, plCurrentPlayer, IntArrays[multiplicand].UnitType, simSetTo);
+    AProg.Add(TTransferIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, itCopyIntoAccumulator));
+  end;
+
+  if AClearVar then
+    AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType, simSetTo,0));
+  for bit := 23 downto 0 do
+    if (factor and (1 shl bit)) <> 0 then
+      AProg.Add(TTransferIntegerInstruction.Create(APlayer,AUnitType, itAddAccumulator, bit));
+end;
+
+function TMultiplyNode.AlwaysClearAccumulator: boolean;
+begin
+  result := true;
+end;
+
+function TMultiplyNode.BitCount: integer;
+begin
+  result := Expr.MaxBitCount + 8;
+  if result > 24 then result := 24;
+end;
+
+function TMultiplyNode.Duplicate: TExpressionNode;
+begin
+  result := TMultiplyNode.Create(Expr.Duplicate,Factor);
+end;
+
+{ TConstantNode }
+
+constructor TConstantNode.Create(ANegative: boolean; AValue: integer);
+begin
+  Value := AValue;
+  Negative:= ANegative;
+end;
+
+procedure TConstantNode.LoadIntoAccumulator(AClearAcc: boolean;
+  AProg: TInstructionList);
+begin
+  if AClearAcc then
+    AProg.Add(TTransferIntegerInstruction.Create(Value, itCopyIntoAccumulator))
+  else
+    AProg.Add(TTransferIntegerInstruction.Create(Value, itAddIntoAccumulator));
+end;
+
+procedure TConstantNode.LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer;
+  AUnitType: string; AProg: TInstructionList);
+begin
+  if AClearVar then
+    AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType, simSetTo, Value))
+  else
+    AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType, simAdd, Value));
+end;
+
+function TConstantNode.AlwaysClearAccumulator: boolean;
+begin
+  result := false;
+end;
+
+function TConstantNode.BitCount: integer;
+begin
+  if Value >= 1 shl 16 then result := 24
+  else if Value >= 1 shl 8 then result := 16
+  else result := 8;
+end;
+
+function TConstantNode.Duplicate: TExpressionNode;
+begin
+  result := TConstantNode.Create(Negative, Value);
 end;
 
 { TArithmeticCondition }
@@ -750,6 +1082,11 @@ end;
 function TArithmeticCondition.GetBitCount: integer;
 begin
   result := Expression.MaxBitCount;
+end;
+
+function TArithmeticCondition.Duplicate: TCondition;
+begin
+  result := TArithmeticCondition.Create(Expression.Duplicate, CompareMode, CompareValue);
 end;
 
 { TCountIfIntNode }
@@ -803,6 +1140,16 @@ begin
   result := False;
 end;
 
+function TCountIfIntNode.BitCount: integer;
+begin
+  result := 8;
+end;
+
+function TCountIfIntNode.Duplicate: TExpressionNode;
+begin
+  result := TCountIfIntNode.Create(Negative,IntArray,TestValue);
+end;
+
 { TCountIfBoolNode }
 
 constructor TCountIfBoolNode.Create(ANegative: boolean; ABoolArray: integer;
@@ -852,6 +1199,16 @@ end;
 function TCountIfBoolNode.AlwaysClearAccumulator: boolean;
 begin
   result := false;
+end;
+
+function TCountIfBoolNode.BitCount: integer;
+begin
+  result := 8;
+end;
+
+function TCountIfBoolNode.Duplicate: TExpressionNode;
+begin
+  result :=TCountIfBoolNode.Create(Negative,BoolArray,TestValue);
 end;
 
 { TExpression }
@@ -927,6 +1284,23 @@ constructor TExpression.Create;
 begin
   Elements := TExpressionNodeList.Create;
   ConstElement := 0;
+end;
+
+constructor TExpression.Create(ANode: TExpressionNode);
+begin
+  if ANode is TSubExpression then
+  begin
+    Elements := TSubExpression(ANode).Expr.Elements;
+    ConstElement := TSubExpression(ANode).Expr.ConstElement;
+    if ANode.Negative then NegateAll;
+    TSubExpression(ANode).Expr := nil;
+    ANode.Free;
+  end else
+  begin
+    Elements := TExpressionNodeList.Create;
+    Elements.Add(ANode);
+    ConstElement := 0;
+  end;
 end;
 
 procedure TExpression.NegateAll;
@@ -1097,6 +1471,16 @@ begin
     AProg.Add( TTransferIntegerInstruction.Create( ConstElement, itAddIntoAccumulator) );
 end;
 
+function TExpression.Duplicate: TExpression;
+var
+  i: Integer;
+begin
+  result := TExpression.Create;
+  for i := 0 to Elements.Count-1 do
+    result.Elements.Add(Elements[i].Duplicate);
+  result.ConstElement := ConstElement;
+end;
+
 constructor TRandomNode.Create(ANegative: boolean; ARange: integer);
 begin
   inherited Create(ANegative);
@@ -1129,6 +1513,19 @@ begin
   result := true;
 end;
 
+function TRandomNode.BitCount: integer;
+begin
+  result := GetExponentOf2(Range);
+  if result > 16 then result := 24
+  else if result > 8 then result := 16
+  else result := 8;
+end;
+
+function TRandomNode.Duplicate: TExpressionNode;
+begin
+  result := TRandomNode.Create(Negative,Range);
+end;
+
 constructor TFunctionCallNode.Create(ANegative: boolean; AName: string);
 begin
   inherited Create(ANegative);
@@ -1157,6 +1554,16 @@ end;
 function TFunctionCallNode.AlwaysClearAccumulator: boolean;
 begin
   result := true;
+end;
+
+function TFunctionCallNode.BitCount: integer;
+begin
+  result := 24;
+end;
+
+function TFunctionCallNode.Duplicate: TExpressionNode;
+begin
+  result := TFunctionCallNode.Create(Negative,Name);
 end;
 
 { TVariableNode }
@@ -1201,6 +1608,11 @@ begin
     if (IntVars[i].Player = Player) and (IntVars[i].UnitType = UnitType) then
       exit(IntVars[i].BitCount);
   result := 8;
+end;
+
+function TVariableNode.Duplicate: TExpressionNode;
+begin
+  result := TVariableNode.Create(Negative,Player,UnitType);
 end;
 
 { TExpressionNode }

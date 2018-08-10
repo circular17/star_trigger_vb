@@ -92,7 +92,8 @@ type
     UnitType: string;
     Action: TIntegerTransfer;
     Value: integer;
-    constructor Create(APlayer: TPlayer; AUnitType: string; AAction: TIntegerTransfer);
+    Shift: integer;
+    constructor Create(APlayer: TPlayer; AUnitType: string; AAction: TIntegerTransfer; AShift: integer = 0);
     constructor Create(AValue: integer; AAction: TIntegerTransfer);
     function ToString: ansistring; override;
   end;
@@ -1540,12 +1541,15 @@ end;
 { TTransferIntegerInstruction }
 
 constructor TTransferIntegerInstruction.Create(APlayer: TPlayer;
-  AUnitType: string; AAction: TIntegerTransfer);
+  AUnitType: string; AAction: TIntegerTransfer; AShift: integer);
 begin
   Player:= APlayer;
   UnitType:= AUnitType;
   Action:= AAction;
   Value := 0;
+  Shift := AShift;
+  if (Shift<>0) and not (AAction in[itAddAccumulator,itCopyAccumulator]) then raise exception.Create('Shift not valid for this action');
+  if (Shift < 0) or (Shift > 23) then raise exception.Create('Shift value out of range');
   if AAction = itRandomizeAccumulator then raise exception.Create('Randomize can only be done with a constant range');
   if AAction = itLimitAccumulator then raise exception.Create('Limit can only be done with a constant range');
 end;

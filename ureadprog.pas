@@ -21,14 +21,15 @@ var
     StartIP: integer;
     ReturnType: string;
     ReturnBitCount: integer;
-    ReturnIntVar: integer;
     Done: boolean;
     Calls: TIntegerList;
+    ExprTempVar: integer;
   end;
   ProcedureCount: integer;
 
 function CreateProcedure(AName: string; AParamCount: integer; AReturnType: string): integer;
 function ProcedureIndexOf(AName: string; AParamCount: integer): integer;
+function GetProcedureExprTempVar(AProcId, ABitCount: integer): integer;
 function ProcedureReturnVar(AProcId: integer): integer;
 
 var
@@ -211,7 +212,7 @@ begin
     ReturnBitCount:= GetBitCountOfType(AReturnType);
     Done := false;
     Calls := TIntegerList.Create;
-    ReturnIntVar := -1;
+    ExprTempVar := -1;
   end;
 end;
 
@@ -228,11 +229,21 @@ begin
   exit(-1);
 end;
 
+function GetProcedureExprTempVar(AProcId, ABitCount: integer): integer;
+begin
+  if Procedures[AProcId].ExprTempVar = -1 then
+    Procedures[AProcId].ExprTempVar:= AllocateTempInt(ABitCount)
+  else
+  begin
+    if IntVars[Procedures[AProcId].ExprTempVar].BitCount < ABitCount then
+      IntVars[Procedures[AProcId].ExprTempVar].BitCount := ABitCount;
+  end;
+  result := Procedures[AProcId].ExprTempVar;
+end;
+
 function ProcedureReturnVar(AProcId: integer): integer;
 begin
-  if Procedures[AProcId].ReturnIntVar = -1 then
-    Procedures[AProcId].ReturnIntVar:= CreateIntVar('_' + Procedures[AProcId].Name + '_result', 0, Procedures[AProcId].ReturnBitCount);
-  result := Procedures[AProcId].ReturnIntVar;
+  result := GetProcedureExprTempVar(AProcId, Procedures[AProcId].ReturnBitCount);
 end;
 
 function CreateEvent(APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;

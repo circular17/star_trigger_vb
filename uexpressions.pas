@@ -38,6 +38,7 @@ type
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); virtual; abstract;
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); virtual; abstract;
     function AlwaysClearAccumulator: boolean; virtual; abstract;
+    function BitCount: integer; virtual; abstract;
   end;
 
   TExpressionNodeList = specialize TFPGList<TExpressionNode>;
@@ -51,6 +52,7 @@ type
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
+    function BitCount: integer; override;
   end;
 
   { TFunctionCallNode }
@@ -101,6 +103,7 @@ type
   private
     function GetCanPutInAccumulator: boolean;
     function GetIsConstant: boolean;
+    function GetMaxBitCount: integer;
     function GetNegativeCount: integer;
     function GetPositiveCount: integer;
     procedure PutClearAccFirst;
@@ -118,6 +121,7 @@ type
     property NegativeCount: integer read GetNegativeCount;
     property PositiveCount: integer read GetPositiveCount;
     property IsConstant: boolean read GetIsConstant;
+    property MaxBitCount: integer read GetMaxBitCount;
   end;
 
   { TArithmeticCondition }
@@ -128,6 +132,7 @@ type
     CompareValue: integer;
     constructor Create(AExpression: TExpression; ACompareMode: TIntegerConditionMode; ACompareValue: integer);
     function IsArithmetic: Boolean; override;
+    function GetBitCount: integer;
   end;
 
 function TryExpression(ALine: TStringList; var AIndex: integer; ARaiseException: boolean; AAcceptCalls: boolean = true): TExpression;
@@ -742,6 +747,11 @@ begin
   Result:= true;
 end;
 
+function TArithmeticCondition.GetBitCount: integer;
+begin
+  result := Expression.MaxBitCount;
+end;
+
 { TCountIfIntNode }
 
 constructor TCountIfIntNode.Create(ANegative: boolean; AIntArray: integer;
@@ -851,13 +861,23 @@ var
   i: Integer;
 begin
   for i := 0 to Elements.Count-1 do
-    if Elements[i].AlwaysClearAccumulator or Elements[i].Negative then exit(false);
+    if ((i > 0) and (Elements[i].AlwaysClearAccumulator)) or Elements[i].Negative then exit(false);
   exit(true);
 end;
 
 function TExpression.GetIsConstant: boolean;
 begin
   result := (PositiveCount = 0) and (NegativeCount = 0);
+end;
+
+function TExpression.GetMaxBitCount: integer;
+var
+  i: Integer;
+begin
+  result := 8;
+  for i := 0 to Elements.Count-1 do
+    if Elements[i].BitCount > result then
+      result := Elements[i].BitCount;
 end;
 
 function TExpression.GetNegativeCount: integer;
@@ -1171,6 +1191,16 @@ end;
 function TVariableNode.AlwaysClearAccumulator: boolean;
 begin
   result := false;
+end;
+
+function TVariableNode.BitCount: integer;
+var
+  i: Integer;
+begin
+  for i := 0 to IntVarCount-1 do
+    if (IntVars[i].Player = Player) and (IntVars[i].UnitType = UnitType) then
+      exit(IntVars[i].BitCount);
+  result := 8;
 end;
 
 { TExpressionNode }

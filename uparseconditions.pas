@@ -341,6 +341,8 @@ begin
       AppendSecond;
       firstExpr.NegateAll;
       AppendFirst;
+      if (merged.NegativeCount > 0) and (merged.PositiveCount = 0) then
+        merged.NegateAll;
       merged.ConstElement += 1;
       mergeComp := icmExactly;
       mergeCompValue := 1;

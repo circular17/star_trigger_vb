@@ -11,6 +11,7 @@ const
   MaxTempBools = MaxSwitches;
 
 procedure ExpandIntegerTransfer(ATransfer: TTransferIntegerInstruction; AExpanded: TInstructionList);
+function CompareAccumulator(AMode: TIntegerConditionMode; AValue: integer): TCondition;
 procedure InitArithmetic;
 procedure WriteArithmeticTriggers(AOutput: TStringList);
 function GetExponentOf2(AValue: integer): integer;
@@ -94,9 +95,6 @@ begin
     NeedAcc;
 
     TransferProcs := nil;
-    setlength(TransferProcs, IntVarCount);
-    for i := 0 to IntVarCount-1 do
-      TransferProcs[i].BitCount := IntVars[i].BitCount;
   end;
 end;
 
@@ -104,6 +102,16 @@ function GetTransferParam(APlayer: TPlayer; AUnitType: string; ASysIP: integer):
 var
   i: Integer;
 begin
+  if IntVarCount > length(TransferProcs) then
+  begin
+    i := length(TransferProcs);
+    setlength(TransferProcs, IntVarCount);
+    while i < length(TransferProcs) do
+    begin
+      TransferProcs[i].BitCount:= IntVars[i].BitCount;
+      inc(i);
+    end;
+  end;
   for i := 0 to IntVarCount-1 do
     if (IntVars[i].Player = APlayer) and (IntVars[i].UnitType = AUnitType) then
     begin
@@ -453,6 +461,13 @@ begin
       AExpanded.Add(TWaitConditionInstruction.Create(CheckSysIP(0), NewIP));
     end;
   end;
+end;
+
+function CompareAccumulator(AMode: TIntegerConditionMode; AValue: integer
+  ): TCondition;
+begin
+  NeedAcc;
+  result := TIntegerCondition.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, AMode, AValue);
 end;
 
 procedure InitArithmetic;

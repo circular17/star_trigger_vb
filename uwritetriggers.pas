@@ -12,7 +12,7 @@ procedure WriteUnitProperties(AFilename: string);
 
 implementation
 
-uses utriggercode, uarithmetic, ureadprog, uinstructions, uvariables, uparsevb;
+uses utriggercode, uarithmetic, ureadprog, uinstructions, uvariables, uparsevb, uexpressions;
 
 var
   HyperWaitVar: integer;
@@ -32,6 +32,19 @@ end;
 
 var
   MessageSysIP: integer;
+  GlobalExprTempVar: integer;
+
+function GetGlobalExprTempVar(ABitCount: integer): integer;
+begin
+  if GlobalExprTempVar = -1 then
+    GlobalExprTempVar:= AllocateTempInt(ABitCount)
+  else
+  begin
+    if IntVars[GlobalExprTempVar].BitCount < ABitCount then
+      IntVars[GlobalExprTempVar].BitCount := ABitCount;
+  end;
+  result := GlobalExprTempVar;
+end;
 
 procedure WriteMessageTriggers(AOutput: TStringList; AMainThread: TPlayer);
 var
@@ -79,7 +92,8 @@ var
   doAs: TDoAsInstruction;
   pl: TPlayer;
   endDoAs: TEndDoAsInstruction;
-  endDoIP: integer;
+  endDoIP, tempInt: integer;
+  arithm: TArithmeticCondition;
 
 begin
   expanded := TInstructionList.Create;
@@ -250,7 +264,37 @@ begin
             end;
 
             nextIP := NewIP;
-            expanded.Add(TWaitConditionInstruction.Create(ifInstr.Conditions, nextIP));
+            if (ifInstr.Conditions.Count = 1) and (ifInstr.Conditions[0] is TArithmeticCondition) then
+            begin
+              arithm := TArithmeticCondition(ifInstr.Conditions[0]);
+              if arithm.Expression.CanPutInAccumulator then
+              begin
+                tempExpand := TInstructionList.Create;
+                arithm.Expression.AddToProgramInAccumulator(tempExpand);
+                ExpandInstructions(tempExpand, AInProc, APlayers);
+                for k := 0 to tempExpand.Count-1 do
+                  expanded.Add(tempExpand[k]);
+                tempExpand.Free;
+
+                expanded.Add(TWaitConditionInstruction.Create(CompareAccumulator(arithm.CompareMode,arithm.CompareValue), nextIP));
+              end
+              else
+              begin
+                if AInProc = -1 then
+                  tempInt := GetGlobalExprTempVar(arithm.GetBitCount)
+                else
+                  tempInt := GetProcedureExprTempVar(AInProc, arithm.GetBitCount);
+                tempExpand := TInstructionList.Create;
+                arithm.Expression.AddToProgram(tempExpand, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
+                ExpandInstructions(tempExpand, AInProc, APlayers);
+                for k := 0 to tempExpand.Count-1 do
+                  expanded.Add(tempExpand[k]);
+                tempExpand.Free;
+                expanded.Add(TWaitConditionInstruction.Create(TIntegerCondition.Create(IntVars[tempInt].Player,IntVars[tempInt].UnitType, arithm.CompareMode,arithm.CompareValue), nextIP));
+              end;
+            end else
+              expanded.Add(TWaitConditionInstruction.Create(ifInstr.Conditions, nextIP));
+
             ifInstr.Conditions := nil;
             ifInstr.Free;
 
@@ -461,6 +505,7 @@ begin
 
   HyperWaitVar := -1;
   MessageSysIP := -1;
+  GlobalExprTempVar:= -1;
   mainOutput := TStringList.Create;
   EndIP := 0;
 

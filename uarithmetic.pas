@@ -551,10 +551,10 @@ begin
     //subtracting not 0
     condSub := TSwitchCondition.Create(switchNegateBits2,true);
     for i := 0 to high(TransferProcs) do
-    if TransferProcs[i].SubIntoAcc then
+    if TransferProcs[i].SubAcc then
     begin
       condVar := CheckSysParam(i);
-      proc.Add( TSetIntegerInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simSubtract, (1 shl min(TransferProcs[i].BitCount, TotalBits) )-1) );
+      proc.Add( TSetIntegerInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simSubtract, (1 shl TotalBits )-1) );
       WriteProg(AOutput, [plAllPlayers], [condSub, condVar], proc, -1,-1, True);
       EmptyProc;
       condVar.Free;

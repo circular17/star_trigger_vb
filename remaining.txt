@@ -1,15 +1,14 @@
 - fonctions avec parametres (pb recursivite)
 - string array (for template)
 - simple do - loop until
-- variable size
 - simple for step next
 - elseif, select case
-
 - conditions complexes (or xor)
-- calculs : parentheses, *, /
+
+
 
 - variable in any death count
-
+- calculs : /
 - indexation par variable
 - procedure transmission
 

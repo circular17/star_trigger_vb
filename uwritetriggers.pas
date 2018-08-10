@@ -75,9 +75,54 @@ end;
 
 procedure ExpandInstructions(AProg: TInstructionList; AInProc: integer; APlayers: TPlayers);
 var
+  expanded: TInstructionList;
+
+  function AddWaitCondition(AConditions: TConditionList; ANextIP: integer): TWaitConditionInstruction;
+  var
+    arithm: TArithmeticCondition;
+    tempInt, k: Integer;
+    tempExpand: TInstructionList;
+  begin
+    if (AConditions.Count = 1) and (AConditions[0] is TArithmeticCondition) then
+    begin
+      arithm := TArithmeticCondition(AConditions[0]);
+      if arithm.Expression.CanPutInAccumulator then
+      begin
+        tempExpand := TInstructionList.Create;
+        arithm.Expression.AddToProgramInAccumulator(tempExpand);
+        ExpandInstructions(tempExpand, AInProc, APlayers);
+        for k := 0 to tempExpand.Count-1 do
+          expanded.Add(tempExpand[k]);
+        tempExpand.Free;
+
+        result := TWaitConditionInstruction.Create(CompareAccumulator(arithm.CompareMode,arithm.CompareValue), ANextIP);
+        expanded.Add(result);
+      end
+      else
+      begin
+        if AInProc = -1 then
+          tempInt := GetGlobalExprTempVar(arithm.GetBitCount)
+        else
+          tempInt := GetProcedureExprTempVar(AInProc, arithm.GetBitCount);
+        tempExpand := TInstructionList.Create;
+        arithm.Expression.AddToProgram(tempExpand, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
+        ExpandInstructions(tempExpand, AInProc, APlayers);
+        for k := 0 to tempExpand.Count-1 do
+          expanded.Add(tempExpand[k]);
+        tempExpand.Free;
+        result := TWaitConditionInstruction.Create(TIntegerCondition.Create(IntVars[tempInt].Player,IntVars[tempInt].UnitType, arithm.CompareMode,arithm.CompareValue), ANextIP);
+        expanded.Add(result);
+      end;
+    end else
+    begin
+      result := TWaitConditionInstruction.Create(AConditions, ANextIP);
+      expanded.Add(result);
+    end;
+  end;
+
+var
   i, expo, j, nextIP, procIdx: Integer;
   sdi: TSetIntegerInstruction;
-  expanded: TInstructionList;
   switches: array of integer;
   call: TCallInstruction;
   ret: TReturnInstruction;
@@ -93,7 +138,6 @@ var
   pl: TPlayer;
   endDoAs: TEndDoAsInstruction;
   endDoIP, tempInt: integer;
-  arithm: TArithmeticCondition;
 
 begin
   expanded := TInstructionList.Create;
@@ -199,9 +243,8 @@ begin
           begin
             startWhileIP:= NewIP;
             expanded.Add(TChangeIPInstruction.Create(startWhileIP, 1));
-            waitInstr := TWaitConditionInstruction.Create(TWhileInstruction(AProg[i]).Conditions, NewIP);
+            waitInstr := AddWaitCondition(TWhileInstruction(AProg[i]).Conditions, NewIP);
             TWhileInstruction(AProg[i]).Conditions := nil;
-            expanded.Add(waitInstr);
 
             AProg[j].Free;
             splitInstr := TSplitInstruction.Create(waitInstr.IP, startWhileIP);
@@ -264,37 +307,7 @@ begin
             end;
 
             nextIP := NewIP;
-            if (ifInstr.Conditions.Count = 1) and (ifInstr.Conditions[0] is TArithmeticCondition) then
-            begin
-              arithm := TArithmeticCondition(ifInstr.Conditions[0]);
-              if arithm.Expression.CanPutInAccumulator then
-              begin
-                tempExpand := TInstructionList.Create;
-                arithm.Expression.AddToProgramInAccumulator(tempExpand);
-                ExpandInstructions(tempExpand, AInProc, APlayers);
-                for k := 0 to tempExpand.Count-1 do
-                  expanded.Add(tempExpand[k]);
-                tempExpand.Free;
-
-                expanded.Add(TWaitConditionInstruction.Create(CompareAccumulator(arithm.CompareMode,arithm.CompareValue), nextIP));
-              end
-              else
-              begin
-                if AInProc = -1 then
-                  tempInt := GetGlobalExprTempVar(arithm.GetBitCount)
-                else
-                  tempInt := GetProcedureExprTempVar(AInProc, arithm.GetBitCount);
-                tempExpand := TInstructionList.Create;
-                arithm.Expression.AddToProgram(tempExpand, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
-                ExpandInstructions(tempExpand, AInProc, APlayers);
-                for k := 0 to tempExpand.Count-1 do
-                  expanded.Add(tempExpand[k]);
-                tempExpand.Free;
-                expanded.Add(TWaitConditionInstruction.Create(TIntegerCondition.Create(IntVars[tempInt].Player,IntVars[tempInt].UnitType, arithm.CompareMode,arithm.CompareValue), nextIP));
-              end;
-            end else
-              expanded.Add(TWaitConditionInstruction.Create(ifInstr.Conditions, nextIP));
-
+            AddWaitCondition(ifInstr.Conditions, nextIP);
             ifInstr.Conditions := nil;
             ifInstr.Free;
 

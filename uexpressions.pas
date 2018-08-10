@@ -1350,7 +1350,7 @@ begin
     begin
       bitCount:= IntVars[i].BitCount;
     end;
-  if bitCount = 0 then raise exception.Create('Variable not found');
+  if bitCount = 0 then bitCount := 16; //regular death count
 
   removedElem := nil;
   for i := Elements.Count-1 downto 0 do

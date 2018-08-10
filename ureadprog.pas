@@ -872,8 +872,10 @@ begin
     ExpectToken(ALine,AIndex,'(');
     intVal := ParseOptionalQuantity;
     unitType := ExpectString(ALine,AIndex);
-    ExpectToken(ALine,AIndex,',');
-    locStr := ExpectString(ALine,AIndex);
+    if not TryToken(ALine,AIndex,',') then
+      locStr := AnywhereLocation
+    else
+      locStr := ExpectString(ALine,AIndex);
     ExpectToken(ALine,AIndex,')');
     ExpectToken(ALine,AIndex,'.');
 
@@ -947,6 +949,7 @@ begin
     end else
     if TryToken(ALine,AIndex,'Remove') then
     begin
+      if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
       AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, false));
     end else
     if TryToken(ALine,AIndex,'Give') then
@@ -1243,8 +1246,8 @@ var
 
   procedure CheckEndOfLine;
   begin
-    if index <> ALine.Count then
-      raise exception.Create('Expecting end of line');
+    if index < ALine.Count then
+      raise exception.Create('Expecting end of line but "' + ALine[index] + '" found');
   end;
 
 begin

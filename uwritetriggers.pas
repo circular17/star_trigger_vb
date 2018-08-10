@@ -32,18 +32,18 @@ end;
 
 var
   MessageSysIP: integer;
-  GlobalExprTempVar: integer;
+  GlobalExprTempVarInt: integer;
 
-function GetGlobalExprTempVar(ABitCount: integer): integer;
+function GetGlobalExprTempVarInt(ABitCount: integer): integer;
 begin
-  if GlobalExprTempVar = -1 then
-    GlobalExprTempVar:= AllocateTempInt(ABitCount)
+  if GlobalExprTempVarInt = -1 then
+    GlobalExprTempVarInt:= AllocateTempInt(ABitCount)
   else
   begin
-    if IntVars[GlobalExprTempVar].BitCount < ABitCount then
-      IntVars[GlobalExprTempVar].BitCount := ABitCount;
+    if IntVars[GlobalExprTempVarInt].BitCount < ABitCount then
+      IntVars[GlobalExprTempVarInt].BitCount := ABitCount;
   end;
-  result := GlobalExprTempVar;
+  result := GlobalExprTempVarInt;
 end;
 
 procedure WriteMessageTriggers(AOutput: TStringList; AMainThread: TPlayer);
@@ -101,9 +101,9 @@ var
       else
       begin
         if AInProc = -1 then
-          tempInt := GetGlobalExprTempVar(arithm.GetBitCount)
+          tempInt := GetGlobalExprTempVarInt(arithm.GetBitCount)
         else
-          tempInt := GetProcedureExprTempVar(AInProc, arithm.GetBitCount);
+          tempInt := GetProcedureExprTempVarInt(AInProc, arithm.GetBitCount);
         tempExpand := TInstructionList.Create;
         arithm.Expression.AddToProgram(tempExpand, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
         ExpandInstructions(tempExpand, AInProc, APlayers);
@@ -115,8 +115,25 @@ var
       end;
     end else
     begin
-      result := TWaitConditionInstruction.Create(AConditions, ANextIP);
-      expanded.Add(result);
+      if AConditions.IsComputed then
+      begin
+        if AInProc = -1 then
+          tempInt := GetGlobalExprTempVarInt(8)
+        else
+          tempInt := GetProcedureExprTempVarInt(AInProc, 8);
+        tempExpand := TInstructionList.Create;
+        AConditions.Compute(tempExpand, IntVars[tempInt].Player,IntVars[tempInt].UnitType);
+        ExpandInstructions(tempExpand, AInProc, APlayers);
+        for k := 0 to tempExpand.Count-1 do
+          expanded.Add(tempExpand[k]);
+        tempExpand.Free;
+        result := TWaitConditionInstruction.Create(TIntegerCondition.Create(IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1), ANextIP);
+        expanded.Add(result);
+      end else
+      begin
+        result := TWaitConditionInstruction.Create(AConditions, ANextIP);
+        expanded.Add(result);
+      end;
     end;
   end;
 
@@ -518,7 +535,7 @@ begin
 
   HyperWaitVar := -1;
   MessageSysIP := -1;
-  GlobalExprTempVar:= -1;
+  GlobalExprTempVarInt:= -1;
   mainOutput := TStringList.Create;
   EndIP := 0;
 

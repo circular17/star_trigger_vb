@@ -23,13 +23,13 @@ var
     ReturnBitCount: integer;
     Done: boolean;
     Calls: TIntegerList;
-    ExprTempVar: integer;
+    ExprTempVarInt: integer;
   end;
   ProcedureCount: integer;
 
 function CreateProcedure(AName: string; AParamCount: integer; AReturnType: string): integer;
 function ProcedureIndexOf(AName: string; AParamCount: integer): integer;
-function GetProcedureExprTempVar(AProcId, ABitCount: integer): integer;
+function GetProcedureExprTempVarInt(AProcId, ABitCount: integer): integer;
 function ProcedureReturnVar(AProcId: integer): integer;
 
 var
@@ -212,7 +212,7 @@ begin
     ReturnBitCount:= GetBitCountOfType(AReturnType);
     Done := false;
     Calls := TIntegerList.Create;
-    ExprTempVar := -1;
+    ExprTempVarInt := -1;
   end;
 end;
 
@@ -229,21 +229,21 @@ begin
   exit(-1);
 end;
 
-function GetProcedureExprTempVar(AProcId, ABitCount: integer): integer;
+function GetProcedureExprTempVarInt(AProcId, ABitCount: integer): integer;
 begin
-  if Procedures[AProcId].ExprTempVar = -1 then
-    Procedures[AProcId].ExprTempVar:= AllocateTempInt(ABitCount)
+  if Procedures[AProcId].ExprTempVarInt = -1 then
+    Procedures[AProcId].ExprTempVarInt:= AllocateTempInt(ABitCount)
   else
   begin
-    if IntVars[Procedures[AProcId].ExprTempVar].BitCount < ABitCount then
-      IntVars[Procedures[AProcId].ExprTempVar].BitCount := ABitCount;
+    if IntVars[Procedures[AProcId].ExprTempVarInt].BitCount < ABitCount then
+      IntVars[Procedures[AProcId].ExprTempVarInt].BitCount := ABitCount;
   end;
-  result := Procedures[AProcId].ExprTempVar;
+  result := Procedures[AProcId].ExprTempVarInt;
 end;
 
 function ProcedureReturnVar(AProcId: integer): integer;
 begin
-  result := GetProcedureExprTempVar(AProcId, Procedures[AProcId].ReturnBitCount);
+  result := GetProcedureExprTempVarInt(AProcId, Procedures[AProcId].ReturnBitCount);
 end;
 
 function CreateEvent(APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;

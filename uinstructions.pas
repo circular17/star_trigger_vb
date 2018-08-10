@@ -42,6 +42,8 @@ type
     function ToStringAndFree: ansistring;
     function IsArithmetic: boolean; virtual;
     function IsComputed: boolean; virtual;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); virtual;
+    function Duplicate: TCondition; virtual; abstract;
   end;
 
   TCustomConditionList = specialize TFPGList<TCondition>;
@@ -50,7 +52,11 @@ type
 
   TConditionList = class(TCustomConditionList)
     function ToString: ansistring; override;
+    function IsComputed: boolean;
+    function IsArithmetic: boolean;
+    procedure Compute(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string);
     procedure FreeAll;
+    function Duplicate: TConditionList;
   end;
 
   { TSetSwitchInstruction }
@@ -201,6 +207,7 @@ type
     Conditions: TConditionList;
     Instructions: TInstructionList;
     constructor Create(AConditions: TConditionList; AInstructions: TInstructionList);
+    constructor Create(AConditions: TConditionList; AInstructions: array of TInstruction);
     constructor Create(AConditions: array of TCondition; AInstructions: TInstructionList);
     constructor Create(AConditions: array of TCondition; AInstructions: array of TInstruction);
     destructor Destroy; override;
@@ -496,12 +503,16 @@ type
 
   TAlwaysCondition = class(TCondition)
     function ToString: ansistring; override;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
+    function Duplicate: TCondition; override;
   end;
 
   { TNeverCondition }
 
   TNeverCondition = class(TCondition)
     function ToString: ansistring; override;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
+    function Duplicate: TCondition; override;
   end;
 
   { TNotCondition }
@@ -514,6 +525,8 @@ type
     function ToString: ansistring; override;
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
+    function Duplicate: TCondition; override;
   end;
 
   { TSwitchCondition }
@@ -523,6 +536,8 @@ type
     Value: boolean;
     constructor Create(ASwitch: integer; AValue: boolean);
     function ToString: ansistring; override;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
+    function Duplicate: TCondition; override;
   end;
 
   TIntegerConditionMode = (icmAtLeast,icmAtMost,icmExactly);
@@ -541,6 +556,7 @@ type
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AUnitType: string; AMode: TIntegerConditionMode; AValue: integer);
     function ToString: ansistring; override;
+    function Duplicate: TCondition; override;
   end;
 
   { TBringCondition }
@@ -552,6 +568,7 @@ type
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AUnitType, ALocation: string; AMode: TIntegerConditionMode; AValue: integer);
     function ToString: ansistring; override;
+    function Duplicate: TCondition; override;
   end;
 
   { TKillCountCondition }
@@ -563,6 +580,7 @@ type
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AUnitType: string; AMode: TIntegerConditionMode; AValue: integer);
     function ToString: ansistring; override;
+    function Duplicate: TCondition; override;
   end;
 
   { TOpponentCountCondition }
@@ -573,6 +591,7 @@ type
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AMode: TIntegerConditionMode; AValue: integer);
     function ToString: ansistring; override;
+    function Duplicate: TCondition; override;
   end;
 
   { TElapsedTimeCondition }
@@ -582,6 +601,7 @@ type
     Mode: TIntegerConditionMode;
     constructor Create(AMode: TIntegerConditionMode; AValue: integer);
     function ToString: ansistring; override;
+    function Duplicate: TCondition; override;
   end;
 
   { TCompareUnitCountCondition }
@@ -591,6 +611,7 @@ type
     Highest: boolean;
     constructor Create(AUnitType, ALocation: string; AHighest: boolean);
     function ToString: ansistring; override;
+    function Duplicate: TCondition; override;
   end;
 
   { TCompareKillCountCondition }
@@ -600,6 +621,7 @@ type
     Highest: boolean;
     constructor Create(AUnitType: string; AHighest: boolean);
     function ToString: ansistring; override;
+    function Duplicate: TCondition; override;
   end;
 
   { TCompareIntegerCondition }
@@ -610,6 +632,7 @@ type
     IsScore, IsResource: boolean;
     constructor Create(AValueType: string; AHighest: boolean);
     function ToString: ansistring; override;
+    function Duplicate: TCondition; override;
   end;
 
 function PlayerToStr(APlayer: TPlayer): string;
@@ -751,6 +774,16 @@ constructor TFastIfInstruction.Create(AConditions: TConditionList;
 begin
   Conditions := AConditions;
   Instructions := AInstructions;
+end;
+
+constructor TFastIfInstruction.Create(AConditions: TConditionList;
+  AInstructions: array of TInstruction);
+var
+  i: Integer;
+begin
+  Conditions := AConditions;
+  Instructions := TInstructionList.Create;
+  for i := 0 to high(AInstructions) do Instructions.Add(AInstructions[i]);
 end;
 
 constructor TFastIfInstruction.Create(AConditions: array of TCondition;
@@ -1115,6 +1148,11 @@ begin
   end;
 end;
 
+function TCompareIntegerCondition.Duplicate: TCondition;
+begin
+  result := TCompareIntegerCondition.Create(ValueType,Highest);
+end;
+
 { TCompareKillCountCondition }
 
 constructor TCompareKillCountCondition.Create(AUnitType: string;
@@ -1131,6 +1169,11 @@ begin
   result += '(' + AddQuotes(UnitType) + ')';
 end;
 
+function TCompareKillCountCondition.Duplicate: TCondition;
+begin
+  result := TCompareKillCountCondition.Create(UnitType,Highest);
+end;
+
 { TElapsedTimeCondition }
 
 constructor TElapsedTimeCondition.Create(AMode: TIntegerConditionMode;
@@ -1143,6 +1186,11 @@ end;
 function TElapsedTimeCondition.ToString: ansistring;
 begin
   Result:= 'Elapsed Time(' + IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')';
+end;
+
+function TElapsedTimeCondition.Duplicate: TCondition;
+begin
+  result := TElapsedTimeCondition.Create(Mode,Value);
 end;
 
 { TOpponentCountCondition }
@@ -1159,6 +1207,11 @@ function TOpponentCountCondition.ToString: ansistring;
 begin
   Result:= 'Opponents("' + PlayerToStr(Player) + '", ' +
        IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')';
+end;
+
+function TOpponentCountCondition.Duplicate: TCondition;
+begin
+  result := TOpponentCountCondition.Create(Player,Mode,Value);
 end;
 
 { TKillCountCondition }
@@ -1178,6 +1231,11 @@ begin
        IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')';
 end;
 
+function TKillCountCondition.Duplicate: TCondition;
+begin
+  result := TKillCountCondition.Create(Player,UnitType,Mode,Value);
+end;
+
 { TCompareUnitCountCondition }
 
 constructor TCompareUnitCountCondition.Create(AUnitType,
@@ -1194,6 +1252,11 @@ begin
   if Highest then result += 'the Most' else result += 'the Least';
   if not IsAnywhere(Location) then result += ' At(' + AddQuotes(UnitType) + ', ' +AddQuotes(Location)+')'
   else result += '(' + AddQuotes(UnitType) + ')';
+end;
+
+function TCompareUnitCountCondition.Duplicate: TCondition;
+begin
+  result := TCompareUnitCountCondition.Create(UnitType,Location,Highest);
 end;
 
 { TNotCondition }
@@ -1239,6 +1302,25 @@ end;
 function TNotCondition.IsComputed: boolean;
 begin
   Result:= true;
+end;
+
+procedure TNotCondition.AddToProgAsAndVar(AProg: TInstructionList;
+  APlayer: TPlayer; AUnitType: string);
+begin
+  if not Conditions.IsComputed then
+  begin
+    AProg.Add(TFastIfInstruction.Create(Conditions,[TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0)]));
+  end else
+  begin
+    AProg.Add(TIfInstruction.Create(Conditions.Duplicate));
+    AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0));
+    AProg.Add(TEndIfInstruction.Create);
+  end;
+end;
+
+function TNotCondition.Duplicate: TCondition;
+begin
+  result := TNotCondition.Create(Conditions.Duplicate);
 end;
 
 { TOrderUnitInstruction }
@@ -1423,6 +1505,11 @@ begin
          IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')';
 end;
 
+function TBringCondition.Duplicate: TCondition;
+begin
+  result := TBringCondition.Create(Player,UnitType,Location,Mode,Value);
+end;
+
 { TCreateUnitInstruction }
 
 constructor TCreateUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
@@ -1521,6 +1608,34 @@ begin
   end;
 end;
 
+function TConditionList.IsComputed: boolean;
+var
+  i: Integer;
+begin
+  for i := 0 to Count-1 do
+    if Items[i].IsComputed then exit(true);
+  exit(false);
+end;
+
+function TConditionList.IsArithmetic: boolean;
+var
+  i: Integer;
+begin
+  for i := 0 to Count-1 do
+    if Items[i].IsArithmetic then exit(true);
+  exit(false);
+end;
+
+procedure TConditionList.Compute(AProg: TInstructionList; APlayer: TPlayer;
+  AUnitType: string);
+var
+  i: Integer;
+begin
+  AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,1));
+  for i := 0 to Count-1 do
+    Items[i].AddToProgAsAndVar(AProg, APlayer, AUnitType);
+end;
+
 procedure TConditionList.FreeAll;
 var i: integer;
 begin
@@ -1529,6 +1644,15 @@ begin
   for i := 0 to Count-1 do
     Items[i].Free;
   Free;
+end;
+
+function TConditionList.Duplicate: TConditionList;
+var
+  i: Integer;
+begin
+  result := TConditionList.Create;
+  for i := 0 to Count-1 do
+    result.Add(Items[i]);
 end;
 
 { TWaitConditionInstruction }
@@ -1576,6 +1700,17 @@ end;
 function TNeverCondition.ToString: ansistring;
 begin
   Result:= 'Never()';
+end;
+
+procedure TNeverCondition.AddToProgAsAndVar(AProg: TInstructionList;
+  APlayer: TPlayer; AUnitType: string);
+begin
+  AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0));
+end;
+
+function TNeverCondition.Duplicate: TCondition;
+begin
+  result := TNeverCondition.Create;
 end;
 
 { TEndIfInstruction }
@@ -1785,6 +1920,15 @@ begin
   result := IsArithmetic;
 end;
 
+procedure TCondition.AddToProgAsAndVar(AProg: TInstructionList;
+  APlayer: TPlayer; AUnitType: string);
+begin
+  AProg.Add(TIfInstruction.Create(self.Duplicate));
+  AProg.Add(TElseInstruction.Create);
+  AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0));
+  AProg.Add(TEndIfInstruction.Create);
+end;
+
 { TInstruction }
 
 function TInstruction.ToStringAndFree: ansistring;
@@ -1821,11 +1965,27 @@ begin
     Result:= 'Deaths("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' + modeStr + ', ' + IntToStr(Value) + ')';
 end;
 
+function TIntegerCondition.Duplicate: TCondition;
+begin
+  result := TIntegerCondition.Create(Player,UnitType,Mode,Value);
+end;
+
 { TAlwaysCondition }
 
 function TAlwaysCondition.ToString: ansistring;
 begin
   Result:= 'Always()';
+end;
+
+procedure TAlwaysCondition.AddToProgAsAndVar(AProg: TInstructionList;
+  APlayer: TPlayer; AUnitType: string);
+begin
+  //nothing
+end;
+
+function TAlwaysCondition.Duplicate: TCondition;
+begin
+  result := TAlwaysCondition.Create;
 end;
 
 { TSwitchCondition }
@@ -1839,6 +1999,17 @@ end;
 function TSwitchCondition.ToString: ansistring;
 begin
   Result:= 'Switch("Switch' + IntToStr(Switch) + '", ' + BoolToStr(Value, 'set', 'not set') + ')';
+end;
+
+procedure TSwitchCondition.AddToProgAsAndVar(AProg: TInstructionList;
+  APlayer: TPlayer; AUnitType: string);
+begin
+  AProg.Add(TFastIfInstruction.Create([TSwitchCondition.Create(Switch,not Value)], [TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0)]));
+end;
+
+function TSwitchCondition.Duplicate: TCondition;
+begin
+  result := TSwitchCondition.Create(Switch,Value);
 end;
 
 { TSetIntegerInstruction }

@@ -567,8 +567,8 @@ begin
         end else if varType = 'Boolean' then
         begin
           arrBoolValues := ParseBoolArray(ALine,index);
-          if (arraySize <> 0) and (length(arrValues) <> arraySize) then
-            raise exception.Create('Array size mismatch');
+          if (arraySize <> 0) and (length(arrBoolValues) <> arraySize) then
+            raise exception.Create('Array size mismatch (expecting ' + inttostr(arraySize) + ' but ' + inttostr(length(arrValues)) + ' found)');
           if arraySize = 0 then
           begin
             if (length(arrBoolValues) < 1) or (length(arrBoolValues) > MaxBoolArraySize) then

@@ -19,15 +19,15 @@ type
     BoolValue: boolean;
   end;
 
-function ExpectString(ALine: TStringList; var AIndex: integer): string;
+function ExpectString(AScope: integer; ALine: TStringList; var AIndex: integer): string;
 function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string): boolean;
-function TryInteger(ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
-function TryIntegerConstant(ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
-function ExpectInteger(ALine: TStringList; var AIndex: integer): integer;
-function ExpectIntegerConstant(ALine: TStringList; var AIndex: integer): integer;
-function TryBoolean(ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;
-function TryScalarVariable(ALine: TStringList; var AIndex: integer): TScalarVariable;
-function TryString(ALine: TStringList; var AIndex: integer; out AStr: string; ARaiseException: boolean = false): boolean;
+function TryInteger(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
+function TryIntegerConstant(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
+function ExpectInteger(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function ExpectIntegerConstant(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function TryBoolean(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;
+function TryScalarVariable(AScope: integer; ALine: TStringList; var AIndex: integer): TScalarVariable;
+function TryString(AScope: integer; ALine: TStringList; var AIndex: integer; out AStr: string; ARaiseException: boolean = false): boolean;
 
 type
   { TExpressionNode }
@@ -190,7 +190,7 @@ type
     function Duplicate: TCondition; override;
   end;
 
-function TryExpression(ALine: TStringList; var AIndex: integer; ARaiseException: boolean; AAcceptCalls: boolean = true): TExpression;
+function TryExpression(AScope: integer; ALine: TStringList; var AIndex: integer; ARaiseException: boolean; AAcceptCalls: boolean = true): TExpression;
 
 implementation
 
@@ -210,7 +210,7 @@ begin
   end;
 end;
 
-function TryInteger(ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
+function TryInteger(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
 var errPos, idxVar: integer;
   s, ident, strValue: String;
 begin
@@ -229,7 +229,7 @@ begin
       if TryToken(ALine,AIndex,'Asc') then
       begin
         ExpectToken(ALine,AIndex,'(');
-        s := ExpectString(ALine,AIndex);
+        s := ExpectString(AScope, ALine,AIndex);
         ExpectToken(ALine,AIndex,')');
         if s = '' then
           AValue := 0
@@ -244,13 +244,13 @@ begin
         if not TryIdentifier(ALine,AIndex,ident) then
           raise exception.Create('Identifier expected');
         ExpectToken(ALine,AIndex,')');
-        idxVar := IntArrayIndexOf(ident);
+        idxVar := IntArrayIndexOf(AScope, ident);
         if idxVar <> -1 then
         begin
           AValue := 1;
           exit(true);
         end;
-        idxVar := BoolArrayIndexOf(ident);
+        idxVar := BoolArrayIndexOf(AScope, ident);
         if idxVar <> -1 then
         begin
           AValue := 1;
@@ -264,13 +264,13 @@ begin
         if not TryIdentifier(ALine,AIndex,ident) then
           raise exception.Create('Identifier expected');
         ExpectToken(ALine,AIndex,')');
-        idxVar := IntArrayIndexOf(ident);
+        idxVar := IntArrayIndexOf(AScope, ident);
         if idxVar <> -1 then
         begin
           AValue := IntArrays[idxVar].Size;
           exit(true);
         end;
-        idxVar := BoolArrayIndexOf(ident);
+        idxVar := BoolArrayIndexOf(AScope, ident);
         if idxVar <> -1 then
         begin
           AValue := BoolArrays[idxVar].Size;
@@ -281,13 +281,13 @@ begin
       if TryToken(ALine,AIndex,'Len') then
       begin
         ExpectToken(ALine,AIndex,'(');
-        strValue := ExpectString(ALine,AIndex);
+        strValue := ExpectString(AScope, ALine,AIndex);
         ExpectToken(ALine,AIndex,')');
         AValue := length(strValue);
         exit(true);
       end;
 
-      idxVar := IntVarIndexOf(ALine[AIndex]);
+      idxVar := IntVarIndexOf(AScope, ALine[AIndex]);
       if (idxVar<>-1) and IntVars[idxVar].Constant then
       begin
         AValue := IntVars[idxVar].Value;
@@ -300,15 +300,15 @@ begin
   else exit(false);
 end;
 
-function TryIntegerConstant(ALine: TStringList; var AIndex: integer; out
+function TryIntegerConstant(AScope: integer; ALine: TStringList; var AIndex: integer; out
   AValue: integer): boolean;
 var
   expr: TExpression;
 begin
-  expr := TryExpression(ALine,AIndex,false,false);
+  expr := TryExpression(AScope, ALine,AIndex,false,false);
   if expr = nil then
   begin
-    result := TryInteger(ALine,AIndex,AValue);
+    result := TryInteger(AScope, ALine,AIndex,AValue);
     exit;
   end;
   if expr.Elements.Count > 0 then
@@ -328,10 +328,10 @@ begin
   exit(true);
 end;
 
-function ExpectInteger(ALine: TStringList; var AIndex: integer): integer;
+function ExpectInteger(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 begin
   result := 0;
-  if not TryInteger(ALine,AIndex,result) then
+  if not TryInteger(AScope, ALine,AIndex,result) then
   begin
     if AIndex > ALine.Count then
       raise exception.Create('Integer expected but end of line found') else
@@ -339,11 +339,11 @@ begin
   end;
 end;
 
-function ExpectIntegerConstant(ALine: TStringList; var AIndex: integer): integer;
+function ExpectIntegerConstant(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 var
   expr: TExpression;
 begin
-  expr := TryExpression(ALine,AIndex,false,false);
+  expr := TryExpression(AScope, ALine,AIndex,false,false);
   if expr = nil then
   begin
      if AIndex > ALine.Count then
@@ -365,7 +365,7 @@ begin
   expr.Free;
 end;
 
-function TryBoolean(ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;
+function TryBoolean(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;
 var
   idxVar,idx, arrIndex: Integer;
 begin
@@ -379,20 +379,20 @@ begin
   begin
     if AIndex < ALine.Count then
     begin
-      idxVar := BoolVarIndexOf(ALine[AIndex]);
+      idxVar := BoolVarIndexOf(AScope, ALine[AIndex]);
       if (idxVar<>-1) and BoolVars[idxVar].Constant then
       begin
         AValue := (BoolVars[idxVar].Value = svSet);
         inc(AIndex);
         exit(true);
       end;
-      idxVar := BoolArrayIndexOf(ALine[AIndex]);
+      idxVar := BoolArrayIndexOf(AScope, ALine[AIndex]);
       if (idxVar <> -1) and BoolArrays[idxVar].Constant then
       begin
         idx := AIndex+1;
         if TryToken(ALine,idx,'(') then
         begin
-          arrIndex := ExpectIntegerConstant(ALine,idx);
+          arrIndex := ExpectIntegerConstant(AScope, ALine,idx);
           if (arrIndex < 1) or (arrIndex > BoolArrays[idxVar].Size) then
             raise exception.Create('Index out of bounds');
           AValue := BoolArrays[idxVar].Values[arrIndex-1] = svSet;
@@ -406,7 +406,7 @@ begin
   end;
 end;
 
-function TryScalarVariable(ALine: TStringList; var AIndex: integer): TScalarVariable;
+function TryScalarVariable(AScope: integer; ALine: TStringList; var AIndex: integer): TScalarVariable;
 var varIdx, arrayIndex, idx: integer;
   pl: TPlayer;
   unitType: String;
@@ -414,7 +414,7 @@ begin
   result.VarType := svtNone;
   if (AIndex < ALine.Count) and IsValidVariableName(ALine[AIndex]) then
   begin
-    varIdx := IntVarIndexOf(ALine[AIndex]);
+    varIdx := IntVarIndexOf(AScope, ALine[AIndex]);
     if varIdx <> -1 then
     begin
       inc(AIndex);
@@ -429,7 +429,7 @@ begin
       exit;
     end;
 
-    varIdx := BoolVarIndexOf(ALine[AIndex]);
+    varIdx := BoolVarIndexOf(AScope, ALine[AIndex]);
     if varIdx <> -1 then
     begin
       inc(AIndex);
@@ -444,13 +444,13 @@ begin
       exit;
     end;
 
-    varIdx := BoolArrayIndexOf(ALine[AIndex]);
+    varIdx := BoolArrayIndexOf(AScope, ALine[AIndex]);
     if varIdx <> -1 then
     begin
       inc(AIndex);
       if TryToken(ALine,AIndex,'(') then
       begin
-        arrayIndex := ExpectIntegerConstant(ALine,AIndex);
+        arrayIndex := ExpectIntegerConstant(AScope, ALine,AIndex);
         if (arrayIndex < 1) or (arrayIndex > BoolArrays[varIdx].Size) then
           raise exception.Create('Array index out of bounds');
         ExpectToken(ALine, AIndex, ')');
@@ -472,7 +472,7 @@ begin
       Inc(AIndex);
       if TryToken(ALine,AIndex,'(') then
       begin
-        arrayIndex := ExpectIntegerConstant(ALine,AIndex);
+        arrayIndex := ExpectIntegerConstant(AScope, ALine,AIndex);
         if (arrayIndex < 1) or (arrayIndex > MaxTriggerPlayers) then
           raise exception.Create('Array index out of bounds');
         ExpectToken(ALine, AIndex, ')');
@@ -491,7 +491,7 @@ begin
         Dec(AIndex);
     end;
 
-    varIdx := IntArrayIndexOf(ALine[AIndex]);
+    varIdx := IntArrayIndexOf(AScope, ALine[AIndex]);
     if varIdx <> -1 then
     begin
       Inc(AIndex);
@@ -507,7 +507,7 @@ begin
         end
         else
         begin
-          arrayIndex := ExpectIntegerConstant(ALine, AIndex);
+          arrayIndex := ExpectIntegerConstant(AScope, ALine, AIndex);
           if (arrayIndex < 1) or (arrayIndex > IntArrays[varIdx].Size) then
             raise exception.Create('Array index out of bounds');
           pl := IntToPlayer(arrayIndex);
@@ -539,7 +539,7 @@ begin
         begin
           if TryToken(ALine,idx,'(') then
           begin
-            unitType := ExpectString(ALine,idx);
+            unitType := ExpectString(AScope, ALine,idx);
             ExpectToken(ALine,idx,')');
           end else
             unitType := 'Any unit';
@@ -558,7 +558,7 @@ begin
         end else
         if idx < ALine.Count then
         begin
-          varIdx := IntArrayIndexOf(ALine[idx]);
+          varIdx := IntArrayIndexOf(AScope, ALine[idx]);
           if (varIdx <> -1) and IntArrays[varIdx].Predefined then
           begin
             inc(idx);
@@ -585,7 +585,7 @@ begin
   end;
 end;
 
-function TryString(ALine: TStringList; var AIndex: integer; out AStr: string; ARaiseException: boolean = false): boolean;
+function TryString(AScope: integer; ALine: TStringList; var AIndex: integer; out AStr: string; ARaiseException: boolean = false): boolean;
 var
   scalar: TScalarVariable;
   idxVar, intVal: Integer;
@@ -607,7 +607,7 @@ begin
     if TryToken(ALine,idx,'Chr') then
     begin
       ExpectToken(ALine,idx,'(');
-      intVal := ExpectIntegerConstant(ALine,idx);
+      intVal := ExpectIntegerConstant(AScope, ALine,idx);
       ExpectToken(ALine,idx,')');
       AStr += chr(intVal);
     end else
@@ -616,7 +616,7 @@ begin
       AStr += RemoveQuotes(ALine[idx]);
       Inc(idx);
     end else
-    if TryIntegerConstant(ALine,idx,intVal) then
+    if TryIntegerConstant(AScope, ALine,idx,intVal) then
     begin
       AStr += inttostr(intVal);
       if firstElem then
@@ -626,7 +626,7 @@ begin
         continue;
       end;
     end else
-    if TryBoolean(ALine,idx,boolVal) then
+    if TryBoolean(AScope, ALine,idx,boolVal) then
     begin
       AStr += BoolToStr(boolVal, 'True', 'False');
       if firstElem then
@@ -651,14 +651,14 @@ begin
       if not found then raise exception.Create('Unknown AI script');
     end else
     begin
-     idxVar := StringIndexOf(ALine[idx]);
+     idxVar := StringIndexOf(AScope, ALine[idx]);
      if idxVar <> -1 then
      begin
        AStr += StringVars[idxVar].Value;
        inc(idx);
      end else
      begin
-       scalar := TryScalarVariable(ALine,idx);
+       scalar := TryScalarVariable(AScope, ALine,idx);
        if scalar.VarType <> svtNone then
        begin
          if not scalar.Constant then
@@ -692,7 +692,7 @@ begin
   result := true;
 end;
 
-function TryExpression(ALine: TStringList; var AIndex: integer; ARaiseException: boolean; AAcceptCalls: boolean): TExpression;
+function TryExpression(AScope: integer; ALine: TStringList; var AIndex: integer; ARaiseException: boolean; AAcceptCalls: boolean): TExpression;
 var
   intValue: integer;
   neg, boolVal: boolean;
@@ -710,7 +710,7 @@ var
     result := nil;
     if TryToken(ALine,idx,'(') then
     begin
-      expr := TryExpression(ALine,idx, ARaiseException, AAcceptCalls);
+      expr := TryExpression(AScope, ALine,idx, ARaiseException, AAcceptCalls);
       if expr = nil then
       begin
         if ARaiseException then raise exception.Create('Expecting integer value');
@@ -719,7 +719,7 @@ var
       ExpectToken(ALine,idx,')');
       result := TSubExpression.Create(expr);
     end else
-    if TryInteger(ALine,idx,intValue) then
+    if TryInteger(AScope, ALine,idx,intValue) then
     begin
       result := TConstantNode.Create(neg, intValue);
     end else
@@ -728,7 +728,7 @@ var
       if rnd <> -1 then
         result := TRandomNode.Create(neg, rnd) else
       begin
-        scalar:= TryScalarVariable(ALine,idx);
+        scalar:= TryScalarVariable(AScope, ALine,idx);
         case scalar.VarType of
         svtInteger: result := TVariableNode.Create(neg,scalar.Player,scalar.UnitType);
         svtSwitch:
@@ -749,19 +749,19 @@ var
               if name = 'Present' then
                 idxVar := GetPlayerPresentArray
               else
-                idxVar := BoolArrayIndexOf(name);
+                idxVar := BoolArrayIndexOf(AScope, name);
 
               if idxVar <> -1 then
               begin
-                if not TryBoolean(ALine,idx, boolVal) then
+                if not TryBoolean(AScope, ALine,idx, boolVal) then
                   raise exception.Create('Boolean constant expected');
                 result := TCountIfBoolNode.Create(neg, idxVar, boolVal);
               end else
               begin
-                idxVar := IntArrayIndexOf(name);
+                idxVar := IntArrayIndexOf(AScope, name);
                 if idxVar <> -1 then
                 begin
-                  if not TryIntegerConstant(ALine,idx, intVal) then
+                  if not TryIntegerConstant(AScope, ALine,idx, intVal) then
                     raise exception.Create('Integer constant expected');
                   result := TCountIfIntNode.Create(neg, idxVar, intVal);
                 end else
@@ -855,7 +855,7 @@ begin
     begin
       if TryToken(ALine,idx,'(') then
       begin
-        subExpr := TryExpression(ALine,idx,ARaiseException,AAcceptCalls);
+        subExpr := TryExpression(AScope, ALine,idx,ARaiseException,AAcceptCalls);
         ExpectToken(ALine,idx,')');
         if subExpr.IsConstant then
         begin
@@ -935,9 +935,9 @@ begin
   result.PutClearAccFirst;
 end;
 
-function ExpectString(ALine: TStringList; var AIndex: integer): string;
+function ExpectString(AScope: integer; ALine: TStringList; var AIndex: integer): string;
 begin
-  TryString(ALine,AIndex,result,True);
+  TryString(AScope, ALine,AIndex,result,True);
 end;
 
 { TSubExpression }

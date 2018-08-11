@@ -1,16 +1,14 @@
-- variables locales/globales
 - fonctions avec parametres (pb recursivite)
 - templates (string array)
 - simple do - loop until
 - simple for step next
 - elseif, select case
-- conditions complexes (or xor)
 
-
+- indexation par variable
+- editeur avec syntax highlighting
 
 - variable in any death count
+- xor booleen
 - division
-- indexation par variable
 - procedure transmission
-- editeur avec syntax highlighting
 

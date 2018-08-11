@@ -23,9 +23,9 @@ begin
   begin
     if HyperWaitVar = -1 then
     begin
-      HyperWaitVar := IntArrayIndexOf('_hyperwait');
+      HyperWaitVar := IntArrayIndexOf(GlobalScope, '_hyperwait');
       if HyperWaitVar = -1 then
-        HyperWaitVar := CreateIntArray('_hyperwait', MaxTriggerPlayers, [], 24);
+        HyperWaitVar := CreateIntArray(GlobalScope,'_hyperwait', MaxTriggerPlayers, [], 24);
     end;
   end;
 end;

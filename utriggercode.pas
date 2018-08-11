@@ -128,9 +128,9 @@ function GetSysIPVar: integer;
 begin
   if SysIPVar = -1 then
   begin
-    SysIPVar := IntArrayIndexOf('_sysIp');
+    SysIPVar := IntArrayIndexOf(GlobalScope, '_sysIp');
     if SysIPVar = -1 then
-      SysIPVar := CreateIntArray('_sysIp', MaxTriggerPlayers, [], 16);
+      SysIPVar := CreateIntArray(GlobalScope, '_sysIp', MaxTriggerPlayers, [], 16);
   end;
   result := SysIPVar;
 end;
@@ -156,9 +156,9 @@ procedure NeedSysParam;
 begin
   if SysParamArray = -1 then
   begin
-    SysParamArray:= IntArrayIndexOf('_sysParam');
+    SysParamArray:= IntArrayIndexOf(GlobalScope, '_sysParam');
     if SysParamArray = -1 then
-      SysParamArray := CreateIntArray('_sysParam', MaxTriggerPlayers, [], 16);
+      SysParamArray := CreateIntArray(GlobalScope, '_sysParam', MaxTriggerPlayers, [], 16);
   end;
 end;
 
@@ -195,9 +195,9 @@ procedure NeedStack;
 begin
   if SPArrayVar = -1 then
   begin
-    SPArrayVar := IntArrayIndexOf('_sp');
+    SPArrayVar := IntArrayIndexOf(GlobalScope, '_sp');
     if SPArrayVar = -1 then
-      SPArrayVar := CreateIntArray('_sp', MaxTriggerPlayers, [], 16);
+      SPArrayVar := CreateIntArray(GlobalScope, '_sp', MaxTriggerPlayers, [], 16);
 
     ReturnSysIP := NewSysIP;
     PushSysIP:= NewSysIP;
@@ -249,9 +249,9 @@ begin
 
   for i := 1 to StackSize do
   begin
-    StackArrays[i]:= IntArrayIndexOf('_stackValue'+inttostr(i));
+    StackArrays[i]:= IntArrayIndexOf(GlobalScope, '_stackValue'+inttostr(i));
     if StackArrays[i] = -1 then
-      StackArrays[i] := CreateIntArray('_stackValue'+inttostr(i), MaxTriggerPlayers, [], 16);
+      StackArrays[i] := CreateIntArray(GlobalScope, '_stackValue'+inttostr(i), MaxTriggerPlayers, [], 16);
   end;
 end;
 
@@ -629,9 +629,9 @@ end;
 
 procedure InitTriggerCode;
 begin
-  IPVar := IntArrayIndexOf('_ip');
+  IPVar := IntArrayIndexOf(GlobalScope, '_ip');
   if IPVar = -1 then
-    IPVar := CreateIntArray('_ip', MaxTriggerPlayers, [], 16);
+    IPVar := CreateIntArray(GlobalScope, '_ip', MaxTriggerPlayers, [], 16);
   CurIPValue := 0;
 
   //IntArrays[IPVar].UnitType:= 'Gas'; //debug

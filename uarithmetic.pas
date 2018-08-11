@@ -47,7 +47,7 @@ begin
   if TempBoolCount >= MaxTempBools then
     raise exception.Create('Too many temporary booleans');
 
-  idx := CreateBoolVar('_bool'+intToStr(TempBoolCount+1), svClear);
+  idx := CreateBoolVar(GlobalScope, '_bool'+intToStr(TempBoolCount+1), svClear);
   TempBools[TempBoolCount].BoolVar := idx;
   TempBools[TempBoolCount].Used := true;
   inc(TempBoolCount);
@@ -100,9 +100,9 @@ procedure NeedAcc;
 begin
   if AccArray = -1 then
   begin
-    AccArray := IntArrayIndexOf('_accumulator');
+    AccArray := IntArrayIndexOf(GlobalScope, '_accumulator');
     if AccArray = -1 then
-      AccArray := CreateIntArray('_accumulator', MaxTriggerPlayers, [], 32);
+      AccArray := CreateIntArray(GlobalScope, '_accumulator', MaxTriggerPlayers, [], 32);
   end;
 end;
 

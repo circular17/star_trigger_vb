@@ -504,7 +504,7 @@ type
 
   TAlwaysCondition = class(TCondition)
     function ToString: ansistring; override;
-    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
+    procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: string); override;
     function Duplicate: TCondition; override;
   end;
 
@@ -527,6 +527,34 @@ type
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
+    function Duplicate: TCondition; override;
+  end;
+
+  { TOrCondition }
+
+  TOrCondition = class(TCondition)
+    Conditions: TConditionList;
+    destructor Destroy; override;
+    constructor Create(AConditions: array of TCondition);
+    constructor Create(AConditions: TConditionList);
+    function ToString: ansistring; override;
+    function IsArithmetic: boolean; override;
+    function IsComputed: boolean; override;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
+    function Duplicate: TCondition; override;
+  end;
+
+  { TAndCondition }
+
+  TAndCondition = class(TCondition)
+    Conditions: TConditionList;
+    destructor Destroy; override;
+    constructor Create(AConditions: array of TCondition);
+    constructor Create(AConditions: TConditionList);
+    function ToString: ansistring; override;
+    function IsArithmetic: boolean; override;
+    function IsComputed: boolean; override;
+    procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: string); override;
     function Duplicate: TCondition; override;
   end;
 
@@ -675,6 +703,129 @@ end;
 function IsAnywhere(ALocation: string): boolean;
 begin
   result := (ALocation = '') or (CompareText(ALocation, AnywhereLocation)=0);
+end;
+
+{ TAndCondition }
+
+destructor TAndCondition.Destroy;
+begin
+  Conditions.FreeAll;
+  inherited Destroy;
+end;
+
+constructor TAndCondition.Create(AConditions: array of TCondition);
+var
+  i: Integer;
+begin
+  Conditions := TConditionList.Create;
+  for i := 0 to high(AConditions) do
+    Conditions.Add(AConditions[i]);
+end;
+
+constructor TAndCondition.Create(AConditions: TConditionList);
+begin
+  Conditions := AConditions;
+end;
+
+function TAndCondition.ToString: ansistring;
+begin
+  Result:= 'And condition';
+end;
+
+function TAndCondition.IsArithmetic: boolean;
+var
+  i: Integer;
+begin
+  for i := 0 to Conditions.Count-1 do
+    if Conditions[i].IsArithmetic then exit(true);
+  exit(false);
+end;
+
+function TAndCondition.IsComputed: boolean;
+begin
+  Result:= true;
+end;
+
+procedure TAndCondition.AddToProgAsAndVar(AProg: TInstructionList;
+  APlayer: TPlayer; AUnitType: string);
+begin
+  raise exception.Create('Not handled');
+end;
+
+function TAndCondition.Duplicate: TCondition;
+begin
+  result := TAndCondition.Create(Conditions.Duplicate);
+end;
+
+{ TOrCondition }
+
+destructor TOrCondition.Destroy;
+begin
+  Conditions.FreeAll;
+  inherited Destroy;
+end;
+
+constructor TOrCondition.Create(AConditions: array of TCondition);
+var
+  i: Integer;
+begin
+  Conditions := TConditionList.Create;
+  for i := 0 to high(AConditions) do
+    Conditions.Add(AConditions[i]);
+end;
+
+constructor TOrCondition.Create(AConditions: TConditionList);
+begin
+  Conditions := AConditions;
+end;
+
+function TOrCondition.ToString: ansistring;
+begin
+  Result:='Or Condition';
+end;
+
+function TOrCondition.IsArithmetic: boolean;
+var
+  i: Integer;
+begin
+  for i := 0 to Conditions.Count-1 do
+    if Conditions[i].IsArithmetic then exit(true);
+  exit(false);
+end;
+
+function TOrCondition.IsComputed: boolean;
+begin
+  Result:=true;
+end;
+
+procedure TOrCondition.AddToProgAsAndVar(AProg: TInstructionList;
+  APlayer: TPlayer; AUnitType: string);
+var
+  i: Integer;
+begin
+  if Conditions.Count > 0 then
+  begin
+    AProg.Add(TIfInstruction.Create(TIntegerCondition.Create(APlayer,AUnitType,icmAtLeast,1)));
+    AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0));
+    for i := 0 to Conditions.Count-1 do
+    begin
+      if not Conditions[i].IsComputed then
+      begin
+        AProg.Add(TFastIfInstruction.Create(Conditions[i],[TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,1)]));
+      end else
+      begin
+        AProg.Add(TIfInstruction.Create(Conditions[i].Duplicate));
+        AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,1));
+        AProg.Add(TEndIfInstruction.Create);
+      end;
+    end;
+    AProg.Add(TEndIfInstruction.Create);
+  end;
+end;
+
+function TOrCondition.Duplicate: TCondition;
+begin
+  result := TOrCondition.Create(Conditions.Duplicate);
 end;
 
 { TPrintForAnyPlayerInstruction }

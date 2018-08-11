@@ -7,7 +7,7 @@ interface
 uses
   Classes, SysUtils, uinstructions, uparsevb, uexpressions, usctypes;
 
-function ExpectConditions(ALine: TStringList; var AIndex: integer; AThreads: TPlayers): TConditionList;
+function ExpectConditions(ALine: TStringList; var AIndex: integer; AThreads: TPlayers; AAllowOr: boolean = true): TConditionList;
 
 implementation
 
@@ -511,14 +511,40 @@ begin
   end;
 end;
 
-function ExpectConditions(ALine: TStringList; var AIndex: integer; AThreads: TPlayers): TConditionList;
+function ExpectConditions(ALine: TStringList; var AIndex: integer; AThreads: TPlayers; AAllowOr: boolean = true): TConditionList;
 var
   i, j: Integer;
+  orCond: TOrCondition;
+  andExpr: TConditionList;
 begin
   result := TConditionList.Create;
   try
     repeat
       result.Add(ExpectCondition(ALine,AIndex,AThreads));
+      if AAllowOr and TryToken(ALine,AIndex,'Or') then
+      begin
+        if result.Count = 1 then
+        begin
+          orCond := TOrCondition.Create([result[0]]);
+          result.Delete(0);
+        end
+        else
+        begin
+          orCond := TOrCondition.Create([TAndCondition.Create(result)]);
+          result := TConditionList.Create;
+        end;
+        result.Add(orCond);
+        repeat
+          andExpr := ExpectConditions(ALine,AIndex,AThreads,false);
+          if andExpr.Count > 1 then
+            orCond.Conditions.Add(TAndCondition.Create(andExpr))
+          else
+          begin
+            orCond.Conditions.Add(andExpr[0]);
+            andExpr.Free;
+          end;
+        until not TryToken(ALine,AIndex,'Or');
+      end;
       if not TryToken(ALine,AIndex,'And') then break;
     until false;
   except on ex:exception do

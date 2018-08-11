@@ -114,6 +114,11 @@ var
         expanded.Add(result);
       end;
     end else
+    if (AConditions.Count = 1) and (AConditions[0] is TAndCondition) then
+    begin
+      result := AddWaitCondition(TAndCondition(AConditions[0]).Conditions, ANextIP);
+      exit;
+    end else
     begin
       if AConditions.IsComputed then
       begin

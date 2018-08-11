@@ -1,5 +1,6 @@
+- variables locales/globales
 - fonctions avec parametres (pb recursivite)
-- string array (for template)
+- templates (string array)
 - simple do - loop until
 - simple for step next
 - elseif, select case
@@ -8,7 +9,8 @@
 
 
 - variable in any death count
-- calculs : /
+- division
 - indexation par variable
 - procedure transmission
+- editeur avec syntax highlighting
 

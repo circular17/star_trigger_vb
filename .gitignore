@@ -12,3 +12,5 @@ triggercompiler
 *.property
 
 *.trigger
+
+lib/x86_64-win64/

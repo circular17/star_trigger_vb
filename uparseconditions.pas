@@ -408,7 +408,13 @@ begin
       begin
        result := TryPlayerConditionFunction(ALine, AIndex, plCurrentPlayer, boolNot);
        if result = nil then result := TryArithmeticCondition(ALine, AIndex, boolNot);
-       if result = nil then raise exception.Create('Expecting condition')
+       if result = nil then
+       begin
+         if AIndex >= ALine.Count then
+           raise exception.Create('Expecting condition but end of line found')
+         else
+           raise exception.Create('Expecting condition but "' + ALine[AIndex] + '" found')
+       end
        else
        if not IsUniquePlayer(AThreads) or (AThreads = []) then
        begin
@@ -520,7 +526,15 @@ begin
   result := TConditionList.Create;
   try
     repeat
-      result.Add(ExpectCondition(ALine,AIndex,AThreads));
+      if TryToken(ALine,AIndex,'(') then
+      begin
+        andExpr := ExpectConditions(ALine,AIndex,AThreads);
+        for i := 0 to andExpr.Count-1 do
+          result.Add(andExpr[i]);
+        andExpr.Free;
+        ExpectToken(ALine,AIndex,')');
+      end else
+        result.Add(ExpectCondition(ALine,AIndex,AThreads));
       if AAllowOr and TryToken(ALine,AIndex,'Or') then
       begin
         if result.Count = 1 then

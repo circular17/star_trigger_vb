@@ -1818,7 +1818,7 @@ begin
             if inEvent= -1 then
               raise Exception.create('Not in an event');
             with Events[inEvent] do
-              while Instructions[Instructions.Count-1] is TReturnInstruction do
+              while (Instructions.Count > 0) and (Instructions[Instructions.Count-1] is TReturnInstruction) do
               begin
                 Instructions[Instructions.Count-1].Free;
                 Instructions.Delete(Instructions.Count-1);

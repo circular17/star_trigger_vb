@@ -18,29 +18,53 @@ function GetExponentOf2(AValue: integer): integer;
 function IsPowerOf2(ANumber: integer): boolean;
 
 var
-  TempBools: array[0..MaxTempBools-1] of integer;
+  TempBools: array[0..MaxTempBools-1] of record
+    BoolVar: integer;
+    Used: boolean
+  end;
   TempBoolCount: integer;
   ArithmeticMaxInputBits, ExtraShiftBits: integer;
+  ShiftUsed1, ShiftUsed2, ShiftUsed4, ShiftUsed8, ShiftUsed16: boolean;
 
-procedure NeedTempBools(AQuantity: integer);
+function AllocateTempBool: integer;
+procedure ReleaseTempBool(ASwitch: integer);
 
 implementation
 
 uses utriggercode, uvariables, math;
 
-procedure NeedTempBools(AQuantity: integer);
+function AllocateTempBool: integer;
 var
-  idx: Integer;
+  idx, i: Integer;
 begin
-  if AQuantity > MaxTempBools then
+  for i := 0 to TempBoolCount-1 do
+    if not TempBools[i].Used then
+    begin
+      TempBools[i].Used := true;
+      exit(BoolVars[TempBools[i].BoolVar].Switch);
+    end;
+
+  if TempBoolCount >= MaxTempBools then
     raise exception.Create('Too many temporary booleans');
 
-  while TempBoolCount < AQuantity do
-  begin
-    idx := CreateBoolVar('_bool'+intToStr(TempBoolCount+1), svClear);
-    TempBools[TempBoolCount] := idx;
-    inc(TempBoolCount);
-  end;
+  idx := CreateBoolVar('_bool'+intToStr(TempBoolCount+1), svClear);
+  TempBools[TempBoolCount].BoolVar := idx;
+  TempBools[TempBoolCount].Used := true;
+  inc(TempBoolCount);
+
+  result := BoolVars[idx].Switch;
+end;
+
+procedure ReleaseTempBool(ASwitch: integer);
+var
+  i: Integer;
+begin
+  for i := 0 to TempBoolCount-1 do
+    if BoolVars[TempBools[i].BoolVar].Switch = ASwitch then
+    begin
+      TempBools[i].Used := false;
+      exit;
+    end;
 end;
 
 function GetExponentOf2(AValue: integer): integer;
@@ -102,7 +126,7 @@ end;
 
 function GetTransferParam(APlayer: TPlayer; AUnitType: string; ASysIP: integer): integer;
 var
-  i: Integer;
+  i, shift: Integer;
 begin
   if IntVarCount > length(TransferProcs) then
   begin
@@ -135,7 +159,13 @@ begin
       begin
         TransferProcs[i].AddAcc:= true;
         TransferProcs[i].AddShifted:= true;
-        ExtraShiftBits := max(ASysIP - AddAccSysIP[0], ExtraShiftBits);
+        shift := ASysIP - AddAccSysIP[0];
+        ExtraShiftBits := max(shift, ExtraShiftBits);
+        if (shift and 1) = 1 then ShiftUsed1 := true;
+        if (shift and 2) = 2 then ShiftUsed2 := true;
+        if (shift and 4) = 4 then ShiftUsed4 := true;
+        if (shift and 8) = 8 then ShiftUsed8 := true;
+        if (shift and 16) = 16 then ShiftUsed16 := true;
       end;
       if ASysIP = SubtractAccSysIP then
         TransferProcs[i].SubAcc:= true;
@@ -174,8 +204,11 @@ var
   hasAddFromBits, hasSubFromBits, hasAddAcc, hasSubAcc, hasShift: boolean;
   TotalBits,ArithmeticMaxAccBits: integer;
 
+  ValueBools: array of integer;
+
   procedure WriteShiftProg(AShift: integer; ASwitchSub: integer);
   var j: integer;
+    setSw2: TSetSwitchInstruction;
   begin
     condSub := TSwitchCondition.Create(ASwitchSub,true);
     condSwitch := TSwitchCondition.Create(-1, true);
@@ -183,29 +216,28 @@ var
     for j := TotalBits-1 downto TotalBits-AShift do
     if (j >= 0) and (j < ArithmeticMaxAccBits) then
     begin
-      condSwitch.Switch := BoolVars[TempBools[j]].Switch;
+      condSwitch.Switch := ValueBools[j];
       WriteProg(AOutput,[plAllPlayers], [condSub,condSwitch], proc, -1,-1, True);
     end;
     EmptyProc;
 
     setSw := TSetSwitchInstruction.Create(-1, svSet);
     proc.Add(setSw);
+    setSw2 := TSetSwitchInstruction.Create(-1, svClear);
+    proc.Add(setSw2);
     for j := TotalBits-AShift-1 downto 0 do
     if j < ArithmeticMaxAccBits then
     begin
       condSwitch.Value := true;
-      condSwitch.Switch := BoolVars[TempBools[j]].Switch;
-      setSw.Switch:= BoolVars[TempBools[j+AShift]].Switch;
-      setSw.Value := svSet;
-      WriteProg(AOutput,[plAllPlayers], [condSub,condSwitch], proc, -1,-1, True);
-      condSwitch.Value := false;
-      setSw.Value := svClear;
+      condSwitch.Switch := ValueBools[j];
+      setSw.Switch:= ValueBools[j+AShift];
+      setSw2.Switch:= ValueBools[j];
       WriteProg(AOutput,[plAllPlayers], [condSub,condSwitch], proc, -1,-1, True);
     end;
     EmptyProc;
 
     for j := min(AShift-1, ArithmeticMaxAccBits-1) downto 0 do
-      proc.Add(TSetSwitchInstruction.Create(BoolVars[TempBools[j]].Switch, svClear));
+      proc.Add(TSetSwitchInstruction.Create(ValueBools[j], svClear));
     WriteProg(AOutput,[plAllPlayers], [condSub], proc, -1,-1,true);
     EmptyProc;
 
@@ -217,20 +249,9 @@ begin
 
   TotalBits := min(ArithmeticMaxInputBits+ExtraShiftBits,24);
   ArithmeticMaxAccBits := min(ArithmeticMaxInputBits+4,TotalBits);
-  NeedTempBools(TotalBits+13);
-  switchCopyVarToBits := BoolVars[TempBools[TotalBits]].Switch;
-  switchAddToVarFromBits := BoolVars[TempBools[TotalBits+1]].Switch;
-  switchCopyAccToBits := BoolVars[TempBools[TotalBits+2]].Switch;;
-  switchNegateBits2 := BoolVars[TempBools[TotalBits+3]].Switch;
-  switchAddToAccFromBits := BoolVars[TempBools[TotalBits+4]].Switch;
-  switchSubtractIntoAccFromBits := BoolVars[TempBools[TotalBits+5]].Switch;
-  switchClearSysIP := BoolVars[TempBools[TotalBits+6]].Switch;
-  switchShift16 := BoolVars[TempBools[TotalBits+7]].Switch;
-  switchShift8 := BoolVars[TempBools[TotalBits+8]].Switch;
-  switchShift4 := BoolVars[TempBools[TotalBits+9]].Switch;
-  switchShift2 := BoolVars[TempBools[TotalBits+10]].Switch;
-  switchShift1 := BoolVars[TempBools[TotalBits+11]].Switch;
-  switchShiftOverflow := BoolVars[TempBools[TotalBits+12]].Switch;
+  setlength(ValueBools, TotalBits);
+  for i := 0 to TotalBits-1 do
+    ValueBools[i] := AllocateTempBool;
 
   hasAddFromBits:= false;
   hasSubFromBits:= false;
@@ -246,26 +267,43 @@ begin
     if TransferProcs[i].AddShifted then hasShift:= true;
   end;
 
+  switchCopyVarToBits := AllocateTempBool;
+  switchAddToVarFromBits := AllocateTempBool;
+  if hasAddAcc or hasSubAcc then switchCopyAccToBits:= AllocateTempBool
+                            else switchCopyAccToBits := -1;
+  if hasSubAcc then switchNegateBits2 := AllocateTempBool else switchNegateBits2 := -1;
+  if hasAddFromBits then switchAddToAccFromBits := AllocateTempBool
+                    else switchAddToAccFromBits := -1;
+  if hasSubFromBits then switchSubtractIntoAccFromBits := AllocateTempBool
+                    else switchSubtractIntoAccFromBits := -1;
+  switchClearSysIP := AllocateTempBool;
+  if ShiftUsed16 then switchShift16 := AllocateTempBool else switchShift16 := -1;
+  if ShiftUsed8 then switchShift8 := AllocateTempBool else switchShift8 := -1;
+  if ShiftUsed4 then switchShift4 := AllocateTempBool else switchShift4 := -1;
+  if ShiftUsed2 then switchShift2 := AllocateTempBool else switchShift2 := -1;
+  if ShiftUsed1 then switchShift1 := AllocateTempBool else switchShift1 := -1;
+  if hasShift then switchShiftOverflow := AllocateTempBool else switchShiftOverflow := -1;
+
   proc := TInstructionList.Create;
 
   AOutput.Add('// Add or subtract into accumulator //');;
 
   //clear temp bits
   for i := 0 to TotalBits-1 do
-    proc.Add(TSetSwitchInstruction.Create(BoolVars[TempBools[i]].Switch, svClear));
-  proc.Add(TSetSwitchInstruction.Create(switchCopyVarToBits, svClear));
-  proc.Add(TSetSwitchInstruction.Create(switchAddToVarFromBits, svClear));
-  proc.Add(TSetSwitchInstruction.Create(switchCopyAccToBits, svClear));
-  proc.Add(TSetSwitchInstruction.Create(switchNegateBits2, svClear));
-  proc.Add(TSetSwitchInstruction.Create(switchAddToAccFromBits, svClear));
-  proc.Add(TSetSwitchInstruction.Create(switchSubtractIntoAccFromBits, svClear));
-  proc.Add(TSetSwitchInstruction.Create(switchClearSysIP, svClear));
-  proc.Add(TSetSwitchInstruction.Create(switchShift16, svClear));
-  proc.Add(TSetSwitchInstruction.Create(switchShift8, svClear));
-  proc.Add(TSetSwitchInstruction.Create(switchShift4, svClear));
-  proc.Add(TSetSwitchInstruction.Create(switchShift2, svClear));
-  proc.Add(TSetSwitchInstruction.Create(switchShift1, svClear));
-  proc.Add(TSetSwitchInstruction.Create(switchShiftOverflow, svClear));
+    proc.Add(TSetSwitchInstruction.Create(ValueBools[i], svClear));
+  if switchCopyVarToBits <> -1 then    proc.Add(TSetSwitchInstruction.Create(switchCopyVarToBits, svClear));
+  if switchAddToVarFromBits <> -1 then proc.Add(TSetSwitchInstruction.Create(switchAddToVarFromBits, svClear));
+  if switchCopyAccToBits <> -1 then    proc.Add(TSetSwitchInstruction.Create(switchCopyAccToBits, svClear));
+  if switchNegateBits2 <> -1 then      proc.Add(TSetSwitchInstruction.Create(switchNegateBits2, svClear));
+  if switchAddToAccFromBits <> -1 then proc.Add(TSetSwitchInstruction.Create(switchAddToAccFromBits, svClear));
+  if switchSubtractIntoAccFromBits<>-1 then proc.Add(TSetSwitchInstruction.Create(switchSubtractIntoAccFromBits, svClear));
+  if switchClearSysIP <> -1 then       proc.Add(TSetSwitchInstruction.Create(switchClearSysIP, svClear));
+  if switchShift16 <> -1 then          proc.Add(TSetSwitchInstruction.Create(switchShift16, svClear));
+  if switchShift8 <> -1 then           proc.Add(TSetSwitchInstruction.Create(switchShift8, svClear));
+  if switchShift4 <> -1 then           proc.Add(TSetSwitchInstruction.Create(switchShift4, svClear));
+  if switchShift2 <> -1 then           proc.Add(TSetSwitchInstruction.Create(switchShift2, svClear));
+  if switchShift1 <> -1 then           proc.Add(TSetSwitchInstruction.Create(switchShift1, svClear));
+  if switchShiftOverflow <> -1 then    proc.Add(TSetSwitchInstruction.Create(switchShiftOverflow, svClear));
 
   WriteProg(AOutput, [plAllPlayers], [], proc, -1, -1, True);
   EmptyProc;
@@ -312,7 +350,7 @@ begin
     begin
       condValue.Value := 1 shl j;
       addAcc.Value := condValue.Value;
-      setSw.Switch := BoolVars[TempBools[j]].Switch;
+      setSw.Switch := ValueBools[j];
       WriteProg(AOutput, [plAllPlayers], [condSub, condVar, condValue], proc, -1,-1, True);
     end;
     EmptyProc;
@@ -329,7 +367,7 @@ begin
     proc.Add(addAcc);
     for i := ArithmeticMaxInputBits-1 downto 0 do
     begin
-      condSwitch.Switch := BoolVars[TempBools[i]].Switch;
+      condSwitch.Switch := ValueBools[i];
       addAcc.Value := 1 shl i;
       WriteProg(AOutput, [plAllPlayers], [condSub, condSwitch], proc, -1,-1, True);
     end;
@@ -347,7 +385,7 @@ begin
     proc.Add(addAcc);
     for i := ArithmeticMaxInputBits-1 downto 0 do
     begin
-      condSwitch.Switch := BoolVars[TempBools[i]].Switch;
+      condSwitch.Switch := ValueBools[i];
       addAcc.Value := 1 shl i;
       WriteProg(AOutput, [plAllPlayers], [condSub, condSwitch], proc, -1,-1, True);
     end;
@@ -359,7 +397,7 @@ begin
   if hasShift then
   begin
     AOutput.Add('// Init bit shifting //');
-    if ExtraShiftBits >= 16 then
+    if ShiftUsed16 then
     begin
       CheckSysIPRange(AddAccSysIP[16],AddAccSysIP[23],condIP,condIP2);
       proc.Add(SetNextSysIP(16,simSubtract));
@@ -368,7 +406,7 @@ begin
       EmptyProc; condIP.Free; condIP2.Free;
     end;
 
-    if ExtraShiftBits >= 8 then
+    if ShiftUsed8 then
     begin
       CheckSysIPRange(AddAccSysIP[8],AddAccSysIP[23],condIP,condIP2);
       proc.Add(SetNextSysIP(8,simSubtract));
@@ -377,7 +415,7 @@ begin
       EmptyProc; condIP.Free; condIP2.Free;
     end;
 
-    if ExtraShiftBits >= 4 then
+    if ShiftUsed4 then
     begin
       CheckSysIPRange(AddAccSysIP[4],AddAccSysIP[23],condIP,condIP2);
       proc.Add(SetNextSysIP(4,simSubtract));
@@ -386,7 +424,7 @@ begin
       EmptyProc; condIP.Free; condIP2.Free;
     end;
 
-    if ExtraShiftBits >= 2 then
+    if ShiftUsed2 then
     begin
       CheckSysIPRange(AddAccSysIP[2],AddAccSysIP[23],condIP,condIP2);
       proc.Add(SetNextSysIP(2,simSubtract));
@@ -395,11 +433,14 @@ begin
       EmptyProc; condIP.Free; condIP2.Free;
     end;
 
-    CheckSysIPRange(AddAccSysIP[1],AddAccSysIP[23],condIP,condIP2);
-    proc.Add(SetNextSysIP(1,simSubtract));
-    proc.Add(TSetSwitchInstruction.Create(switchShift1, svSet));
-    WriteProg(AOutput, [plAllPlayers], [condIP,condIP2], proc, -1,-1, True);
-    EmptyProc; condIP.Free; condIP2.Free;
+    if ShiftUsed1 then
+    begin
+      CheckSysIPRange(AddAccSysIP[1],AddAccSysIP[23],condIP,condIP2);
+      proc.Add(SetNextSysIP(1,simSubtract));
+      proc.Add(TSetSwitchInstruction.Create(switchShift1, svSet));
+      WriteProg(AOutput, [plAllPlayers], [condIP,condIP2], proc, -1,-1, True);
+      EmptyProc; condIP.Free; condIP2.Free;
+    end;
   end;
 
   AOutput.Add('// Add or subtract from accumulator //');
@@ -458,7 +499,7 @@ begin
     begin
       condValue.Value := 1 shl j;
       addAcc.Value := condValue.Value;
-      setSw.Switch := BoolVars[TempBools[j]].Switch;
+      setSw.Switch := ValueBools[j];
       WriteProg(AOutput, [plAllPlayers], [condSub, condValue], proc, -1,-1, True);
     end;
     EmptyProc;
@@ -470,7 +511,7 @@ begin
     proc.Add(addAcc);
     for j := ArithmeticMaxAccBits-1 downto 0 do
     begin
-      condSwitch.Switch := BoolVars[TempBools[j]].Switch;
+      condSwitch.Switch := ValueBools[j];
       addAcc.Value := 1 shl j;
       WriteProg(AOutput, [plAllPlayers], [condSub, condSwitch], proc, -1,-1, True);
     end;
@@ -483,15 +524,15 @@ begin
   if hasShift then
   begin
     AOutput.Add('// Handle bit shifting //');
-    if ExtraShiftBits >= 16 then WriteShiftProg(16, switchShift16);
-    if ExtraShiftBits >= 8 then WriteShiftProg(8, switchShift8);
-    if ExtraShiftBits >= 4 then WriteShiftProg(4, switchShift4);
-    if ExtraShiftBits >= 2 then WriteShiftProg(2, switchShift2);
-    WriteShiftProg(1, switchShift1);
+    if ShiftUsed16 then WriteShiftProg(16, switchShift16);
+    if ShiftUsed8 then WriteShiftProg(8, switchShift8);
+    if ShiftUsed4 then WriteShiftProg(4, switchShift4);
+    if ShiftUsed2 then WriteShiftProg(2, switchShift2);
+    if ShiftUsed1 then WriteShiftProg(1, switchShift1);
 
     condSub := TSwitchCondition.Create(switchShiftOverflow,true);
     for i := 0 to TotalBits-1 do
-      proc.Add(TSetSwitchInstruction.Create(BoolVars[TempBools[i]].Switch, svSet));
+      proc.Add(TSetSwitchInstruction.Create(ValueBools[i], svSet));
     WriteProg(AOutput, [plAllPlayers], [condSub], proc, -1,-1, True);
     EmptyProc;
     condSub.Free;
@@ -502,7 +543,7 @@ begin
     //negating bits
     condSub := TSwitchCondition.Create(switchNegateBits2,true);
     for i := 0 to TotalBits-1 do
-      proc.Add(TSetSwitchInstruction.Create(BoolVars[TempBools[i]].Switch, svToggle));
+      proc.Add(TSetSwitchInstruction.Create(ValueBools[i], svToggle));
     WriteProg(AOutput, [plAllPlayers], [condSub], proc, -1,-1, True);
     EmptyProc;
     condSub.Free;
@@ -519,7 +560,7 @@ begin
     proc.Add(addAcc);
     for j := min(TransferProcs[i].BitCount-1, TotalBits-1) downto 0 do
     begin
-      condSwitch.Switch := BoolVars[TempBools[j]].Switch;
+      condSwitch.Switch := ValueBools[j];
       addAcc.Value := 1 shl j;
       WriteProg(AOutput, [plAllPlayers], [condSub, condVar, condSwitch], proc, -1,-1, True);
     end;
@@ -569,6 +610,20 @@ begin
 
 
   proc.Free;
+
+  ReleaseTempBool(switchCopyVarToBits);
+  ReleaseTempBool(switchAddToVarFromBits);
+  ReleaseTempBool(switchCopyAccToBits);
+  ReleaseTempBool(switchNegateBits2);
+  ReleaseTempBool(switchAddToAccFromBits);
+  ReleaseTempBool(switchSubtractIntoAccFromBits);
+  ReleaseTempBool(switchClearSysIP);
+  ReleaseTempBool(switchShift16);
+  ReleaseTempBool(switchShift8);
+  ReleaseTempBool(switchShift4);
+  ReleaseTempBool(switchShift2);
+  ReleaseTempBool(switchShift1);
+  ReleaseTempBool(switchShiftOverflow);
 
 end;
 
@@ -633,6 +688,11 @@ begin
   AccArray := -1;
   ArithmeticMaxInputBits:= 0;
   ExtraShiftBits:= 0;
+  ShiftUsed1 := false;
+  ShiftUsed2 := false;
+  ShiftUsed4 := false;
+  ShiftUsed8 := false;
+  ShiftUsed16 := false;
 end;
 
 

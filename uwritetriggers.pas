@@ -154,7 +154,7 @@ var
   doAs: TDoAsInstruction;
   pl: TPlayer;
   endDoAs: TEndDoAsInstruction;
-  endDoIP, tempInt: integer;
+  endDoIP: integer;
 
 begin
   expanded := TInstructionList.Create;
@@ -358,15 +358,16 @@ begin
 
         //insert randomize instruction
         expo := GetExponentOf2(sdi.Value);
-        NeedTempBools(expo);
         setlength(switches, expo);
         for j := 0 to expo-1 do
         begin
-          switches[j] := BoolVars[TempBools[j]].Switch;
+          switches[j] := AllocateTempBool;
           expanded.Add( TSetSwitchInstruction.Create(switches[j], svRandomize) );
         end;
 
         expanded.Add( TAddIntegerFromSwitchesInstruction.Create(sdi.Player, sdi.UnitType, switches) );
+        for j := 0 to expo-1 do
+          ReleaseTempBool(switches[j]);
 
         sdi.Free;
         continue;
@@ -471,7 +472,7 @@ begin
   wait.Free;
 end;
 
-procedure WritePlayerPresenceTopTrigger(AOutput: TStringList; AMainThread: TPlayer);
+procedure WritePlayerPresenceTrigger(AOutput: TStringList; AMainThread: TPlayer);
 var
   proc: TInstructionList;
   pl: TPlayer;
@@ -501,13 +502,7 @@ begin
       AOutput.Insert(i, tempOutput[i]);
   end;
   tempOutput.Free;
-end;
 
-procedure WritePlayerPresenceBottomTrigger(AOutput: TStringList; AMainThread: TPlayer);
-var
-  proc: TInstructionList;
-  pl: TPlayer;
-begin
   //at the end of main thread cycle, clear presence flags (they will be set until next main thread cycle)
   proc := TInstructionList.Create;
   for pl := plPlayer1 to plPlayer8 do
@@ -608,8 +603,7 @@ begin
   //write generated code at the end of the file
   WriteStackTriggers(mainOutput);
   WriteArithmeticTriggers(mainOutput);
-  WritePlayerPresenceBottomTrigger(mainOutput, AMainThread);
-  WritePlayerPresenceTopTrigger(mainOutput, AMainThread);
+  WritePlayerPresenceTrigger(mainOutput, AMainThread);
 
   //it is recommended to put hyper triggers at the end
   WriteHyperTriggers(mainOutput);

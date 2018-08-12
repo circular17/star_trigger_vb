@@ -1,0 +1,33 @@
+stopEvent = true
+->IP1
+IP1:
+
+(sauf pour i = main thread)
+repeat
+  pour i: si present[i] et ip[i]<>0 alors boucle
+until false
+
+->IP2
+IP2:
+ip[i] = IP3
+
+->IP3
+IP3:
+
+
+->IP4
+pour i <> main thread, ->IP0 sinon ->IP5
+
+IP5:
+(sauf pour i = main thread)
+repeat
+  pour i: si present[i] et ip[i]<>0 alors boucle
+until false
+
+->IP6
+IP6:
+stopEvent = false
+
+
+
+attendre un cycle si premiere boucle

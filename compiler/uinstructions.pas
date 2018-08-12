@@ -64,15 +64,6 @@ type
     function Duplicate: TConditionList;
   end;
 
-  { TSetSwitchInstruction }
-
-  TSetSwitchInstruction = class(TInstruction)
-    Switch: integer;
-    Value: TSwitchValue;
-    constructor Create(ASwitch: integer; AValue: TSwitchValue);
-    function ToTrigEdit: string; override;
-  end;
-
 type
   TSetIntegerMode = (simSetTo, simAdd, simSubtract);
 
@@ -88,60 +79,6 @@ type
     Mode: TSetIntegerMode;
     constructor Create(APlayer: TPlayer; AUnitType: string; AMode: TSetIntegerMode; AValue: integer);
     function ConvertToSpecificInstruction: TInstruction;
-  end;
-
-  { TSetDeathInstruction }
-
-  TSetDeathInstruction = class(TInstruction)
-    Player: TPlayer;
-    UnitType: string;
-    Value: integer;
-    Mode: TSetIntegerMode;
-    constructor Create(APlayer: TPlayer; AUnitType: string; AMode: TSetIntegerMode; AValue: integer);
-    function ToTrigEdit: string; override;
-  end;
-
-  TStarcraftResource = (srOre, srGas, srOreAndGas);
-
-function StartcraftResourceToStr(AResource: TStarcraftResource): string;
-
-type
-  { TSetResourceInstruction }
-
-  TSetResourceInstruction = class(TInstruction)
-    Player: TPlayer;
-    Resource: TStarcraftResource;
-    Value: integer;
-    Mode: TSetIntegerMode;
-    constructor Create(APlayer: TPlayer; AResource: TStarcraftResource; AMode: TSetIntegerMode; AValue: integer);
-    function ToTrigEdit: string; override;
-  end;
-
-  TStarcraftScore = (ssUnitScore, ssBuildingScore, ssUnitAndBuildingScore,
-                     ssKillScore, ssRazingScore, ssKillAndRazingScore,
-                     ssTotalScore, ssCustomScore);
-
-function StartcraftScoreToStr(AScore: TStarcraftScore): string;
-
-type
-  { TSetScoreInstruction }
-
-  TSetScoreInstruction = class(TInstruction)
-    Player: TPlayer;
-    Score: TStarcraftScore;
-    Value: integer;
-    Mode: TSetIntegerMode;
-    constructor Create(APlayer: TPlayer; AScore: TStarcraftScore; AMode: TSetIntegerMode; AValue: integer);
-    function ToTrigEdit: string; override;
-  end;
-
-  { TSetCountdownInstruction }
-
-  TSetCountdownInstruction = class(TInstruction)
-    Value: integer;
-    Mode: TSetIntegerMode;
-    constructor Create(AMode: TSetIntegerMode; AValue: integer);
-    function ToTrigEdit: string; override;
   end;
 
   { TRandomizeIntegerInstruction }
@@ -168,28 +105,11 @@ type
     constructor Create(AValue: integer; AAction: TIntegerTransfer);
   end;
 
-  { TDisplayTextMessageInstruction }
-
-  TDisplayTextMessageInstruction = class(TInstruction)
-    Always: boolean;
-    Text: string;
-    constructor Create(AAlways: boolean; AMessage: string);
-    function ToTrigEdit: string; override;
-  end;
-
   { TPrintForAnyPlayerInstruction }
 
   TPrintForAnyPlayerInstruction = class(TInstruction)
     Msg: integer;
     constructor Create(AMsg: integer);
-  end;
-
-  { TWaitInstruction }
-
-  TWaitInstruction = class(TInstruction)
-    DelayMs: integer;
-    constructor Create(ADelayMs: integer);
-    function ToTrigEdit: string; override;
   end;
 
   { TCallInstruction }
@@ -317,6 +237,88 @@ type
     constructor Create;
   end;
 
+  /////////////////////////////////////////////////////////////////////////////////////////////
+
+  { TSetSwitchInstruction }
+
+  TSetSwitchInstruction = class(TInstruction)
+    Switch: integer;
+    Value: TSwitchValue;
+    constructor Create(ASwitch: integer; AValue: TSwitchValue);
+    function ToTrigEdit: string; override;
+  end;
+
+  { TSetDeathInstruction }
+
+  TSetDeathInstruction = class(TInstruction)
+    Player: TPlayer;
+    UnitType: string;
+    Value: integer;
+    Mode: TSetIntegerMode;
+    constructor Create(APlayer: TPlayer; AUnitType: string; AMode: TSetIntegerMode; AValue: integer);
+    function ToTrigEdit: string; override;
+  end;
+
+  TStarcraftResource = (srOre, srGas, srOreAndGas);
+
+function StarcraftResourceToStr(AResource: TStarcraftResource): string;
+
+type
+  { TSetResourceInstruction }
+
+  TSetResourceInstruction = class(TInstruction)
+    Player: TPlayer;
+    Resource: TStarcraftResource;
+    Value: integer;
+    Mode: TSetIntegerMode;
+    constructor Create(APlayer: TPlayer; AResource: TStarcraftResource; AMode: TSetIntegerMode; AValue: integer);
+    function ToTrigEdit: string; override;
+  end;
+
+  TStarcraftScore = (ssUnitScore, ssBuildingScore, ssUnitAndBuildingScore,
+                     ssKillScore, ssRazingScore, ssKillAndRazingScore,
+                     ssTotalScore, ssCustomScore);
+
+function StarcraftScoreToStr(AScore: TStarcraftScore): string;
+
+type
+  { TSetScoreInstruction }
+
+  TSetScoreInstruction = class(TInstruction)
+    Player: TPlayer;
+    Score: TStarcraftScore;
+    Value: integer;
+    Mode: TSetIntegerMode;
+    constructor Create(APlayer: TPlayer; AScore: TStarcraftScore; AMode: TSetIntegerMode; AValue: integer);
+    function ToTrigEdit: string; override;
+  end;
+
+  { TSetCountdownInstruction }
+
+  TSetCountdownInstruction = class(TInstruction)
+    Value: integer;
+    Mode: TSetIntegerMode;
+    constructor Create(AMode: TSetIntegerMode; AValue: integer);
+    function ToTrigEdit: string; override;
+  end;
+
+  { TDisplayTextMessageInstruction }
+
+  TDisplayTextMessageInstruction = class(TInstruction)
+    Always: boolean;
+    Text: string;
+    constructor Create(AAlways: boolean; AMessage: string);
+    function ToTrigEdit: string; override;
+  end;
+
+  { TWaitInstruction }
+
+  TWaitInstruction = class(TInstruction)
+    DelayMs: integer;
+    constructor Create(ADelayMs: integer);
+    function ToTrigEdit: string; override;
+  end;
+
   { TCreateUnitInstruction }
 
   TCreateUnitInstruction = class(TInstruction)
@@ -398,14 +400,16 @@ type
     function ToTrigEdit: string; override;
   end;
 
+  TUnitOrder = (uoMove, uoPatrol, uoAttack);
+
   { TOrderUnitInstruction }
 
   TOrderUnitInstruction = class(TInstruction)
     Player: TPlayer;
     UnitType, Location: string;
     DestLocation: string;
-    Order: string;
-    constructor Create(APlayer: TPlayer; AUnitType, ALocation: string; ADestLocation: string; AOrder: string);
+    Order: TUnitOrder;
+    constructor Create(APlayer: TPlayer; AUnitType, ALocation: string; ADestLocation: string; AOrder: TUnitOrder);
     function ToTrigEdit: string; override;
   end;
 
@@ -430,8 +434,8 @@ type
   { TRunAIScriptInstruction }
 
   TRunAIScriptInstruction = class(TInstruction)
-    Script, Location: string;
-    constructor Create(AScript, ALocation: string);
+    ScriptCode, Location: string;
+    constructor Create(AScriptCode, ALocation: string);
     function ToTrigEdit: string; override;
   end;
 
@@ -470,8 +474,8 @@ type
   { TLeaderBoardIncludeComputersInstruction }
 
   TLeaderBoardIncludeComputersInstruction = class(TInstruction)
-    Include: integer;
-    constructor Create(AInclude: integer);
+    Value: TUnitFlagValue;
+    constructor Create(AValue: TUnitFlagValue);
     function ToTrigEdit: string; override;
   end;
 
@@ -483,12 +487,23 @@ type
     function ToTrigEdit: string; override;
   end;
 
-  { TShowLeaderboardValueInstruction }
+  { TShowLeaderboardResourceInstruction }
 
-  TShowLeaderboardValueInstruction = class(TInstruction)
-    Text, ValueName: string;
+  TShowLeaderboardResourceInstruction = class(TInstruction)
+    Text: string;
+    Resource: TStarcraftResource;
     Goal: integer;
-    constructor Create(AText,AValueName: string; AGoal: integer = -1);
+    constructor Create(AText: string; AResource: TStarcraftResource; AGoal: integer = -1);
+    function ToTrigEdit: string; override;
+  end;
+
+  { TShowLeaderboardScoreInstruction }
+
+  TShowLeaderboardScoreInstruction = class(TInstruction)
+    Text: string;
+    Score: TStarcraftScore;
+    Goal: integer;
+    constructor Create(AText: string; AScore: TStarcraftScore; AGoal: integer = -1);
     function ToTrigEdit: string; override;
   end;
 
@@ -777,7 +792,7 @@ begin
   end;
 end;
 
-function StartcraftResourceToStr(AResource: TStarcraftResource): string;
+function StarcraftResourceToStr(AResource: TStarcraftResource): string;
 begin
   case AResource of
   srGas: result := 'gas';
@@ -786,7 +801,7 @@ begin
   end;
 end;
 
-function StartcraftScoreToStr(AScore: TStarcraftScore): string;
+function StarcraftScoreToStr(AScore: TStarcraftScore): string;
 begin
   case AScore of
   ssUnitScore: result := 'Units';
@@ -798,6 +813,49 @@ begin
   ssTotalScore: result := 'Total';
   ssCustomScore: result := 'Custom';
   end;
+end;
+
+{ TShowLeaderboardScoreInstruction }
+
+constructor TShowLeaderboardScoreInstruction.Create(AText: string;
+  AScore: TStarcraftScore; AGoal: integer);
+begin
+  Text:= AText;
+  Score:= AScore;
+  Goal:= AGoal;
+end;
+
+function TShowLeaderboardScoreInstruction.ToTrigEdit: string;
+begin
+  if Goal = -1 then
+    result := 'Leader Board Points'
+  else
+    result := 'Leaderboard Goal Points';
+  result += '(' + AddQuotes(Text) + ', ' + StarcraftScoreToStr(Score);
+  if Goal <> -1 then result += ', ' + inttostr(Goal);
+  result += ')';
+end;
+
+{ TShowLeaderboardResourceInstruction }
+
+constructor TShowLeaderboardResourceInstruction.Create(AText: string;
+  AResource: TStarcraftResource; AGoal: integer);
+begin
+  Text:= AText;
+  Resource:= AResource;
+  Goal:= AGoal;
+end;
+
+function TShowLeaderboardResourceInstruction.ToTrigEdit: string;
+begin
+  Result:=inherited ToString;
+  if Goal = -1 then
+    result := 'Leader Board Resources'
+  else
+    result := 'Leaderboard Goal Resources';
+  result += '(' + AddQuotes(Text) + ', ' + StarcraftResourceToStr(Resource);
+  if Goal <> -1 then result += ', ' + inttostr(Goal);
+  result += ')';
 end;
 
 { TSetUnitFlagInstruction }
@@ -855,7 +913,7 @@ end;
 
 function TSetScoreInstruction.ToTrigEdit: string;
 begin
-  Result:= 'Set Score("' + PlayerToStr(Player) + '", ' + SetIntegerModeToStr(Mode) + ', ' + IntToStr(Value) + ', ' + StartcraftScoreToStr(Score) + ')'
+  Result:= 'Set Score("' + PlayerToStr(Player) + '", ' + SetIntegerModeToStr(Mode) + ', ' + IntToStr(Value) + ', ' + StarcraftScoreToStr(Score) + ')'
 end;
 
 { TSetResourceInstruction }
@@ -871,7 +929,7 @@ end;
 
 function TSetResourceInstruction.ToTrigEdit: string;
 begin
-  Result:= 'Set Resources("' + PlayerToStr(Player) + '", ' + SetIntegerModeToStr(Mode) + ', ' + IntToStr(Value) + ', ' + StartcraftResourceToStr(Resource) + ')'
+  Result:= 'Set Resources("' + PlayerToStr(Player) + '", ' + SetIntegerModeToStr(Mode) + ', ' + IntToStr(Value) + ', ' + StarcraftResourceToStr(Resource) + ')'
 end;
 
 { TSetDeathInstruction }
@@ -1195,50 +1253,6 @@ begin
   result += ')';
 end;
 
-{ TShowLeaderboardValueInstruction }
-
-constructor TShowLeaderboardValueInstruction.Create(AText,AValueName: string;
-  AGoal: integer);
-begin
-  Text:= AText;
-  ValueName := AValueName;
-  Goal := AGoal;
-end;
-
-function TShowLeaderboardValueInstruction.ToTrigEdit: string;
-begin
-  Result:=inherited ToString;
-  if (CompareText(ValueName,'Minerals')=0) or
-    (CompareText(ValueName,'Ore')=0) or
-    (CompareText(ValueName,'MineralsAndGas')=0) or
-    (CompareText(ValueName,'OreAndGas')=0) or
-    (CompareText(ValueName,'Gas')=0) then
-  begin
-    if Goal = -1 then
-      result := 'Leader Board Resources'
-    else
-      result := 'Leaderboard Goal Resources';
-    result += '(' + AddQuotes(Text) + ', ';
-    if (CompareText(ValueName,'Minerals')=0) or
-    (CompareText(ValueName,'Ore')=0) then result += 'ore'
-    else if (CompareText(ValueName,'MineralsAndGas')=0) or
-    (CompareText(ValueName,'OreAndGas')=0) then result += 'ore and gas'
-    else result += 'gas';
-
-    if Goal <> -1 then result += ', ' + inttostr(Goal);
-    result += ')';
-  end else
-  begin
-    if Goal = -1 then
-      result := 'Leader Board Points'
-    else
-      result := 'Leaderboard Goal Points';
-    result += '(' + AddQuotes(Text) + ', ' + ValueName;
-    if Goal <> -1 then result += ', ' + inttostr(Goal);
-    result += ')';
-  end;
-end;
-
 { TShowLeaderboardOreAndGasIconInstruction }
 
 constructor TShowLeaderboardOreAndGasIconInstruction.Create(AAmount: integer);
@@ -1253,16 +1267,16 @@ end;
 
 { TLeaderBoardIncludeComputersInstruction }
 
-constructor TLeaderBoardIncludeComputersInstruction.Create(AInclude: integer);
+constructor TLeaderBoardIncludeComputersInstruction.Create(AValue: TUnitFlagValue);
 begin
-  Include:= AInclude;
+  Value:= AValue;
 end;
 
 function TLeaderBoardIncludeComputersInstruction.ToTrigEdit: string;
 begin
   Result:='Leaderboard Computer Players(';
-  if Include= 0 then result += 'disable'
-  else if Include=1 then result += 'enable'
+  if Value = ufvDisable then result += 'disable'
+  else if Value = ufvEnable then result += 'enable'
   else result += 'toggle';
   result += ')';
 end;
@@ -1326,9 +1340,9 @@ end;
 
 { TRunAIScriptInstruction }
 
-constructor TRunAIScriptInstruction.Create(AScript, ALocation: string);
+constructor TRunAIScriptInstruction.Create(AScriptCode, ALocation: string);
 begin
-  Script:= AScript;
+  ScriptCode:= AScriptCode;
   Location:= ALocation;
 end;
 
@@ -1336,7 +1350,7 @@ function TRunAIScriptInstruction.ToTrigEdit: string;
 begin
   Result := 'Run AI Script';
   if not IsAnywhere(Location) then Result += ' At Location';
-  Result += '(' + AddQuotes(Script);
+  Result += '(' + AddQuotes(ScriptCode);
   if not IsAnywhere(Location) then Result += ', ' + AddQuotes(Location);
   result += ')';
 end;
@@ -1644,7 +1658,7 @@ end;
 { TOrderUnitInstruction }
 
 constructor TOrderUnitInstruction.Create(APlayer: TPlayer; AUnitType,
-  ALocation: string; ADestLocation: string; AOrder: string);
+  ALocation: string; ADestLocation: string; AOrder: TUnitOrder);
 begin
   Player:= APlayer;
   UnitType:= AUnitType;
@@ -1656,7 +1670,13 @@ end;
 function TOrderUnitInstruction.ToTrigEdit: string;
 begin
   result := 'Order(' + AddQuotes(PlayerToStr(Player)) + ', '+AddQuotes(UnitType);
-  result += ', '+AddQuotes(Location)+', '+AddQuotes(DestLocation)+', ' + Order + ')';
+  result += ', '+AddQuotes(Location)+', '+AddQuotes(DestLocation)+', ';
+  case Order of
+  uoPatrol: result += 'patrol';
+  uoAttack: result += 'attack';
+  else result += 'move';
+  end;
+  result += ')';
 end;
 
 { TTeleportUnitInstruction }
@@ -1754,6 +1774,7 @@ begin
   UnitType:= AUnitType;
   Location:= ALocation;
   DeathAnimation:= ADeathAnimation;
+  If IsAnywhere(Location) then Location := AnywhereLocation;
 end;
 
 function TKillUnitInstruction.ToTrigEdit: string;

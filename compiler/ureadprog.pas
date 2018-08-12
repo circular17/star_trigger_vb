@@ -775,7 +775,7 @@ end;
 
 function TryPlayerAction(AScope: integer; AProg: TInstructionList; ALine: TStringList; var AIndex: Integer; APlayer: TPlayer; AThreads: TPlayers): boolean;
 var
-  intVal, propIndex, propVal, timeMs, varIdx, tempInt, i: integer;
+  intVal, propIndex, propVal, timeMs, tempInt, i: integer;
   unitType, locStr, destLocStr, orderStr, filename, text: String;
   boolVal, textDefined: boolean;
   destPl: TPlayer;
@@ -787,6 +787,7 @@ var
   expr: TExpression;
   subInstr: TInstructionList;
   players: TPlayers;
+  unitOrder: TUnitOrder;
 
   procedure CheckCurrentPlayer;
   begin
@@ -961,14 +962,16 @@ begin
     if TryToken(ALine,AIndex,'MoveOrder') or TryToken(ALine,AIndex,'PatrolOrder') or TryToken(ALine,AIndex,'AttackOrder') then
     begin
       orderStr := ALine[AIndex-1];
-      orderStr := lowercase(copy(orderStr,1,length(orderStr)-5));
-       if intVal <> -1 then
-         raise exception.Create('Cannot specify quantity for an order (use All quantity instead)');
-       ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectString(AScope,ALine,AIndex);
-       ExpectToken(ALine,AIndex,')');
+      if compareText(orderStr,'PatrolOrder')=0 then unitOrder := uoPatrol
+      else if compareText(orderStr,'AttackOrder')=0 then unitOrder := uoAttack
+      else unitOrder := uoMove;
 
-       AProg.Add(TOrderUnitInstruction.Create(APlayer, unitType, locStr, destLocStr, orderStr));
+      if intVal <> -1 then
+        raise exception.Create('Cannot specify quantity for an order (use All quantity instead)');
+      ExpectToken(ALine,AIndex,'(');
+      destLocStr := ExpectString(AScope,ALine,AIndex);
+      ExpectToken(ALine,AIndex,')');
+      AProg.Add(TOrderUnitInstruction.Create(APlayer, unitType, locStr, destLocStr, unitOrder));
     end else
     if TryToken(ALine,AIndex,'Kill') then
     begin
@@ -1081,12 +1084,12 @@ begin
         ExpectToken(ALine,AIndex,'=');
         conds := ExpectConditions(AScope,ALine,AIndex,AThreads);
         AppendConditionalInstruction(AProg, conds,
-          TLeaderBoardIncludeComputersInstruction.Create(1),
-          TLeaderBoardIncludeComputersInstruction.Create(0));
+          TLeaderBoardIncludeComputersInstruction.Create(ufvEnable),
+          TLeaderBoardIncludeComputersInstruction.Create(ufvDisable));
       end else
       if TryToken(ALine,AIndex,'ToggleComputers') then
       begin
-        AProg.Add(TLeaderBoardIncludeComputersInstruction.Create(-1));
+        AProg.Add(TLeaderBoardIncludeComputersInstruction.Create(ufvToggle));
       end else
       if TryToken(ALine,AIndex,'Show') then
       begin
@@ -1107,32 +1110,67 @@ begin
             end;
             AProg.Add(TShowLeaderboardOreAndGasIconInstruction.Create(intVal));
           end else
-            AProg.Add(TShowLeaderboardValueInstruction.Create('Minerals and gas','OreAndGas',-1));
+            AProg.Add(TShowLeaderboardResourceInstruction.Create('minerals and gas', srOreAndGas,-1));
         end else
         begin
           if TryInteger(AScope,ALine,AIndex,intVal) then
             ExpectToken(ALine,AIndex,'-')
           else intVal := -1;
 
-          if TryToken(ALine,AIndex,'MineralsAndGas') or
-            TryToken(ALine,AIndex,'OreAndGas') or
-            TryToken(ALine,AIndex,'Gas') or
-            TryToken(ALine,AIndex,'Minerals') or
-            TryToken(ALine,AIndex,'Ore') then
+          if TryToken(ALine,AIndex,'MineralsAndGas') or TryToken(ALine,AIndex,'OreAndGas') then
           begin
-            varIdx := IntArrayIndexOf(AScope,ALine[AIndex-1]);
-            if varIdx = -1 then raise exception.Create('Unable to find variable');
-            if not textDefined then text := LowerCase(IntArrays[varIdx].UnitType);
-            AProg.Add(TShowLeaderboardValueInstruction.Create(text, IntArrays[varIdx].UnitType, intVal));
+            if not textDefined then text := 'minerals and gas';
+            AProg.Add(TShowLeaderboardResourceInstruction.Create(text, srOreAndGas, intVal));
           end else
-          if TryToken(ALine,AIndex,'TotalScore') or TryToken(ALine,AIndex,'CustomScore') or
-            TryToken(ALine,AIndex,'UnitScore') or TryToken(ALine,AIndex,'BuildingScore') or TryToken(ALine,AIndex,'UnitAndBuildingScore')  or
-            TryToken(ALine,AIndex,'KillScore') or TryToken(ALine,AIndex,'RazingScore') or TryToken(ALine,AIndex,'KillAndRazingScore') then
+          if TryToken(ALine,AIndex,'Minerals') or TryToken(ALine,AIndex,'Ore') then
           begin
-            varIdx := IntArrayIndexOf(AScope,ALine[AIndex-1]);
-            if varIdx = -1 then raise exception.Create('Unable to find variable');
-            if not textDefined then text := LowerCase(IntArrays[varIdx].UnitType);
-            AProg.Add(TShowLeaderboardValueInstruction.Create(text, copy(IntArrays[varIdx].UnitType,1,length(IntArrays[varIdx].UnitType)-6), intVal));
+            if not textDefined then text := 'minerals';
+            AProg.Add(TShowLeaderboardResourceInstruction.Create(text, srOre, intVal));
+          end else
+          if TryToken(ALine,AIndex,'Gas') then
+          begin
+            if not textDefined then text := 'gas';
+            AProg.Add(TShowLeaderboardResourceInstruction.Create(text, srGas, intVal));
+          end else
+          if TryToken(ALine,AIndex,'UnitScore') then
+          begin
+            if not textDefined then text := 'unit score';
+            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssUnitScore, intVal));
+          end else
+          if TryToken(ALine,AIndex,'BuildingScore') then
+          begin
+            if not textDefined then text := 'building score';
+            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssBuildingScore, intVal));
+          end else
+          if TryToken(ALine,AIndex,'UnitAndBuildingScore') then
+          begin
+            if not textDefined then text := 'unit and building score';
+            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssUnitAndBuildingScore, intVal));
+          end else
+          if TryToken(ALine,AIndex,'KillScore') then
+          begin
+            if not textDefined then text := 'kill score';
+            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssKillScore, intVal));
+          end else
+          if TryToken(ALine,AIndex,'RazingScore') then
+          begin
+            if not textDefined then text := 'razing score';
+            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssRazingScore, intVal));
+          end else
+          if TryToken(ALine,AIndex,'KillAndRazingScore') then
+          begin
+            if not textDefined then text := 'kill and razing score';
+            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssKillAndRazingScore, intVal));
+          end else
+          if TryToken(ALine,AIndex,'TotalScore') then
+          begin
+            if not textDefined then text := 'total score';
+            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssTotalScore, intVal));
+          end else
+          if TryToken(ALine,AIndex,'CustomScore') then
+          begin
+            if not textDefined then text := 'custom score';
+            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssCustomScore, intVal));
           end else
           if TryToken(ALine,AIndex,'KillCount') then
           begin

@@ -56,7 +56,7 @@ var HyperTriggers: boolean;
 
 implementation
 
-uses uparsevb, uvariables, uexpressions, uparseconditions;
+uses uparsevb, uvariables, uexpressions, uparseconditions, utriggerinstructions;
 
 function TryUnitProperties(AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
 var idx, intVal: integer;

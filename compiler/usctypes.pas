@@ -10,6 +10,11 @@ uses
 type
   TSwitchValue = (svClear, svSet, svRandomize, svToggle);
   ArrayOfSwitchValue = array of TSwitchValue;
+  TSetIntegerMode = (simSetTo, simAdd, simSubtract);
+  TStarcraftScore = (ssUnitScore, ssBuildingScore, ssUnitAndBuildingScore,
+                   ssKillScore, ssRazingScore, ssKillAndRazingScore,
+                   ssTotalScore, ssCustomScore);
+  TStarcraftResource = (srOre, srGas, srOreAndGas);
 
 const
   BoolToSwitch : array[Boolean] of TSwitchValue = (svClear, svSet);

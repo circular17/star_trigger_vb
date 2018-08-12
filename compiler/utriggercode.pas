@@ -5,7 +5,7 @@ unit utriggercode;
 interface
 
 uses
-  Classes, SysUtils, fgl, uinstructions, usctypes;
+  Classes, SysUtils, fgl, uinstructions, utriggerinstructions, usctypes;
 
 const
   MaxStackSize = 6;
@@ -26,7 +26,7 @@ procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: TCond
                     AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer = 0);
 
 function NewIP: integer;
-function SetNextIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TInstruction;
+function SetNextIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TTriggerInstruction;
 function CheckIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCondition;
 
 function NewSysIP: integer;
@@ -57,9 +57,9 @@ begin
   result := CurIPValue;
 end;
 
-function SetNextIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TInstruction;
+function SetNextIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TTriggerInstruction;
 begin
-  result := TSetIntegerInstruction.Create(APlayer, IntArrays[IPVar].UnitType, simSetTo, AValue);
+  result := TSetDeathInstruction.Create(APlayer, IntArrays[IPVar].UnitType, simSetTo, AValue);
 end;
 
 function CheckIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCondition;
@@ -439,7 +439,10 @@ begin
       WriteProg(AOutput, APlayers, [], AProg, NextIP, AReturnIP, APreserve, ATempPreserve, j, ALastInstr);
       exit;
     end;
-    instrStr[instrCount] := AProg[i].ToString;
+    if not (AProg[i] is TTriggerInstruction) then
+      raise exception.Create('Expecting trigger instruction')
+    else
+      instrStr[instrCount] := TTriggerInstruction(AProg[i]).ToTrigEditAndFree;
     inc(instrCount);
   end;
 

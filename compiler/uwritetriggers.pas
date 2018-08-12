@@ -12,7 +12,8 @@ procedure WriteUnitProperties(AFilename: string);
 
 implementation
 
-uses utriggercode, uarithmetic, ureadprog, uinstructions, uvariables, uparsevb, uexpressions;
+uses utriggercode, uarithmetic, ureadprog, uinstructions, uvariables, uparsevb,
+  uexpressions, utriggerinstructions;
 
 var
   HyperWaitVar: integer;
@@ -422,7 +423,7 @@ begin
     if expanded[i] is TSetIntegerInstruction then
     begin
       setInt := TSetIntegerInstruction(expanded[i]);
-      expanded[i] := setInt.ConvertToSpecificInstruction;
+      expanded[i] := ConvertSetIntegerInstructionIntoTriggerInstruction(setInt);
       setInt.Free;
     end;
 

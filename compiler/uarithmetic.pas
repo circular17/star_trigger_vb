@@ -31,7 +31,7 @@ procedure ReleaseTempBool(ASwitch: integer);
 
 implementation
 
-uses utriggercode, uvariables, math;
+uses utriggercode, uvariables, math, utriggerinstructions;
 
 function AllocateTempBool: integer;
 var

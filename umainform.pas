@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, SynEdit, SynHighlighterVB, SynCompletion, Forms,
-  Controls, Graphics, Dialogs, StdCtrls, ComCtrls, ActnList, ExtCtrls, usctypes;
+  Controls, Graphics, Dialogs, StdCtrls, ComCtrls, ActnList, ExtCtrls;
 
 type
 
@@ -14,27 +14,43 @@ type
 
   TFMain = class(TForm)
     CancelChanges: TAction;
+    Errors: TLabel;
+    Label1: TLabel;
+    ListBox_Locations: TListBox;
     ListBox_Errors: TListBox;
+    Panel_Locations: TPanel;
+    Panel_Utils: TPanel;
+    Panel_Code: TPanel;
+    Panel_Errors: TPanel;
+    Splitter1: TSplitter;
+    Splitter2: TSplitter;
     SynCompletion1: TSynCompletion;
+    SynEdit1: TSynEdit;
     SynVBSyn1: TSynVBSyn;
     Timer1: TTimer;
     ToolButton2: TToolButton;
     ValidateChanges: TAction;
     ActionList1: TActionList;
     ImageList1: TImageList;
-    SynEdit1: TSynEdit;
     ToolBar1: TToolBar;
     ToolButton1: TToolButton;
     procedure CancelChangesExecute(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
+    procedure ListBox_ErrorsDblClick(Sender: TObject);
+    procedure ListBox_LocationsDblClick(Sender: TObject);
     procedure SynCompletion1SearchPosition(var APosition: integer);
+    procedure SynEdit1Change(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
     procedure ValidateChangesExecute(Sender: TObject);
   private
 
   public
     AllCompletion: TStringList;
+    ErrorsToUpdate: boolean;
+    procedure ClearLocations;
+    procedure UpdateAutoCompleteList;
+    procedure AddLocation(AName: string; AIsText: boolean);
   end;
 
 var
@@ -42,7 +58,7 @@ var
 
 implementation
 
-uses ureadprog, uparsevb, uvariables;
+uses ureadprog, uparsevb, uvariables, usctypes;
 
 {$R *.lfm}
 
@@ -52,41 +68,16 @@ begin
   ModalResult:= mrOK;
 end;
 
-procedure TFMain.CancelChangesExecute(Sender: TObject);
+procedure TFMain.ClearLocations;
 begin
-  ModalResult := mrCancel;
+  ListBox_Locations.Items.Clear;
 end;
 
-procedure TFMain.FormCreate(Sender: TObject);
-begin
-  AllCompletion := TStringList.Create;
-end;
-
-procedure TFMain.FormDestroy(Sender: TObject);
-begin
-  AllCompletion.Free;
-end;
-
-procedure TFMain.SynCompletion1SearchPosition(var APosition: integer);
+procedure TFMain.UpdateAutoCompleteList;
 var
-  i: Integer;
-  cur: String;
-begin
-  cur := SynCompletion1.CurrentString;
-  SynCompletion1.ItemList.Clear;
-  for i := 0 to AllCompletion.Count-1 do
-    if CompareText(cur, copy(AllCompletion[i],1,length(cur)))= 0 then
-      SynCompletion1.ItemList.Add(AllCompletion[i]);
-  if AllCompletion.Count >0 then APosition:= 0
-    else APosition:= -1;
-end;
-
-procedure TFMain.Timer1Timer(Sender: TObject);
-var
-  MainThread, pl: TPlayer;
-  i: Integer;
-  success: Boolean;
   programUpToCursor: TStringList;
+  i: Integer;
+  MainThread, pl: TPlayer;
 begin
   //partial program for autocompletion
   programUpToCursor:= TStringList.Create;
@@ -123,25 +114,113 @@ begin
   for pl := low(TPlayer) to high(TPlayer) do
     if PlayerIdentifiers[pl]<>'' then
       AllCompletion.Add(PlayerIdentifiers[pl]);
+end;
 
-  //full program for validation
-  success := ureadprog.ReadProg(SynEdit1.Lines, MainThread);
+procedure TFMain.AddLocation(AName: string; AIsText: boolean);
+begin
+  if AIsText then AName := '"'+StringReplace(AName,'"','""',[rfReplaceAll])+'"';
+  ListBox_Locations.Items.Add(AName);
+end;
 
-  //update error list
-  ListBox_Errors.Items.BeginUpdate;
-  for i := 0 to ReadProgErrors.Count-1 do
-    if ListBox_Errors.Items.IndexOf(ReadProgErrors[i])=-1 then
-      ListBox_Errors.Items.Add(ReadProgErrors[i]);
-  for i := ListBox_Errors.Items.Count-1 downto 0 do
-    if ReadProgErrors.IndexOf(ListBox_Errors.Items[i])=-1 then
-      ListBox_Errors.Items.Delete(i);
-  ListBox_Errors.Items.EndUpdate;
+procedure TFMain.CancelChangesExecute(Sender: TObject);
+begin
+  ModalResult := mrCancel;
+end;
 
-  if success then
+procedure TFMain.FormCreate(Sender: TObject);
+var
+  i: Integer;
+begin
+  AllCompletion := TStringList.Create;
+  AddLocation('Anywhere', False);
+  for i := 1 to 99 do
+    AddLocation('Location '+inttostr(i), True);
+  ErrorsToUpdate:= true;
+end;
+
+procedure TFMain.FormDestroy(Sender: TObject);
+begin
+  AllCompletion.Free;
+end;
+
+procedure TFMain.ListBox_ErrorsDblClick(Sender: TObject);
+var lineNumber,errPos: integer;
+  err: String;
+begin
+  if ListBox_Errors.ItemIndex <> -1 then
   begin
-    if MainThread = plNone then MainThread := plPlayer8;
+    err := ListBox_Errors.Items[ListBox_Errors.ItemIndex];
+    if copy(err,1,5) = 'Line ' then
+    begin
+      val(copy(err,6,pos(':',err)-6), lineNumber, errPos);
+      if errPos = 0 then
+      begin
+        SynEdit1.CaretY := lineNumber;
+        SynEdit1.SetFocus;
+      end;
+    end;
   end;
-    {uwritetriggers.WriteTriggers('prog.trigger', MainThread);
+end;
+
+procedure TFMain.ListBox_LocationsDblClick(Sender: TObject);
+begin
+  if ListBox_Locations.ItemIndex <> -1 then
+  begin
+    SynEdit1.InsertTextAtCaret(ListBox_Locations.Items[ListBox_Locations.ItemIndex]);
+    SynEdit1.SetFocus;
+  end;
+end;
+
+procedure TFMain.SynCompletion1SearchPosition(var APosition: integer);
+var
+  i: Integer;
+  cur: String;
+begin
+  UpdateAutocompleteList;
+
+  cur := SynCompletion1.CurrentString;
+  SynCompletion1.ItemList.Clear;
+  for i := 0 to AllCompletion.Count-1 do
+    if CompareText(cur, copy(AllCompletion[i],1,length(cur)))= 0 then
+      SynCompletion1.ItemList.Add(AllCompletion[i]);
+  if AllCompletion.Count >0 then APosition:= 0
+    else APosition:= -1;
+end;
+
+procedure TFMain.SynEdit1Change(Sender: TObject);
+begin
+  ErrorsToUpdate:= true;
+end;
+
+procedure TFMain.Timer1Timer(Sender: TObject);
+var
+  MainThread: TPlayer;
+  i: Integer;
+  success: Boolean;
+begin
+  if ErrorsToUpdate then
+  begin
+    ErrorsToUpdate := false;
+
+    //full program for validation
+    success := ureadprog.ReadProg(SynEdit1.Lines, MainThread);
+
+    //update error list
+    ListBox_Errors.Items.BeginUpdate;
+    for i := 0 to ReadProgErrors.Count-1 do
+      if ListBox_Errors.Items.IndexOf(ReadProgErrors[i])=-1 then
+        ListBox_Errors.Items.Add(ReadProgErrors[i]);
+    for i := ListBox_Errors.Items.Count-1 downto 0 do
+      if ReadProgErrors.IndexOf(ListBox_Errors.Items[i])=-1 then
+        ListBox_Errors.Items.Delete(i);
+    ListBox_Errors.Items.EndUpdate;
+
+    if success then
+    begin
+      if MainThread = plNone then MainThread := plPlayer8;
+    end;
+  end;
+      {uwritetriggers.WriteTriggers('prog.trigger', MainThread);
     uwritetriggers.WriteUnitProperties('prog.property');}
 end;
 

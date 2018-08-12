@@ -8,7 +8,7 @@ uses
   Classes, SysUtils, uscmdrafttypes;
 
 const
-  PluginMenu = 'StarBasic progam';
+  PluginMenu = 'BroodBasic program';
 
 type
 

@@ -15,7 +15,7 @@ function RunMyPlugin(const Context: TPluginContext): boolean;
 
 implementation
 
-uses Forms, Interfaces, Windows, umainform;
+uses Forms, Interfaces, Windows, umainform, uinstructions;
 
 function InitMyPlugin(RequestedSections: PRequestedMenuSections): boolean;
 begin
@@ -34,7 +34,7 @@ end;
 
 function RunMyPlugin(const Context: TPluginContext): boolean;
 
-  procedure DumpChunk(AChunk: PChunkData; AName: string);
+{  procedure DumpChunk(AChunk: PChunkData; AName: string);
   var
     dump: file;
   begin
@@ -42,20 +42,27 @@ function RunMyPlugin(const Context: TPluginContext): boolean;
     rewrite(dump,1);
     BlockWrite(dump, AChunk^.Data^, AChunk^.Size);
     closefile(dump);
-  end;
+  end;}
 
 var
   fMain: TFMain;
+  i: Integer;
 begin
   if Context.Section = 'GIRT' then
   begin
-    DumpChunk(Context.Triggers, 'triggers');
+{    DumpChunk(Context.Triggers, 'triggers');
     DumpChunk(Context.UnitProperties, 'unitprop');
-    DumpChunk(Context.UnitPropUsage, 'unitpropuse');
+    DumpChunk(Context.UnitPropUsage, 'unitpropuse');}
 
     fMain := TFMain.Create(nil);
     try
       fMain.Position := poDefault;
+      fMain.ClearLocations;
+      AnywhereLocation := Context.GetLocationName(ANYWHERE_LOCATION);
+      fMain.AddLocation('Anywhere', False);
+      for i := MIN_LOCATION to MAX_LOCATION do
+        if (i <> ANYWHERE_LOCATION) and Context.LocationExists(i) then
+          fMain.AddLocation(Context.GetLocationName(i), True);
       fMain.ShowModal;
     except
       on ex: Exception do

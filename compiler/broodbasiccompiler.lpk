@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <Package Version="4">
+    <PathDelim Value="\"/>
+    <Name Value="broodbasiccompiler"/>
+    <Type Value="RunAndDesignTime"/>
+    <CompilerOptions>
+      <Version Value="11"/>
+      <PathDelim Value="\"/>
+      <SearchPaths>
+        <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
+      </SearchPaths>
+    </CompilerOptions>
+    <Version Minor="1"/>
+    <Files Count="10">
+      <Item1>
+        <Filename Value="uarithmetic.pas"/>
+        <UnitName Value="uarithmetic"/>
+      </Item1>
+      <Item2>
+        <Filename Value="uexpressions.pas"/>
+        <UnitName Value="uexpressions"/>
+      </Item2>
+      <Item3>
+        <Filename Value="uinstructions.pas"/>
+        <UnitName Value="uinstructions"/>
+      </Item3>
+      <Item4>
+        <Filename Value="uparseconditions.pas"/>
+        <UnitName Value="uparseconditions"/>
+      </Item4>
+      <Item5>
+        <Filename Value="uparsevb.pas"/>
+        <UnitName Value="uparsevb"/>
+      </Item5>
+      <Item6>
+        <Filename Value="ureadprog.pas"/>
+        <UnitName Value="ureadprog"/>
+      </Item6>
+      <Item7>
+        <Filename Value="usctypes.pas"/>
+        <UnitName Value="usctypes"/>
+      </Item7>
+      <Item8>
+        <Filename Value="utriggercode.pas"/>
+        <UnitName Value="utriggercode"/>
+      </Item8>
+      <Item9>
+        <Filename Value="uvariables.pas"/>
+        <UnitName Value="uvariables"/>
+      </Item9>
+      <Item10>
+        <Filename Value="uwritetriggers.pas"/>
+        <UnitName Value="uwritetriggers"/>
+      </Item10>
+    </Files>
+    <RequiredPkgs Count="1">
+      <Item1>
+        <PackageName Value="FCL"/>
+      </Item1>
+    </RequiredPkgs>
+    <UsageOptions>
+      <UnitPath Value="$(PkgOutDir)"/>
+    </UsageOptions>
+    <PublishOptions>
+      <Version Value="2"/>
+    </PublishOptions>
+  </Package>
+</CONFIG>

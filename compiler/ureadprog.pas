@@ -1607,7 +1607,10 @@ begin
         params.Free;
       end else
       if scalar.VarType = svtNone then
-        raise exception.Create('Unknown instruction "' + name + '"')
+      begin
+        if name = '' then raise exception.Create('Expecting identifier')
+        else raise exception.Create('Unknown variable "' + name + '"')
+      end
       else
         raise exception.Create('Expecting assignment');
     end;
@@ -1697,7 +1700,7 @@ var
       begin
         s := ReadOneLine;
         extraLine := ParseLine(s);
-        if (extraLine.Count > 0) and (CompareText(extraLine[0],'End') = 0) then
+        if (extraLine.Count > 0) and (CompareText(extraLine[0],'End') <> 0) then
         begin
           line.AddStrings(extraLine);
           extraLine.Free;
@@ -1767,10 +1770,10 @@ begin
 
   while not Eof and (errorCount < 3) do
   begin
-    ReadNextLine;
-    if line.Count = 0 then continue;
-
     try
+      ReadNextLine;
+      if line.Count = 0 then continue;
+
       if TryToken(line,index,'Dim') or TryToken(line,index,'Const') then
       begin
         if inEvent <> -1 then

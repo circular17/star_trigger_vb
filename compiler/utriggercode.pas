@@ -85,7 +85,7 @@ begin
     if pl in APlayers then
     begin
       if not firstPl then s += ',';
-      s += '"' + PlayerToStr(pl) + '"';
+      s += '"' + PlayerToTrigEditStr(pl) + '"';
       firstPl:= false;
     end;
   s += '){';

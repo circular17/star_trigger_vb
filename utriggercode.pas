@@ -225,7 +225,9 @@ var
   var j,sub: integer;
   begin
     result := ADepth;
-    if ADepth = MaxStackSize then exit;
+    if Procedures[AProc].StackChecked then raise exception.Create('Recursive calls not allowed (' + Procedures[AProc].Name + ')');
+    Procedures[AProc].StackChecked := true;
+    if ADepth = MaxStackSize+1 then exit;
 
     with Procedures[AProc] do
       for j := 0 to Calls.Count-1 do
@@ -245,6 +247,12 @@ begin
   begin
     depth := GetDepthRec(i, 1);
     if depth > StackSize then StackSize:= depth;
+  end;
+
+  if StackSize > MaxStackSize then
+  begin
+    Writeln('Warning: calls will exceed stack size');
+    StackSize := MaxStackSize;
   end;
 
   for i := 1 to StackSize do

@@ -1,14 +1,14 @@
-- fonctions avec parametres (pb recursivite)
+- fonctions avec parametres
 - templates (string array)
 - simple do - loop until
 - simple for step next
 - elseif, select case
-
 - indexation par variable
-- editeur avec syntax highlighting
+- memory leaks
 
 - variable in any death count
 - xor booleen
 - division
 - procedure transmission
+- resursivité
 

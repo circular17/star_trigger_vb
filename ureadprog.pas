@@ -8,6 +8,7 @@ uses
   Classes, SysUtils, uinstructions, fgl, usctypes;
 
 function ReadProg(AFilename: string; out AMainThread: TPlayer): boolean;
+function ReadProg(ALines: TStrings; out AMainThread: TPlayer): boolean;
 
 type
   TIntegerList = specialize TFPGList<Integer>;
@@ -24,7 +25,7 @@ var
     StartIP: integer;
     ReturnType: string;
     ReturnBitCount: integer;
-    Done: boolean;
+    Expanded, StackChecked: boolean;
     Calls: TIntegerList;
     ExprTempVarInt: integer;
     InnerScope: integer;
@@ -45,6 +46,9 @@ var
     InnerScope: integer;
   end;
   EventCount: integer;
+
+  ReadProgErrors: TStringList;
+  LastScope: integer;
 
 function CreateEvent(APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
 
@@ -217,7 +221,8 @@ begin
     StartIP := -1;
     ReturnType := AReturnType;
     ReturnBitCount:= GetBitCountOfType(AReturnType);
-    Done := false;
+    Expanded := false;
+    StackChecked := false;
     Calls := TIntegerList.Create;
     ExprTempVarInt := -1;
     InnerScope := result+2;
@@ -399,7 +404,7 @@ begin
     raise exception.Create('End of line expected');
 end;
 
-procedure ProcessDim(AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0: boolean);
+procedure ProcessDim(AScope: integer; ALineNumber: integer; ALine: TStringList; AProg: TInstructionList; AInit0: boolean);
 var
   index: Integer;
   varName, varType, filename, text: String;
@@ -495,6 +500,9 @@ begin
   end;
 
   index := 1;
+  if index >= ALine.Count then
+    raise exception.Create('Variable name expected');
+
   while index < ALine.Count do
   begin
     if index > 1 then ExpectToken(ALine,index,',');
@@ -655,7 +663,7 @@ begin
         if TryIntegerConstant(AScope,ALine,index,intVal) then
         begin
           bitCount := BitCountNeededFor(intVal);
-          if not Constant then Writeln('Warning: assuming ', bitCount, ' bit value for ', varName);
+          if not Constant then ReadProgErrors.Add('Line ' + inttostr( ALineNumber) + ': assuming ' + inttostr( bitCount) + ' bit value for "' + varName + '". Please specify integer type (Byte, UInt16, UInt24)');
           SetupIntVar(CreateIntVar(AScope,varName, intVal, bitCount, false, Constant));
         end
         else if TryToken(ALine,index,'Rnd') then
@@ -692,13 +700,13 @@ begin
   end;
 end;
 
-procedure ProcessDim(AScope: integer; ADeclaration: string; AProg: TInstructionList; AInit0: boolean);
+procedure ProcessDim(AScope: integer; ALineNumber: integer; ADeclaration: string; AProg: TInstructionList; AInit0: boolean);
 var
   line: TStringList;
 begin
   line := ParseLine(ADeclaration);
   try
-    ProcessDim(AScope, line, AProg, AInit0);
+    ProcessDim(AScope, ALineNumber, line, AProg, AInit0);
   finally
     line.Free;
   end;
@@ -1392,6 +1400,8 @@ begin
         case scalar.VarType of
         svtInteger: begin
             expr := TryExpression(AScope,ALine, index, true);
+            if expr = nil then
+              raise exception.Create('Unhandled case');
             expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simSetTo);
             expr.Free;
           end;
@@ -1576,7 +1586,11 @@ begin
             if params.Count > 0 then ExpectToken(ALine,index,',');
             if TryToken(ALine,index,',') then
               raise exception.Create('Empty parameters not allowed');
-            params.Add(ALine[index]);
+            if index < ALine.Count then
+              params.Add(ALine[index])
+            else
+              raise exception.Create('Parameter expected but end of line found');
+
             inc(index);
           end;
         end;
@@ -1617,32 +1631,83 @@ end;
 
 function ReadProg(AFilename: string; out AMainThread: TPlayer): boolean;
 var
-  t: TextFile;
+  lines: TStringList;
+begin
+  lines := TStringList.Create;
+  lines.LoadFromFile(AFilename);
+  try
+    result := ReadProg(lines, AMainThread);
+  finally
+    lines.free;
+  end;
+end;
+
+procedure ClearProceduresAndEvents;
+var
+  i: Integer;
+begin
+  for i := 0 to ProcedureCount-1 do
+    with Procedures[i] do
+    begin
+      Instructions.FreeAll;
+      Calls.Free;
+    end;
+  ProcedureCount:= 0;
+
+  for i := 0 to EventCount-1 do
+    with Events[i] do
+    begin
+      Instructions.FreeAll;
+      Conditions.FreeAll;
+    end;
+  EventCount:= 0;
+end;
+
+function ReadProg(ALines: TStrings; out AMainThread: TPlayer): boolean;
+var
   line: TStringList;
   index: integer;
   lineNumber: integer;
+
+  function ReadOneLine: string;
+  begin
+    result := ALines[lineNumber];
+    inc(lineNumber);
+  end;
+
+  function EOF: boolean;
+  begin
+    result := lineNumber >= ALines.Count;
+  end;
 
   procedure ReadNextLine;
   var s, lastToken: string;
     extraLine: TStringList;
   begin
-    ReadLn(t, s);
-    inc(lineNumber);
+    s := ReadOneLine;
     if Assigned(line) then FreeAndNil(line);
     line := ParseLine(s);
     index := 0;
-    while not Eof(t) and (line.Count > 0) do
+    while not EOF and (line.Count > 0) do
     begin
       lastToken := line[line.Count-1];
       if (lastToken = '&') or (lastToken = '+') or (lastToken = '-') or (lastToken = '*') or (lastToken = '\')
        or (lastToken = '=') or (lastToken = ',')
        or (CompareText(lastToken,'Or')=0) or (CompareText(lastToken,'And')=0) or (CompareText(lastToken,'Xor')=0) then
       begin
-        readln(t, s);
-        inc(lineNumber);
+        s := ReadOneLine;
         extraLine := ParseLine(s);
-        line.AddStrings(extraLine);
-        extraLine.Free;
+        if (extraLine.Count > 0) and (CompareText(extraLine[0],'End') = 0) then
+        begin
+          line.AddStrings(extraLine);
+          extraLine.Free;
+        end
+        else
+        begin
+          extraline.Free;
+          dec(lineNumber);
+          break;
+        end;
       end else break;
     end;
   end;
@@ -1660,8 +1725,9 @@ var
   doPlayers: TPlayers;
   players: TPlayers;
   pl: TPlayer;
-
 begin
+  ReadProgErrors.Clear;
+  ClearProceduresAndEvents;
   AMainThread := plNone;
 
   HyperTriggers := false;
@@ -1682,13 +1748,11 @@ begin
   PredefineIntArray(GlobalScope,'CustomScore','Custom Score',24);
   PredefineIntArray(GlobalScope,'TotalScore','Total Score',24);
   PredefineIntVar(GlobalScope,'Countdown', plNone, 'Countdown',16);
-  ProcessDim(GlobalScope,'Const vbCr = Chr(13)',MainProg, False);
-  ProcessDim(GlobalScope,'Const vbLf = Chr(10)',MainProg, False);
-  ProcessDim(GlobalScope,'Const vbTab = Chr(9)',MainProg, False);
-  ProcessDim(GlobalScope,'Const vbCrLf = vbCr & vbLf',MainProg, False);
+  ProcessDim(GlobalScope,0,'Const vbCr = Chr(13)',MainProg, False);
+  ProcessDim(GlobalScope,0,'Const vbLf = Chr(10)',MainProg, False);
+  ProcessDim(GlobalScope,0,'Const vbTab = Chr(9)',MainProg, False);
+  ProcessDim(GlobalScope,0,'Const vbCrLf = vbCr & vbLf',MainProg, False);
 
-  AssignFile(t, AFilename);
-  Reset(t);
   lineNumber:= 0;
   line := nil;
 
@@ -1699,8 +1763,9 @@ begin
   subNewDeclared := false;
   inDoAs := false;
   doPlayers := [];
+  LastScope := GlobalScope;
 
-  while not Eof(t) and (errorCount < 3) do
+  while not Eof and (errorCount < 3) do
   begin
     ReadNextLine;
     if line.Count = 0 then continue;
@@ -1709,13 +1774,13 @@ begin
       if TryToken(line,index,'Dim') or TryToken(line,index,'Const') then
       begin
         if inEvent <> -1 then
-          ProcessDim(Events[inEvent].InnerScope,line, Events[inEvent].Instructions, true)
+          ProcessDim(Events[inEvent].InnerScope,lineNumber, line, Events[inEvent].Instructions, true)
         else if inSub <> -1 then
-          ProcessDim(Procedures[inSub].InnerScope,line, Procedures[inSub].Instructions, true)
+          ProcessDim(Procedures[inSub].InnerScope,lineNumber,line, Procedures[inSub].Instructions, true)
         else if inSubNew then
-          ProcessDim(SubNewScope, line, MainProg, false)
+          ProcessDim(SubNewScope, lineNumber,line, MainProg, false)
         else
-          ProcessDim(GlobalScope, line, MainProg, false);
+          ProcessDim(GlobalScope, lineNumber,line, MainProg, false);
       end
       else if TryToken(line,index, 'Sub') or TryToken(line,index,'Function') then
       begin
@@ -1762,7 +1827,7 @@ begin
           index := 0;
         end else
         begin
-          if eof(t) then raise exception.Create('End of file not expected');
+          if eof then raise exception.Create('End of file not expected');
           ReadNextLine;
         end;
 
@@ -1909,60 +1974,54 @@ begin
     except
       on ex:Exception do
       begin
-        writeln('Line ', lineNumber, ': ', ex.Message);
+        ReadProgErrors.Add('Line ' + inttostr( lineNumber) + ': ' + ex.Message);
         errorCount += 1;
       end;
     end;
   end;
 
   line.Free;
-  CloseFile(t);
 
   if inSub<>-1 then
   begin
-    writeln('End of file: Sub or Function not finished');
+    ReadProgErrors.Add('Line ' + inttostr( lineNumber) + ': Sub or Function not finished');
     Inc(errorCount);
+    LastScope:= Procedures[inSub].InnerScope;
   end;
 
   if inEvent<>-1 then
   begin
-    writeln('End of file: event not finished');
+    ReadProgErrors.Add('Line ' + inttostr( lineNumber) + ': event not finished');
     Inc(errorCount);
+    LastScope:= Events[inEvent].InnerScope;
+  end;
+
+  if inSubNew then
+  begin
+    ReadProgErrors.Add('Line ' + inttostr( lineNumber) + ': Sub not finished');
+    Inc(errorCount);
+    LastScope:= SubNewScope;
   end;
 
   result := errorCount = 0;
 end;
 
-var i,j: integer;
+var i: integer;
 
 initialization
 
   MainProg := TInstructionList.Create;
+  ReadProgErrors := TStringList.Create;
 
 finalization
 
   for i := 0 to MainProg.Count-1 do
     MainProg[i].Free;
 
+  ReadProgErrors.Free;
   MainProg.Free;
 
-  for i := 0 to ProcedureCount-1 do
-    with Procedures[i] do
-    begin
-      for j := 0 to Instructions.Count-1 do
-        Instructions[j].Free;
-      Instructions.Free;
-      Calls.Free;
-    end;
-
-  for i := 0 to EventCount-1 do
-    with Events[i] do
-    begin
-      for j := 0 to Instructions.Count-1 do
-        Instructions[j].Free;
-      Instructions.Free;
-      Conditions.FreeAll;
-    end;
+  ClearProceduresAndEvents;
 
 end.
 

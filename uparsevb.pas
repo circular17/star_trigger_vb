@@ -16,6 +16,7 @@ const
 
 function RemoveQuotes(AQuotedText: string): string;
 procedure CheckReservedWord(AText: string);
+function IsReservedWord(AText: string): boolean;
 function ParseLine(ALine: string): TStringList;
 function IsValidVariableName(AText: string): boolean;
 function TryToken(ALine: TStringList; var AIndex: integer; AToken: string): boolean;
@@ -27,6 +28,16 @@ function ExpectPlayers(ALine: TStringList; var AIndex: integer): TPlayers;
 function GetBitCountOfType(AName: string): integer;
 function IsIntegerType(AName: string): boolean;
 function BitCountNeededFor(AValue: integer): integer;
+
+const
+  ImplementedReservedWords: array[1..41] of string =
+    ('Dim','As','Const','Sub','When','End','If','EndIf', 'Then','Else','Not','And','Or','While','Option','Return',
+     'On','Off','Hyper','Boolean','Byte','UInt8','UShort','UInt16','UInt24','String','True','False',
+     'Do','Len','Chr','Asc','Exit','Function','LBound','UBound','Me','Rnd','New','Min','Max');
+
+  NotImplementedReservedWords: array[1..19] of string =
+     ('For','To','Step','Next','Loop','Until','ElseIf','Select','Case',  //reserved and planned to implement
+     'SByte','Short','Int16','Int24','UInteger','Integer','Xor','Date','ReDim','Preserve'); //reserved but not planned to implement
 
 implementation
 
@@ -41,22 +52,23 @@ begin
 end;
 
 procedure CheckReservedWord(AText: string);
-const
-  ReservedWords: array[1..60] of string =
-    ('Dim','As','Const','Sub','When','End','If','EndIf', 'Then','Else','Not','And','Or','Xor','While','Option','Return',
-     'On','Off','Hyper','Boolean','Byte','SByte','UInt8','UShort','UInt16','Short','Int16','Int24','UInt24','UInteger','Integer','String','True','False',
-     'For','To','Step','Next','Do','Loop','Until','Len','Chr','Asc','ElseIf',
-     'Select','Case','Exit','Function','LBound','UBound','Me','Rnd','New','Min','Max',
-
-     'Date','ReDim','Preserve'); //reserved but never implemented
 var
-  i: Integer;
   pl: TPlayer;
 begin
-  for i := low(reservedWords) to high(reservedWords) do
-    if ComparetexT(reservedWords[i],AText)=0 then raise exception.Create('"' + reservedWords[i] + '" is a word reserved');
+  if IsReservedWord(AText) then raise exception.Create('"' + AText + '" is a word reserved');
   for pl := low(TPlayer) to high(TPlayer) do
     if CompareText(PlayerIdentifiers[pl], AText)=0 then raise exception.Create('"' + PlayerIdentifiers[pl] + '" is a player identifier');
+end;
+
+function IsReservedWord(AText: string): boolean;
+var
+  i: Integer;
+begin
+  for i := low(ImplementedReservedWords) to high(ImplementedReservedWords) do
+    if CompareText(ImplementedReservedWords[i],AText)=0 then exit(true);
+  for i := low(NotImplementedReservedWords) to high(NotImplementedReservedWords) do
+    if CompareText(NotImplementedReservedWords[i],AText)=0 then exit(true);
+  exit(false);
 end;
 
 function ParseLine(ALine: string): TStringList;

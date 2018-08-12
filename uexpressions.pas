@@ -771,6 +771,7 @@ var
             end else
             if AAcceptCalls and TryIdentifier(ALine,idx,name) then  //function call?
             begin
+              if IsReservedWord(name) then exit;
               if TryToken(ALine,idx,'(') then ExpectToken(ALine,idx,')');
               result := TFunctionCallNode.Create(neg, name);
             end else
@@ -846,6 +847,8 @@ begin
     node := ParseSimpleNode;
     if node = nil then
     begin
+      if ARaiseException then
+        raise exception.Create('Expression expected');
       FreeAndNil(result);
       exit;
     end;

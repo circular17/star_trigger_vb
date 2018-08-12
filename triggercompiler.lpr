@@ -29,6 +29,8 @@ procedure TMyApplication.DoRun;
 var
   ErrorMsg: String;
   MainThread: TPlayer;
+  success: Boolean;
+  i: Integer;
 begin
   // quick check parameters
   ErrorMsg:=CheckOptions('h', 'help');
@@ -45,12 +47,17 @@ begin
     Exit;
   end;
 
-  if ureadprog.ReadProg('prog.vb', MainThread) then
+  success := ureadprog.ReadProg('prog.vb', MainThread);
+  for i := 0 to ReadProgErrors.Count-1 do
+    writeln(ReadProgErrors[i]);
+
+  if success then
   begin
     if MainThread = plNone then MainThread := plPlayer8;
     uwritetriggers.WriteTriggers('prog.trigger', MainThread);
     uwritetriggers.WriteUnitProperties('prog.property');
   end;
+
 
   // stop program loop
   Terminate;

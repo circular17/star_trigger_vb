@@ -144,7 +144,7 @@ var
 
 var
   i, expo, j, nextIP, procIdx: Integer;
-  sdi: TSetIntegerInstruction;
+  rndInstr: TRandomizeIntegerInstruction;
   switches: array of integer;
   call: TCallInstruction;
   ret: TReturnInstruction;
@@ -160,6 +160,7 @@ var
   pl: TPlayer;
   endDoAs: TEndDoAsInstruction;
   endDoIP: integer;
+  setInt: TSetIntegerInstruction;
 
 begin
   expanded := TInstructionList.Create;
@@ -354,29 +355,30 @@ begin
     begin
       raise exception.Create('End If instruction does not match an If instruction');
     end else
-    if AProg[i] is TSetIntegerInstruction then
+    if AProg[i] is TRandomizeIntegerInstruction then
     begin
-      sdi := TSetIntegerInstruction(AProg[i]);
-      if sdi.Mode = simRandomize then
+      rndInstr := TRandomizeIntegerInstruction(AProg[i]);
+      expanded.Add(TSetIntegerInstruction.Create(rndInstr.Player, rndInstr.UnitType, simSetTo, 0));
+
+      //randomize bools
+      expo := GetExponentOf2(rndInstr.Range);
+      setlength(switches, expo);
+      for j := 0 to expo-1 do
       begin
-        expanded.Add(TSetIntegerInstruction.Create(sdi.Player, sdi.UnitType, simSetTo, 0));
-
-        //insert randomize instruction
-        expo := GetExponentOf2(sdi.Value);
-        setlength(switches, expo);
-        for j := 0 to expo-1 do
-        begin
-          switches[j] := AllocateTempBool;
-          expanded.Add( TSetSwitchInstruction.Create(switches[j], svRandomize) );
-        end;
-
-        expanded.Add( TAddIntegerFromSwitchesInstruction.Create(sdi.Player, sdi.UnitType, switches) );
-        for j := 0 to expo-1 do
-          ReleaseTempBool(switches[j]);
-
-        sdi.Free;
-        continue;
+        switches[j] := AllocateTempBool;
+        expanded.Add( TSetSwitchInstruction.Create(switches[j], svRandomize) );
       end;
+
+      //add powers of 2
+      for j := 0 to high(switches) do
+        expanded.Add( TFastIfInstruction.Create([TSwitchCondition.Create(switches[j], true)],
+                      [TSetIntegerInstruction.Create(rndInstr.Player, rndInstr.UnitType, simAdd, 1 shl j)]) );
+
+      for j := 0 to expo-1 do
+        ReleaseTempBool(switches[j]);
+
+      rndInstr.Free;
+      continue;
     end else
     if AProg[i] is TCallInstruction then
     begin
@@ -416,6 +418,14 @@ begin
     end;
     expanded.Add(AProg[i]);
   end;
+  for i := 0 to expanded.Count-1 do
+    if expanded[i] is TSetIntegerInstruction then
+    begin
+      setInt := TSetIntegerInstruction(expanded[i]);
+      expanded[i] := setInt.ConvertToSpecificInstruction;
+      setInt.Free;
+    end;
+
   AProg.Clear;
   for i := 0 to expanded.Count-1 do
     AProg.Add(expanded[i]);

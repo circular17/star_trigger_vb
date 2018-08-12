@@ -448,7 +448,7 @@ var
       if not Constant and (AInit0 or (Value <> 0)) then
       begin
         if Randomize then
-          AProg.Add( TSetIntegerInstruction.Create(Player,UnitType, simRandomize, Value) )
+          AProg.Add( TRandomizeIntegerInstruction.Create(Player,UnitType, Value) )
         else
           AProg.Add( TSetIntegerInstruction.Create(Player,UnitType, simSetTo, Value) );
       end;
@@ -764,6 +764,12 @@ begin
     scenario := ExpectString(AScope, ALine,AIndex);
     AProg.Add(TSetNextScenarioInstruction.Create(scenario));
   end else
+  if TryToken(ALine,AIndex,'Wait') then
+  begin
+    ExpectToken(ALine,AIndex,'(');
+    AProg.Add(TWaitInstruction.Create(ExpectIntegerConstant(AScope, ALine,AIndex)));
+    ExpectToken(ALine,AIndex,')');
+  end else
     result := false;
 end;
 
@@ -916,12 +922,17 @@ begin
       AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supLife, props.Life));
       AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supShield, props.Shield));
       AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supEnergy, props.Energy));
-      if CompareTexT(unitType, 'Any unit')=0 then
+      if CompareText(unitType, 'Any unit')=0 then
         AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supResource, props.Resource));
       AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supHangarCount, props.HangarCount));
 
       if intVal = -1 then
-        AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supInvincible, integer(props.Invincible)));
+      begin
+        if props.Invincible then
+          AProg.Add(TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufInvincible, ufvEnable))
+        else
+          AProg.Add(TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufInvincible, ufvDisable));
+      end;
 
     end else
     if TryToken(ALine,AIndex,'Location') then
@@ -982,13 +993,29 @@ begin
     begin
       if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,'(');
 
-      AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supInvincible, -1));
+      AProg.Add(TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufInvincible, ufvToggle));
     end else
     if TryToken(ALine,AIndex,'ToggleDoodadState') then
     begin
       if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,'(');
 
-      AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supDoodadState, -1));
+      AProg.Add(TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufDoodadState, ufvToggle));
+    end else
+    if TryToken(ALine,AIndex,'Invincible') then
+    begin
+      ExpectToken(ALine,AIndex,'=');
+      conds := ExpectConditions(AScope,ALine,AIndex,AThreads);
+      AppendConditionalInstruction(AProg, conds,
+         TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufInvincible, ufvEnable),
+         TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufInvincible, ufvDisable));
+    end else
+    if TryToken(ALine,AIndex,'DoodadState') then
+    begin
+      ExpectToken(ALine,AIndex,'=');
+      conds := ExpectConditions(AScope,ALine,AIndex,AThreads);
+      AppendConditionalInstruction(AProg, conds,
+         TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufDoodadState, ufvEnable),
+         TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufDoodadState, ufvDisable));
     end else
     begin
       if TryToken(ALine,AIndex,'Life') then prop := supLife else
@@ -996,23 +1023,11 @@ begin
       if TryToken(ALine,AIndex,'Energy') then prop := supEnergy else
       if TryToken(ALine,AIndex,'Resource') then prop := supResource else
       if TryToken(ALine,AIndex,'HangarCount') then prop := supHangarCount else
-      if TryToken(ALine,AIndex,'Invincible') then prop := supInvincible else
-      if TryToken(ALine,AIndex,'DoodadState') then prop := supDoodadState else
         raise exception.Create('Expecting property name');
       ExpectToken(ALine,AIndex,'=');
 
-      if prop in[supInvincible,supDoodadState] then
-      begin
-        conds := ExpectConditions(AScope,ALine,AIndex,AThreads);
-        AppendConditionalInstruction(AProg, conds,
-           TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, 1),
-           TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, 0));
-      end
-      else
-      begin
-        propVal:= ExpectIntegerConstant(AScope,ALine,AIndex);
-        AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, propVal));
-      end;
+      propVal:= ExpectIntegerConstant(AScope,ALine,AIndex);
+      AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, propVal));
     end;
 
   end else
@@ -1596,14 +1611,7 @@ begin
         end;
         CheckEndOfLine;
 
-        if CompareText(name,'Wait')=0 then
-        begin
-          if params.Count <> 1 then
-            raise exception.Create('Procedure takes only one parameter');
-          AProg.Add(TWaitInstruction.Create(StrToInt(params[0])));
-        end
-        else
-          AProg.Add(TCallInstruction.Create(name, params));
+        AProg.Add(TCallInstruction.Create(name, params));
         params.Free;
       end else
       if scalar.VarType = svtNone then

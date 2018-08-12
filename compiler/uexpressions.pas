@@ -1582,7 +1582,7 @@ procedure TRandomNode.LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer;
   AUnitType: string; AProg: TInstructionList);
 begin
   if AClearVar then
-    AProg.Add( TSetIntegerInstruction.Create(APlayer,AUnitType, simRandomize, Range) )
+    AProg.Add( TRandomizeIntegerInstruction.Create(APlayer,AUnitType, Range) )
   else
   begin
     AProg.Add( TTransferIntegerInstruction.Create(Range, itRandomizeAccumulator) );

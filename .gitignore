@@ -16,3 +16,7 @@ triggercompiler
 lib/x86_64-win64/
 
 *.exe
+
+compiler/lib/i386-win32/
+
+lib/i386-win32/

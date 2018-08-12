@@ -8,20 +8,25 @@ uses
   Classes, SysUtils, fgl, usctypes;
 
 var
-  AnywhereLocation : string = 'N''importe Où';
+  AnywhereLocation : string = 'Anywhere';
   Force : array[1..4] of string = ('Force 1', 'Force 2', 'Force 3', 'Force 4');
+  SwitchNames : array[1..256] of string;
+
+function PlayerToStr(APlayer: TPlayer): string;
+function IsAnywhere(ALocation: string): boolean;
+function SwitchToStr(ASwitch: integer): string;
 
 type
   { TInstruction }
 
   TInstruction = class
-    function ToStringAndFree: ansistring;
+    function ToTrigEditAndFree: string;
+    function ToTrigEdit: string; virtual;
   end;
 
   { TEmptyInstruction }
 
   TEmptyInstruction = class(TInstruction)
-    function ToString: ansistring; override;
   end;
 
   TCustomInstructionList = specialize TFPGList<TInstruction>;
@@ -33,13 +38,14 @@ type
   end;
 
 const
-  SwitchToStr : array[TSwitchValue] of string = ('clear','set','randomize','toggle');
+  SwitchValueToStr : array[TSwitchValue] of string = ('clear','set','randomize','toggle');
 
 type
   { TCondition }
 
   TCondition = class
-    function ToStringAndFree: ansistring;
+    function ToTrigEditAndFree: ansistring;
+    function ToTrigEdit: string; virtual;
     function IsArithmetic: boolean; virtual;
     function IsComputed: boolean; virtual;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); virtual;
@@ -51,7 +57,6 @@ type
   { TConditionList }
 
   TConditionList = class(TCustomConditionList)
-    function ToString: ansistring; override;
     function IsComputed: boolean;
     function IsArithmetic: boolean;
     procedure Compute(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string);
@@ -65,12 +70,15 @@ type
     Switch: integer;
     Value: TSwitchValue;
     constructor Create(ASwitch: integer; AValue: TSwitchValue);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
 type
-  TSetIntegerMode = (simSetTo, simAdd, simSubtract, simRandomize);
+  TSetIntegerMode = (simSetTo, simAdd, simSubtract);
 
+function SetIntegerModeToStr(AMode: TSetIntegerMode): string;
+
+type
   { TSetIntegerInstruction }
 
   TSetIntegerInstruction = class(TInstruction)
@@ -79,7 +87,70 @@ type
     Value: integer;
     Mode: TSetIntegerMode;
     constructor Create(APlayer: TPlayer; AUnitType: string; AMode: TSetIntegerMode; AValue: integer);
-    function ToString: ansistring; override;
+    function ConvertToSpecificInstruction: TInstruction;
+  end;
+
+  { TSetDeathInstruction }
+
+  TSetDeathInstruction = class(TInstruction)
+    Player: TPlayer;
+    UnitType: string;
+    Value: integer;
+    Mode: TSetIntegerMode;
+    constructor Create(APlayer: TPlayer; AUnitType: string; AMode: TSetIntegerMode; AValue: integer);
+    function ToTrigEdit: string; override;
+  end;
+
+  TStarcraftResource = (srOre, srGas, srOreAndGas);
+
+function StartcraftResourceToStr(AResource: TStarcraftResource): string;
+
+type
+  { TSetResourceInstruction }
+
+  TSetResourceInstruction = class(TInstruction)
+    Player: TPlayer;
+    Resource: TStarcraftResource;
+    Value: integer;
+    Mode: TSetIntegerMode;
+    constructor Create(APlayer: TPlayer; AResource: TStarcraftResource; AMode: TSetIntegerMode; AValue: integer);
+    function ToTrigEdit: string; override;
+  end;
+
+  TStarcraftScore = (ssUnitScore, ssBuildingScore, ssUnitAndBuildingScore,
+                     ssKillScore, ssRazingScore, ssKillAndRazingScore,
+                     ssTotalScore, ssCustomScore);
+
+function StartcraftScoreToStr(AScore: TStarcraftScore): string;
+
+type
+  { TSetScoreInstruction }
+
+  TSetScoreInstruction = class(TInstruction)
+    Player: TPlayer;
+    Score: TStarcraftScore;
+    Value: integer;
+    Mode: TSetIntegerMode;
+    constructor Create(APlayer: TPlayer; AScore: TStarcraftScore; AMode: TSetIntegerMode; AValue: integer);
+    function ToTrigEdit: string; override;
+  end;
+
+  { TSetCountdownInstruction }
+
+  TSetCountdownInstruction = class(TInstruction)
+    Value: integer;
+    Mode: TSetIntegerMode;
+    constructor Create(AMode: TSetIntegerMode; AValue: integer);
+    function ToTrigEdit: string; override;
+  end;
+
+  { TRandomizeIntegerInstruction }
+
+  TRandomizeIntegerInstruction = class(TInstruction)
+    Player: TPlayer;
+    UnitType: string;
+    Range: integer;
+    constructor Create(APlayer: TPlayer; AUnitType: string; ARange: integer);
   end;
 
   TIntegerTransfer = (itCopyIntoAccumulator, itAddIntoAccumulator, itCopyAccumulator, itAddAccumulator,
@@ -95,17 +166,6 @@ type
     Shift: integer;
     constructor Create(APlayer: TPlayer; AUnitType: string; AAction: TIntegerTransfer; AShift: integer = 0);
     constructor Create(AValue: integer; AAction: TIntegerTransfer);
-    function ToString: ansistring; override;
-  end;
-
-  { TAddIntegerFromSwitchesInstruction }
-
-  TAddIntegerFromSwitchesInstruction = class(TInstruction)
-    Player: TPlayer;
-    UnitType: string;
-    Switches: array of integer;
-    constructor Create(APlayer: TPlayer; AUnitType: string; ASwitches: array of integer);
-    function ToString: ansistring; override;
   end;
 
   { TDisplayTextMessageInstruction }
@@ -114,7 +174,7 @@ type
     Always: boolean;
     Text: string;
     constructor Create(AAlways: boolean; AMessage: string);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TPrintForAnyPlayerInstruction }
@@ -122,7 +182,6 @@ type
   TPrintForAnyPlayerInstruction = class(TInstruction)
     Msg: integer;
     constructor Create(AMsg: integer);
-    function ToString: ansistring; override;
   end;
 
   { TWaitInstruction }
@@ -130,7 +189,7 @@ type
   TWaitInstruction = class(TInstruction)
     DelayMs: integer;
     constructor Create(ADelayMs: integer);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TCallInstruction }
@@ -141,7 +200,6 @@ type
     ReturnType: string;
     constructor Create(AName: string; AParams: array of string; AReturnType: string = 'Void');
     constructor Create(AName: string; AParams: TStringList; AReturnType: string = 'Void');
-    function ToString: ansistring; override;
   end;
 
   { TDropThreadInstruction }
@@ -150,7 +208,6 @@ type
     DropIP, ResumeIP: integer;
     PlayersToDrop, PlayersToResume: TPlayers;
     constructor Create(ADropIP, AResumeIP: integer; APlayersToDrop, APlayersToResume: TPlayers);
-    function ToString: ansistring; override;
   end;
 
   { TWaitForPlayersInstruction }
@@ -159,14 +216,12 @@ type
     Players: TPlayers;
     AwaitPresenceDefined: boolean;
     constructor Create(APlayers: TPlayers; AAwaitPresenceDefined: boolean);
-    function ToString: ansistring; override;
   end;
 
   { TReturnInstruction }
 
   TReturnInstruction = class(TInstruction)
     constructor Create;
-    function ToString: ansistring; override;
   end;
 
   { TDoAsInstruction }
@@ -174,7 +229,6 @@ type
   TDoAsInstruction = class(TInstruction)
     Players: TPlayers;
     constructor Create(APlayers: TPlayers);
-    function ToString: ansistring; override;
   end;
 
   { TEndDoAsInstruction }
@@ -182,14 +236,12 @@ type
   TEndDoAsInstruction = class(TInstruction)
     Players: TPlayers;
     constructor Create(APlayers: TPlayers);
-    function ToString: ansistring; override;
   end;
 
   { TWaitForPresenceDefinedInstruction }
 
   TWaitForPresenceDefinedInstruction = class(TInstruction)
     constructor Create;
-    function ToString: ansistring; override;
   end;
 
   { TIfInstruction }
@@ -199,7 +251,6 @@ type
     destructor Destroy; override;
     constructor Create(ACondition: TCondition);
     constructor Create(AConditions: TConditionList);
-    function ToString: ansistring; override;
   end;
 
   { TFastIfInstruction }
@@ -212,7 +263,6 @@ type
     constructor Create(AConditions: array of TCondition; AInstructions: TInstructionList);
     constructor Create(AConditions: array of TCondition; AInstructions: array of TInstruction);
     destructor Destroy; override;
-    function ToString: ansistring; override;
   end;
 
   { TWaitConditionInstruction }
@@ -223,14 +273,12 @@ type
     destructor Destroy; override;
     constructor Create(AConditions: TConditionList; AIP: Integer);
     constructor Create(ACondition: TCondition; AIP: Integer);
-    function ToString: ansistring; override;
   end;
 
   { TElseInstruction }
 
   TElseInstruction = class(TInstruction)
     constructor Create;
-    function ToString: ansistring; override;
   end;
 
   { TSplitInstruction }
@@ -239,14 +287,12 @@ type
     ResumeIP, EndIP: integer;
     ChangePlayers: TPlayers;
     constructor Create(AResumeIP, AEndIP: integer; AChangePlayers: TPlayers = []);
-    function ToString: ansistring; override;
   end;
 
   { TEndIfInstruction }
 
   TEndIfInstruction = class(TInstruction)
     constructor Create;
-    function ToString: ansistring; override;
   end;
 
   { TChangeIPInstruction }
@@ -255,7 +301,6 @@ type
     IP: integer;
     Preserve: Integer;
     constructor Create(AIP: Integer; APreserve: Integer);
-    function ToString: ansistring; override;
   end;
 
   { TWhileInstruction }
@@ -264,14 +309,12 @@ type
     Conditions: TConditionList;
     destructor Destroy; override;
     constructor Create(AConditions: TConditionList);
-    function ToString: ansistring; override;
   end;
 
   { TEndWhileInstruction }
 
   TEndWhileInstruction = class(TInstruction)
     constructor Create;
-    function ToString: ansistring; override;
   end;
 
   { TCreateUnitInstruction }
@@ -282,10 +325,10 @@ type
     UnitType, Location: string;
     Properties: integer;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType, ALocation: string; AProperties: integer = -1);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
-  TSetUnitProperty = (supLife, supShield, supEnergy, supResource, supHangarCount, supInvincible, supDoodadState);
+  TSetUnitProperty = (supLife, supShield, supEnergy, supResource, supHangarCount);
 
   { TSetUnitPropertyInstruction }
 
@@ -296,7 +339,21 @@ type
     UnitProperty: TSetUnitProperty;
     Value: integer;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType, ALocation: string; AProperty: TSetUnitProperty; AValue: integer);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
+  end;
+
+  TSetUnitFlag = (sufInvincible, sufDoodadState);
+  TUnitFlagValue = (ufvEnable, ufvDisable, ufvToggle);
+
+  { TSetUnitFlagInstruction }
+
+  TSetUnitFlagInstruction = class(TInstruction)
+    Player: TPlayer;
+    UnitType, Location: string;
+    Flag: TSetUnitFlag;
+    Value: TUnitFlagValue;
+    constructor Create(APlayer: TPlayer; AUnitType, ALocation: string; AFlag: TSetUnitFlag; AValue: TUnitFlagValue);
+    function ToTrigEdit: string; override;
   end;
 
   { TKillUnitInstruction }
@@ -307,7 +364,7 @@ type
     UnitType, Location: string;
     DeathAnimation: boolean;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: string; ALocation: string = ''; ADeathAnimation: boolean = true);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TGiveUnitInstruction }
@@ -317,7 +374,7 @@ type
     Quantity: integer;
     UnitType, Location: string;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType, ALocation: string; ADestPlayer: TPlayer);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TTeleportUnitInstruction }
@@ -328,7 +385,7 @@ type
     UnitType, Location: string;
     DestLocation: string;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType, ALocation: string; ADestLocation: string);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TMoveLocationInstruction }
@@ -338,7 +395,7 @@ type
     UnitType, Location: string;
     LocationToChange: string;
     constructor Create(APlayer: TPlayer; AUnitType, ALocation: string; ALocationToChange: string);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TOrderUnitInstruction }
@@ -349,7 +406,7 @@ type
     DestLocation: string;
     Order: string;
     constructor Create(APlayer: TPlayer; AUnitType, ALocation: string; ADestLocation: string; AOrder: string);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TPlayWAVInstruction }
@@ -358,7 +415,7 @@ type
     Filename: string;
     DurationMs: integer;
     constructor Create(AFilename: string; ADurationMs: integer);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TTalkingPortraitInstruction }
@@ -367,7 +424,7 @@ type
     UnitType: string;
     DurationMs: integer;
     constructor Create(AUnitType: string; ADurationMs: integer);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TRunAIScriptInstruction }
@@ -375,7 +432,7 @@ type
   TRunAIScriptInstruction = class(TInstruction)
     Script, Location: string;
     constructor Create(AScript, ALocation: string);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TSetMissionObjectivesInstruction }
@@ -383,7 +440,7 @@ type
   TSetMissionObjectivesInstruction = class(TInstruction)
     Text: string;
     constructor Create(AText: string);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TSetNextScenarioInstruction }
@@ -391,7 +448,7 @@ type
   TSetNextScenarioInstruction = class(TInstruction)
     Scenario: string;
     constructor Create(AScenario: string);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TCenterViewInstruction }
@@ -399,7 +456,7 @@ type
   TCenterViewInstruction = class(TInstruction)
     Location: string;
     constructor Create(ALocation: string);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TMinimapPingInstruction }
@@ -407,7 +464,7 @@ type
   TMinimapPingInstruction = class(TInstruction)
     Location: string;
     constructor Create(ALocation: string);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TLeaderBoardIncludeComputersInstruction }
@@ -415,7 +472,7 @@ type
   TLeaderBoardIncludeComputersInstruction = class(TInstruction)
     Include: integer;
     constructor Create(AInclude: integer);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TShowLeaderboardOreAndGasIconInstruction }
@@ -423,7 +480,7 @@ type
   TShowLeaderboardOreAndGasIconInstruction = class(TInstruction)
     Amount: integer;
     constructor Create(AAmount: integer);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TShowLeaderboardValueInstruction }
@@ -432,7 +489,7 @@ type
     Text, ValueName: string;
     Goal: integer;
     constructor Create(AText,AValueName: string; AGoal: integer = -1);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TShowLeaderboardKillCountInstruction }
@@ -441,7 +498,7 @@ type
     Text, UnitType: string;
     Goal: integer;
     constructor Create(AText,AUnitType: string; AGoal: integer = -1);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TShowLeaderboardUnitCountInstruction }
@@ -450,7 +507,7 @@ type
     Text, UnitType,Location: string;
     Goal: integer;
     constructor Create(AText,AUnitType,ALocation: string; AGoal: integer = -1);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   TEndGameMode = (egDefeat, egDraw, egVictory);
@@ -460,7 +517,7 @@ type
   TEndGameInstruction = class(TInstruction)
     Mode: TEndGameMode;
     constructor Create(AMode: TEndGameMode);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TUnitSpeechInstruction }
@@ -468,7 +525,7 @@ type
   TUnitSpeechInstruction = class(TInstruction)
     Active: boolean;
     constructor Create(AActive: Boolean);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TPauseGameInstruction }
@@ -476,7 +533,7 @@ type
   TPauseGameInstruction = class(TInstruction)
     Paused: boolean;
     constructor Create(APaused: Boolean);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   { TPauseCountdownInstruction }
@@ -484,7 +541,7 @@ type
   TPauseCountdownInstruction = class(TInstruction)
     Paused: boolean;
     constructor Create(APaused: Boolean);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
   TAllianceStatus = (asEnnemy, asAlly, asAlliedVictory);
@@ -495,7 +552,7 @@ type
     Player: TPlayer;
     Status: TAllianceStatus;
     constructor Create(APlayer: TPlayer; AStatus: TAllianceStatus);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
   end;
 
 type
@@ -503,7 +560,7 @@ type
   { TAlwaysCondition }
 
   TAlwaysCondition = class(TCondition)
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
     procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: string); override;
     function Duplicate: TCondition; override;
   end;
@@ -511,7 +568,7 @@ type
   { TNeverCondition }
 
   TNeverCondition = class(TCondition)
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
     function Duplicate: TCondition; override;
   end;
@@ -523,7 +580,7 @@ type
     destructor Destroy; override;
     constructor Create(AConditions: array of TCondition);
     constructor Create(AConditions: TConditionList);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
@@ -537,7 +594,7 @@ type
     destructor Destroy; override;
     constructor Create(AConditions: array of TCondition);
     constructor Create(AConditions: TConditionList);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
@@ -551,7 +608,7 @@ type
     destructor Destroy; override;
     constructor Create(AConditions: array of TCondition);
     constructor Create(AConditions: TConditionList);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
     procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: string); override;
@@ -564,7 +621,7 @@ type
     Switch: integer;
     Value: boolean;
     constructor Create(ASwitch: integer; AValue: boolean);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
     function Duplicate: TCondition; override;
   end;
@@ -584,7 +641,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AUnitType: string; AMode: TIntegerConditionMode; AValue: integer);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
     function Duplicate: TCondition; override;
   end;
 
@@ -596,7 +653,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AUnitType, ALocation: string; AMode: TIntegerConditionMode; AValue: integer);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
     function Duplicate: TCondition; override;
   end;
 
@@ -608,7 +665,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AUnitType: string; AMode: TIntegerConditionMode; AValue: integer);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
     function Duplicate: TCondition; override;
   end;
 
@@ -619,7 +676,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AMode: TIntegerConditionMode; AValue: integer);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
     function Duplicate: TCondition; override;
   end;
 
@@ -629,7 +686,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(AMode: TIntegerConditionMode; AValue: integer);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
     function Duplicate: TCondition; override;
   end;
 
@@ -639,7 +696,7 @@ type
     UnitType, Location: string;
     Highest: boolean;
     constructor Create(AUnitType, ALocation: string; AHighest: boolean);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
     function Duplicate: TCondition; override;
   end;
 
@@ -649,7 +706,7 @@ type
     UnitType: string;
     Highest: boolean;
     constructor Create(AUnitType: string; AHighest: boolean);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
     function Duplicate: TCondition; override;
   end;
 
@@ -660,12 +717,9 @@ type
     Highest: boolean;
     IsScore, IsResource: boolean;
     constructor Create(AValueType: string; AHighest: boolean);
-    function ToString: ansistring; override;
+    function ToTrigEdit: string; override;
     function Duplicate: TCondition; override;
   end;
-
-function PlayerToStr(APlayer: TPlayer): string;
-function IsAnywhere(ALocation: string): boolean;
 
 implementation
 
@@ -705,6 +759,148 @@ begin
   result := (ALocation = '') or (CompareText(ALocation, AnywhereLocation)=0);
 end;
 
+function SwitchToStr(ASwitch: integer): string;
+begin
+  if (ASwitch < low(SwitchNames)) or (ASwitch > high(SwitchNames)) then
+    raise exception.Create('Index out of bounds');
+  if SwitchNames[ASwitch] = '' then result := 'Switch'+IntToStr(ASwitch)
+  else result := SwitchNames[ASwitch];
+end;
+
+function SetIntegerModeToStr(AMode: TSetIntegerMode): string;
+begin
+  case AMode of
+  simSetTo: result := 'Set To';
+  simSubtract: result := 'Subtract';
+  else
+    {simAdd: }result := 'Add';
+  end;
+end;
+
+function StartcraftResourceToStr(AResource: TStarcraftResource): string;
+begin
+  case AResource of
+  srGas: result := 'gas';
+  srOreAndGas: result := 'ore and gas';
+  else {srOre:} result := 'ore';
+  end;
+end;
+
+function StartcraftScoreToStr(AScore: TStarcraftScore): string;
+begin
+  case AScore of
+  ssUnitScore: result := 'Units';
+  ssBuildingScore: result := 'Buildings';
+  ssUnitAndBuildingScore: result := 'Units and buidlings';
+  ssKillScore: result := 'Kills';
+  ssRazingScore: result := 'Razings';
+  ssKillAndRazingScore: result := 'Kills and razings';
+  ssTotalScore: result := 'Total';
+  ssCustomScore: result := 'Custom';
+  end;
+end;
+
+{ TSetUnitFlagInstruction }
+
+constructor TSetUnitFlagInstruction.Create(APlayer: TPlayer; AUnitType,
+  ALocation: string; AFlag: TSetUnitFlag; AValue: TUnitFlagValue);
+begin
+  Player := APlayer;
+  UnitType := AUnitType;
+  Location := ALocation;
+  Flag := AFlag;
+  Value := AValue;
+end;
+
+function TSetUnitFlagInstruction.ToTrigEdit: string;
+begin
+  if Flag = sufInvincible then
+    result := 'Set Invincibility'
+  else
+    result := 'Set Doodad State';
+
+  result += '(' + AddQuotes(PlayerToStr(Player))+', '+AddQuotes(UnitType)+', '+AddQuotes(Location)+', ';
+  case Value of
+  ufvDisable: result += 'disabled';
+  ufvEnable: result += 'enabled';
+  else result += 'toggle';
+  end;
+  result += ')';
+end;
+
+{ TSetCountdownInstruction }
+
+constructor TSetCountdownInstruction.Create(AMode: TSetIntegerMode;
+  AValue: integer);
+begin
+  Mode := AMode;
+  Value := AValue;
+end;
+
+function TSetCountdownInstruction.ToTrigEdit: string;
+begin
+  result := 'Set Countdown Timer(' + SetIntegerModeToStr(Mode) +', ' + IntToStr(Value) + ')'
+end;
+
+{ TSetScoreInstruction }
+
+constructor TSetScoreInstruction.Create(APlayer: TPlayer;
+  AScore: TStarcraftScore; AMode: TSetIntegerMode; AValue: integer);
+begin
+  Player:= APlayer;
+  Score:= AScore;
+  Value:= AValue;
+  Mode:= AMode;
+end;
+
+function TSetScoreInstruction.ToTrigEdit: string;
+begin
+  Result:= 'Set Score("' + PlayerToStr(Player) + '", ' + SetIntegerModeToStr(Mode) + ', ' + IntToStr(Value) + ', ' + StartcraftScoreToStr(Score) + ')'
+end;
+
+{ TSetResourceInstruction }
+
+constructor TSetResourceInstruction.Create(APlayer: TPlayer; AResource: TStarcraftResource;
+  AMode: TSetIntegerMode; AValue: integer);
+begin
+  Player:= APlayer;
+  Resource:= AResource;
+  Value:= AValue;
+  Mode:= AMode;
+end;
+
+function TSetResourceInstruction.ToTrigEdit: string;
+begin
+  Result:= 'Set Resources("' + PlayerToStr(Player) + '", ' + SetIntegerModeToStr(Mode) + ', ' + IntToStr(Value) + ', ' + StartcraftResourceToStr(Resource) + ')'
+end;
+
+{ TSetDeathInstruction }
+
+constructor TSetDeathInstruction.Create(APlayer: TPlayer; AUnitType: string;
+  AMode: TSetIntegerMode; AValue: integer);
+begin
+  Player:= APlayer;
+  UnitType:= AUnitType;
+  Value:= AValue;
+  Mode:= AMode;
+end;
+
+function TSetDeathInstruction.ToTrigEdit: string;
+begin
+  Result:= 'Set Deaths("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' + SetIntegerModeToStr(Mode) + ', ' + IntToStr(Value) + ')';
+end;
+
+{ TRandomizeIntegerInstruction }
+
+constructor TRandomizeIntegerInstruction.Create(APlayer: TPlayer;
+  AUnitType: string; ARange: integer);
+begin
+  Player := APlayer;
+  UnitType := AUnitType;
+  Range := ARange;
+  if Range < 1 then raise exception.Create('Invalid range');
+end;
+
 { TAndCondition }
 
 destructor TAndCondition.Destroy;
@@ -727,7 +923,7 @@ begin
   Conditions := AConditions;
 end;
 
-function TAndCondition.ToString: ansistring;
+function TAndCondition.ToTrigEdit: string;
 begin
   Result:= 'And condition';
 end;
@@ -779,7 +975,7 @@ begin
   Conditions := AConditions;
 end;
 
-function TOrCondition.ToString: ansistring;
+function TOrCondition.ToTrigEdit: string;
 begin
   Result:='Or Condition';
 end;
@@ -835,21 +1031,11 @@ begin
   Msg := AMsg;
 end;
 
-function TPrintForAnyPlayerInstruction.ToString: ansistring;
-begin
-  Result:= 'Print #' + inttostr(Msg);
-end;
-
 { TWaitForPresenceDefinedInstruction }
 
 constructor TWaitForPresenceDefinedInstruction.Create;
 begin
   //
-end;
-
-function TWaitForPresenceDefinedInstruction.ToString: ansistring;
-begin
-  Result:= '';
 end;
 
 { TInstructionList }
@@ -873,11 +1059,6 @@ begin
   AwaitPresenceDefined:= AAwaitPresenceDefined;
 end;
 
-function TWaitForPlayersInstruction.ToString: ansistring;
-begin
-  Result:= 'Wait For Players';
-end;
-
 { TEndDoAsInstruction }
 
 constructor TEndDoAsInstruction.Create(APlayers: TPlayers);
@@ -885,21 +1066,11 @@ begin
   Players:= APlayers;
 end;
 
-function TEndDoAsInstruction.ToString: ansistring;
-begin
-  Result:= '} //End Do As';
-end;
-
 { TDoAsInstruction }
 
 constructor TDoAsInstruction.Create(APlayers: TPlayers);
 begin
   Players:= APlayers;
-end;
-
-function TDoAsInstruction.ToString: ansistring;
-begin
-  Result:= 'Do as {';
 end;
 
 { TMoveLocationInstruction }
@@ -913,7 +1084,7 @@ begin
   LocationToChange:= ALocationToChange;
 end;
 
-function TMoveLocationInstruction.ToString: ansistring;
+function TMoveLocationInstruction.ToTrigEdit: string;
 begin
   Result:= 'Move Location(' + AddQuotes(PlayerToStr(Player)) + ', '+AddQuotes(UnitType)+', ';
   result += AddQuotes(Location)+', '+AddQuotes(LocationToChange)+')';
@@ -970,11 +1141,6 @@ begin
   inherited Destroy;
 end;
 
-function TFastIfInstruction.ToString: ansistring;
-begin
-  Result:= 'if ('+ Conditions.ToString + ') {' + Instructions.ToString + '}';
-end;
-
 { TShowLeaderboardUnitCountInstruction }
 
 constructor TShowLeaderboardUnitCountInstruction.Create(AText, AUnitType,
@@ -986,7 +1152,7 @@ begin
   Location:= ALocation;
 end;
 
-function TShowLeaderboardUnitCountInstruction.ToString: ansistring;
+function TShowLeaderboardUnitCountInstruction.ToTrigEdit: string;
 begin
   if Goal <> -1 then
     result := 'Leaderboard Goal Control'
@@ -1015,7 +1181,7 @@ begin
   Goal := AGoal;
 end;
 
-function TShowLeaderboardKillCountInstruction.ToString: ansistring;
+function TShowLeaderboardKillCountInstruction.ToTrigEdit: string;
 begin
   if Goal <> -1 then
     result := 'Leaderboard Goal Kills'
@@ -1039,7 +1205,7 @@ begin
   Goal := AGoal;
 end;
 
-function TShowLeaderboardValueInstruction.ToString: ansistring;
+function TShowLeaderboardValueInstruction.ToTrigEdit: string;
 begin
   Result:=inherited ToString;
   if (CompareText(ValueName,'Minerals')=0) or
@@ -1080,7 +1246,7 @@ begin
   Amount := AAmount;
 end;
 
-function TShowLeaderboardOreAndGasIconInstruction.ToString: ansistring;
+function TShowLeaderboardOreAndGasIconInstruction.ToTrigEdit: string;
 begin
   Result:='Leaderboard Greed(' + intTostr(Amount)+')';
 end;
@@ -1092,7 +1258,7 @@ begin
   Include:= AInclude;
 end;
 
-function TLeaderBoardIncludeComputersInstruction.ToString: ansistring;
+function TLeaderBoardIncludeComputersInstruction.ToTrigEdit: string;
 begin
   Result:='Leaderboard Computer Players(';
   if Include= 0 then result += 'disable'
@@ -1110,7 +1276,7 @@ begin
   DurationMs:= ADurationMs;
 end;
 
-function TTalkingPortraitInstruction.ToString: ansistring;
+function TTalkingPortraitInstruction.ToTrigEdit: string;
 begin
   Result:= 'Talking Portrait(' + AddQuotes(UnitType) + ', ' + inttostr(DurationMs) + ')';
 end;
@@ -1123,7 +1289,7 @@ begin
   Status:= AStatus;
 end;
 
-function TSetAllianceStatus.ToString: ansistring;
+function TSetAllianceStatus.ToTrigEdit: string;
 begin
   Result:='Set Alliance Status(' + AddQuotes(PlayerToStr(Player))+ ', ';
   case Status of
@@ -1141,7 +1307,7 @@ begin
   Scenario:= AScenario;
 end;
 
-function TSetNextScenarioInstruction.ToString: ansistring;
+function TSetNextScenarioInstruction.ToTrigEdit: string;
 begin
   Result:='Set Next Scenario(' + AddQuotes(Scenario) + ')';
 end;
@@ -1153,7 +1319,7 @@ begin
   Text := AText;
 end;
 
-function TSetMissionObjectivesInstruction.ToString: ansistring;
+function TSetMissionObjectivesInstruction.ToTrigEdit: string;
 begin
   Result:= 'Set Mission Objectives(' + AddQuotes(Text) + ')';
 end;
@@ -1166,7 +1332,7 @@ begin
   Location:= ALocation;
 end;
 
-function TRunAIScriptInstruction.ToString: ansistring;
+function TRunAIScriptInstruction.ToTrigEdit: string;
 begin
   Result := 'Run AI Script';
   if not IsAnywhere(Location) then Result += ' At Location';
@@ -1183,7 +1349,7 @@ begin
   DurationMs:= ADurationMs;
 end;
 
-function TPlayWAVInstruction.ToString: ansistring;
+function TPlayWAVInstruction.ToTrigEdit: string;
 begin
   Result:= 'Play WAV(' + AddQuotes(Filename) + ', ' + inttostr(DurationMs) + ')';
 end;
@@ -1195,7 +1361,7 @@ begin
   Paused := APaused;
 end;
 
-function TPauseCountdownInstruction.ToString: ansistring;
+function TPauseCountdownInstruction.ToTrigEdit: string;
 begin
   If Paused then
     Result := 'Pause Timer()'
@@ -1210,7 +1376,7 @@ begin
   Paused := APaused;
 end;
 
-function TPauseGameInstruction.ToString: ansistring;
+function TPauseGameInstruction.ToTrigEdit: string;
 begin
   If Paused then
     Result := 'Pause Game()'
@@ -1225,7 +1391,7 @@ begin
   Active := AActive;
 end;
 
-function TUnitSpeechInstruction.ToString: ansistring;
+function TUnitSpeechInstruction.ToTrigEdit: string;
 begin
   if not Active then
     result := 'Mute Unit Speech()'
@@ -1240,7 +1406,7 @@ begin
   Location:= ALocation;
 end;
 
-function TMinimapPingInstruction.ToString: ansistring;
+function TMinimapPingInstruction.ToTrigEdit: string;
 begin
   Result:= 'Minimap Ping(' + AddQuotes(Location) + ')';
 end;
@@ -1252,7 +1418,7 @@ begin
   Mode := AMode;
 end;
 
-function TEndGameInstruction.ToString: ansistring;
+function TEndGameInstruction.ToTrigEdit: string;
 begin
   case Mode of
   egDefeat: Result:='Defeat()';
@@ -1270,7 +1436,7 @@ begin
   Location:= ALocation;
 end;
 
-function TCenterViewInstruction.ToString: ansistring;
+function TCenterViewInstruction.ToTrigEdit: string;
 begin
   Result:= 'Center View(' + AddQuotes(Location) + ')';
 end;
@@ -1286,7 +1452,7 @@ begin
   if not IsScore and not IsResource then raise exception.Create('Unknown value type');
 end;
 
-function TCompareIntegerCondition.ToString: ansistring;
+function TCompareIntegerCondition.ToTrigEdit: string;
 begin
   if IsScore then
   begin
@@ -1314,7 +1480,7 @@ begin
   Highest:= AHighest;
 end;
 
-function TCompareKillCountCondition.ToString: ansistring;
+function TCompareKillCountCondition.ToTrigEdit: string;
 begin
   if Highest then result := 'Most' else result := 'Least';
   Result += ' Kills';
@@ -1335,7 +1501,7 @@ begin
   Value := AValue;
 end;
 
-function TElapsedTimeCondition.ToString: ansistring;
+function TElapsedTimeCondition.ToTrigEdit: string;
 begin
   Result:= 'Elapsed Time(' + IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')';
 end;
@@ -1355,7 +1521,7 @@ begin
   Value := AValue;
 end;
 
-function TOpponentCountCondition.ToString: ansistring;
+function TOpponentCountCondition.ToTrigEdit: string;
 begin
   Result:= 'Opponents("' + PlayerToStr(Player) + '", ' +
        IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')';
@@ -1377,7 +1543,7 @@ begin
   Value := AValue;
 end;
 
-function TKillCountCondition.ToString: ansistring;
+function TKillCountCondition.ToTrigEdit: string;
 begin
   Result:= 'Kill("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' +
        IntegerConditionModeToStr[Mode] + ', ' + IntToStr(Value) + ')';
@@ -1398,7 +1564,7 @@ begin
   Highest:= AHighest;
 end;
 
-function TCompareUnitCountCondition.ToString: ansistring;
+function TCompareUnitCountCondition.ToTrigEdit: string;
 begin
   Result:= 'Command ';
   if Highest then result += 'the Most' else result += 'the Least';
@@ -1437,7 +1603,7 @@ begin
   Conditions := AConditions;
 end;
 
-function TNotCondition.ToString: ansistring;
+function TNotCondition.ToTrigEdit: string;
 begin
   Result:= '!' + Conditions.ToString;
 end;
@@ -1487,7 +1653,7 @@ begin
   Order := AOrder;
 end;
 
-function TOrderUnitInstruction.ToString: ansistring;
+function TOrderUnitInstruction.ToTrigEdit: string;
 begin
   result := 'Order(' + AddQuotes(PlayerToStr(Player)) + ', '+AddQuotes(UnitType);
   result += ', '+AddQuotes(Location)+', '+AddQuotes(DestLocation)+', ' + Order + ')';
@@ -1506,7 +1672,7 @@ begin
   DestLocation:= ADestLocation;
 end;
 
-function TTeleportUnitInstruction.ToString: ansistring;
+function TTeleportUnitInstruction.ToTrigEdit: string;
 begin
   Result:= 'Move Unit(' + AddQuotes(PlayerToStr(Player)) + ', '+AddQuotes(UnitType)+', ';
   if Quantity = -1 then result +='All' else result += inttostr(Quantity);
@@ -1528,13 +1694,13 @@ begin
   Value := AValue;
   if (AProperty = supResource) and (CompareText(AUnitType, 'Any unit')<>0) then
     raise exception.Create('Setting resource amount cannot be applied to a specific unit');
-  if (AProperty in[supInvincible,supDoodadState]) and (AQuantity <> -1) then
-    raise exception.Create('This property can only be applied with quantity All');
   if (AProperty in [supLife, supShield, supEnergy]) and ((AValue < 0) or (AValue > 100)) then
-    raise exception.Create('Property value out of bounds (0 to 100)');
+    raise exception.Create('Property value out of bounds (0 to 100)')
+  else if (AValue < 0) or (AValue > 65535) then
+    raise exception.Create('Property value out of bounds (0 to 65535)')
 end;
 
-function TSetUnitPropertyInstruction.ToString: ansistring;
+function TSetUnitPropertyInstruction.ToTrigEdit: string;
 begin
   case UnitProperty of
   supLife: result := 'Modify Unit Hit Points';
@@ -1548,22 +1714,6 @@ begin
       exit;
     end;
   supHangarCount: result := 'Modify Unit Hanger Count';
-  supInvincible, supDoodadState:
-    begin
-      if UnitProperty = supInvincible then
-        result := 'Set Invincibility'
-      else
-        result := 'Set Doodad State';
-
-      result += '(' + AddQuotes(PlayerToStr(Player))+', '+AddQuotes(UnitType)+', '+AddQuotes(Location)+', ';
-      case Value of
-      0: result += 'disabled';
-      1: result += 'enabled';
-      else result += 'toggle';
-      end;
-      result += ')';
-      exit;
-    end
   else
     raise exception.Create('Case not handled');
   end;
@@ -1585,7 +1735,7 @@ begin
   DestPlayer := ADestPlayer;
 end;
 
-function TGiveUnitInstruction.ToString: ansistring;
+function TGiveUnitInstruction.ToTrigEdit: string;
 begin
   result := 'Give Units to Player(' + AddQuotes(PlayerToStr(Player))+', '+ AddQuotes(PlayerToStr(DestPlayer))+ ', ' +
     AddQuotes(UnitType)+', ';
@@ -1606,7 +1756,7 @@ begin
   DeathAnimation:= ADeathAnimation;
 end;
 
-function TKillUnitInstruction.ToString: ansistring;
+function TKillUnitInstruction.ToTrigEdit: string;
 begin
   if DeathAnimation then result := 'Kill Unit' else result := 'Remove Unit';
   if not IsAnywhere(Location) or (Quantity <> -1) then
@@ -1630,11 +1780,6 @@ begin
   ChangePlayers := AChangePlayers;
 end;
 
-function TSplitInstruction.ToString: ansistring;
-begin
-  Result:= '}{';
-end;
-
 { TBringCondition }
 
 constructor TBringCondition.Create(APlayer: TPlayer; AUnitType, ALocation: string;
@@ -1647,7 +1792,7 @@ begin
   Location:= ALocation;
 end;
 
-function TBringCondition.ToString: ansistring;
+function TBringCondition.ToTrigEdit: string;
 begin
   if IsAnywhere(Location) then
     Result:= 'Command("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' +
@@ -1675,15 +1820,13 @@ begin
   Properties:= AProperties;
 end;
 
-function TCreateUnitInstruction.ToString: ansistring;
+function TCreateUnitInstruction.ToTrigEdit: string;
 begin
   Result:= 'Create Unit';
-
   if Properties >= 0 then result += ' with Properties';
 
   result += '("'+ PlayerToStr(Player)+'", ' + AddQuotes(UnitType)+', ';
-  if Quantity = -1 then result += 'All' else result += inttostr(Quantity);
-  result += ', '+AddQuotes(Location);
+  result += inttostr(Quantity) + ', '+AddQuotes(Location);
   if Properties >=0 then result += ', ' + inttostr(Properties+1);
 
   result += ')';
@@ -1731,37 +1874,7 @@ begin
   end;
 end;
 
-function TTransferIntegerInstruction.ToString: ansistring;
-var modeStr: string;
-begin
-  case Action of
-  itAddIntoAccumulator: modeStr := 'Add into acc';
-  itSubtractIntoAccumulator: modeStr := 'Subtract into acc';
-  itCopyAccumulator: modeStr := 'Copy acc';
-  itAddAccumulator: modeStr := 'Add acc';
-  itSubtractAccumulator: modeStr := 'Subtract acc';
-  itRandomizeAccumulator: modeStr := 'Randomize acc';
-  itLimitAccumulator: modeStr := 'Limit acc';
-  else modeStr := 'Copy to acc';
-  end;
-  if Player <> plNone then
-    Result:= 'TransferInteger("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' + modeStr + ')'
-  else
-    Result:= 'TransferInteger(' + inttostr(Value) + ', ' + modeStr + ')'
-end;
-
 { TConditionList }
-
-function TConditionList.ToString: ansistring;
-var i: integer;
-begin
-  result := '';
-  for i := 0 to Count-1 do
-  begin
-    if i > 0 then result += ' And ';
-    result += Items[i].ToString;
-  end;
-end;
 
 function TConditionList.IsComputed: boolean;
 var
@@ -1832,11 +1945,6 @@ begin
   IP := AIP;
 end;
 
-function TWaitConditionInstruction.ToString: ansistring;
-begin
-  Result:='Wait(' + Conditions.ToString + ')';
-end;
-
 { TChangeIPInstruction }
 
 constructor TChangeIPInstruction.Create(AIP: Integer; APreserve: Integer);
@@ -1845,14 +1953,9 @@ begin
   Preserve := APreserve;
 end;
 
-function TChangeIPInstruction.ToString: ansistring;
-begin
-  Result:= '';
-end;
-
 { TNeverCondition }
 
-function TNeverCondition.ToString: ansistring;
+function TNeverCondition.ToTrigEdit: string;
 begin
   Result:= 'Never()';
 end;
@@ -1875,21 +1978,11 @@ begin
   //nothing
 end;
 
-function TEndIfInstruction.ToString: ansistring;
-begin
-  Result:= '}';
-end;
-
 { TElseInstruction }
 
 constructor TElseInstruction.Create;
 begin
   //nothing
-end;
-
-function TElseInstruction.ToString: ansistring;
-begin
-  Result:= '} Else {';
 end;
 
 { TIfInstruction }
@@ -1911,11 +2004,6 @@ begin
   Conditions := AConditions;
 end;
 
-function TIfInstruction.ToString: ansistring;
-begin
-  Result:= 'If ('+ Conditions.ToString+'){';
-end;
-
 { TWhileInstruction }
 
 destructor TWhileInstruction.Destroy;
@@ -1929,11 +2017,6 @@ begin
   Conditions := AConditions;
 end;
 
-function TWhileInstruction.ToString: ansistring;
-begin
-  Result:= 'While ('+ Conditions.ToString+')';
-end;
-
 { TEndWhileInstruction }
 
 constructor TEndWhileInstruction.Create;
@@ -1941,21 +2024,11 @@ begin
  //nothing
 end;
 
-function TEndWhileInstruction.ToString: ansistring;
-begin
-  Result:= '}';
-end;
-
 { TReturnInstruction }
 
 constructor TReturnInstruction.Create;
 begin
   //nothing
-end;
-
-function TReturnInstruction.ToString: ansistring;
-begin
-  Result:= 'Return';
 end;
 
 { TDropThreadInstruction }
@@ -1967,11 +2040,6 @@ begin
   ResumeIP:= AResumeIP;
   PlayersToDrop:= APlayersToDrop;
   PlayersToResume:= APlayersToResume;
-end;
-
-function TDropThreadInstruction.ToString: ansistring;
-begin
-  result := '';
 end;
 
 { TCallInstruction }
@@ -1998,19 +2066,6 @@ begin
   ReturnType:= AReturnType;
 end;
 
-function TCallInstruction.ToString: ansistring;
-var
-  i: Integer;
-begin
-  Result:= Name+'(';
-  for i := 0 to high(Params) do
-  begin
-    if i > 0 then result += ', ';
-    Result += Params[i];
-  end;
-  result += ')';
-end;
-
 { TWaitInstruction }
 
 constructor TWaitInstruction.Create(ADelayMs: integer);
@@ -2018,7 +2073,7 @@ begin
   DelayMs:= ADelayMs;
 end;
 
-function TWaitInstruction.ToString: ansistring;
+function TWaitInstruction.ToTrigEdit: string;
 begin
   Result:= 'Wait('+IntToStr(DelayMs)+')';
 end;
@@ -2032,37 +2087,24 @@ begin
   Text:= AMessage;
 end;
 
-function TDisplayTextMessageInstruction.ToString: ansistring;
+function TDisplayTextMessageInstruction.ToTrigEdit: string;
 begin
   Result := 'Display Text Message(' + BoolToStr(Always, 'Always Display', 'Don''t Always Display') +
             ', ' + AddQuotes(Text) + ')';
 end;
 
-{ TAddIntegerFromSwitchesInstruction }
-
-constructor TAddIntegerFromSwitchesInstruction.Create(APlayer: TPlayer;
-  AUnitType: string; ASwitches: array of integer);
-var
-  i: Integer;
-begin
-  Player := APlayer;
-  UnitType:= AUnitType;
-  setlength(Switches, length(ASwitches));
-  for i := 0 to high(ASwitches) do
-    Switches[i] := ASwitches[i];
-end;
-
-function TAddIntegerFromSwitchesInstruction.ToString: ansistring;
-begin
-  Result:= 'Set Deaths("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', Add, switches)'; //not a real instruction
-end;
-
 { TCondition }
 
-function TCondition.ToStringAndFree: ansistring;
+function TCondition.ToTrigEditAndFree: ansistring;
 begin
-  result := ToString;
+  result := ToTrigEdit;
   Free;
+end;
+
+function TCondition.ToTrigEdit: string;
+begin
+  result := '?';
+  raise exception.Create('Condition not translatable to TrigEdit code');
 end;
 
 function TCondition.IsArithmetic: boolean;
@@ -2086,10 +2128,16 @@ end;
 
 { TInstruction }
 
-function TInstruction.ToStringAndFree: ansistring;
+function TInstruction.ToTrigEditAndFree: string;
 begin
-  result := ToString;
+  result := ToTrigEdit;
   Free;
+end;
+
+function TInstruction.ToTrigEdit: string;
+begin
+  result := '?';
+  raise exception.Create('Instruction not translatable to TrigEdit code');
 end;
 
 { TIntegerCondition }
@@ -2103,7 +2151,7 @@ begin
   Value := AValue;
 end;
 
-function TIntegerCondition.ToString: ansistring;
+function TIntegerCondition.ToTrigEdit: string;
 var
   modeStr: string;
 begin
@@ -2127,7 +2175,7 @@ end;
 
 { TAlwaysCondition }
 
-function TAlwaysCondition.ToString: ansistring;
+function TAlwaysCondition.ToTrigEdit: string;
 begin
   Result:= 'Always()';
 end;
@@ -2151,7 +2199,7 @@ begin
   Value := AValue;
 end;
 
-function TSwitchCondition.ToString: ansistring;
+function TSwitchCondition.ToTrigEdit: string;
 begin
   Result:= 'Switch("Switch' + IntToStr(Switch) + '", ' + BoolToStr(Value, 'set', 'not set') + ')';
 end;
@@ -2192,34 +2240,39 @@ begin
   end;
 end;
 
-function TSetIntegerInstruction.ToString: ansistring;
-var
-  modeStr: string;
+function TSetIntegerInstruction.ConvertToSpecificInstruction: TInstruction;
 begin
-  case Mode of
-  simSetTo: modeStr := 'Set To';
-  simSubtract: modeStr := 'Subtract';
-  simRandomize: modeStr := 'Randomize';
-  else
-    {simAdd: }modeStr := 'Add';
-  end;
-  if (CompareText(UnitType,'Ore')=0) or (CompareText(UnitType,'Gas')=0) or (CompareText(UnitType,'Ore And Gas')=0) then
-    Result:= 'Set Resources("' + PlayerToStr(Player) + '", ' + modeStr + ', ' + IntToStr(Value) + ', ' + LowerCase(UnitType) + ')'
-  else
+  if CompareText(UnitType,'Ore')=0 then
+    result := TSetResourceInstruction.Create(Player,srOre,Mode,Value) else
+  if CompareText(UnitType,'Gas')=0 then
+    result := TSetResourceInstruction.Create(Player,srGas,Mode,Value) else
+  if CompareText(UnitType,'Ore And Gas')=0 then
+    result := TSetResourceInstruction.Create(Player,srOreAndGas,Mode,Value) else
   if CompareText(copy(UnitType,length(UnitType)-5,6),' Score')=0 then
-    result := 'Set Score("' + PlayerToStr(Player) + '", ' + modeStr + ', ' + IntToStr(Value) + ', ' + copy(UnitType,1,length(UnitType)-6) + ')'
+  begin
+    if compareText(UnitType, 'Units Score')=0 then
+      result := TSetScoreInstruction.Create(Player,ssUnitScore,Mode,Value) else
+    if compareText(UnitType, 'Buildings Score')=0 then
+      result := TSetScoreInstruction.Create(Player,ssBuildingScore,Mode,Value) else
+    if compareText(UnitType, 'Units and buildings Score')=0 then
+      result := TSetScoreInstruction.Create(Player,ssUnitAndBuildingScore,Mode,Value) else
+    if compareText(UnitType, 'Kills Score')=0 then
+      result := TSetScoreInstruction.Create(Player,ssKillScore,Mode,Value) else
+    if compareText(UnitType, 'Razings Score')=0 then
+      result := TSetScoreInstruction.Create(Player,ssRazingScore,Mode,Value) else
+    if compareText(UnitType, 'Kills and razings Score')=0 then
+      result := TSetScoreInstruction.Create(Player,ssKillAndRazingScore,Mode,Value) else
+    if compareText(UnitType, 'Custom Score')=0 then
+      result := TSetScoreInstruction.Create(Player,ssCustomScore,Mode,Value) else
+    if compareText(UnitType, 'Total Score')=0 then
+      result := TSetScoreInstruction.Create(Player,ssTotalScore,Mode,Value) else
+        raise exception.Create('Unknown score type "'+UnitType+'"');
+  end
   else
   if CompareText(UnitType,'Countdown')= 0 then
-    result := 'Set Countdown Timer(' + modeStr +', ' + IntToStr(Value) + ')'
+    result := TSetCountdownInstruction.Create(Mode,Value)
   else
-    Result:= 'Set Deaths("' + PlayerToStr(Player) + '", ' + AddQuotes(UnitType) + ', ' + modeStr + ', ' + IntToStr(Value) + ')';
-end;
-
-{ TEmptyInstruction }
-
-function TEmptyInstruction.ToString: ansistring;
-begin
-  Result:= '';
+    Result:= TSetDeathInstruction.Create(Player, UnitType, Mode, Value);
 end;
 
 { TSetSwitchInstruction }
@@ -2231,9 +2284,9 @@ begin
   Value:= AValue;
 end;
 
-function TSetSwitchInstruction.ToString: ansistring;
+function TSetSwitchInstruction.ToTrigEdit: string;
 begin
-  Result:= 'Set Switch("Switch' + IntToStr(Switch) + '", ' + SwitchToStr[Value] + ')';
+  Result:= 'Set Switch('+AddQuotes(SwitchToStr(Switch))+ ', ' + SwitchValueToStr[Value] + ')';
 end;
 
 end.

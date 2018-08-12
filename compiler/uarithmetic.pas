@@ -638,7 +638,7 @@ begin
     itCopyIntoAccumulator: AExpanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simSetTo, ATransfer.Value));
     itAddIntoAccumulator: AExpanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simAdd, ATransfer.Value));
     itSubtractIntoAccumulator: AExpanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simSubtract, ATransfer.Value));
-    itRandomizeAccumulator: AExpanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simRandomize, ATransfer.Value));
+    itRandomizeAccumulator: AExpanded.Add(TRandomizeIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, ATransfer.Value));
     itLimitAccumulator: AExpanded.Add(TFastIfInstruction.Create([TIntegerCondition.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, icmAtLeast, ATransfer.Value+1)],
                                          [TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simSetTo, ATransfer.Value)]) );
     else

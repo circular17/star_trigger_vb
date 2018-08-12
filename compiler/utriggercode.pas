@@ -105,7 +105,7 @@ begin
     end;
   if ANextIP <> -1 then
   begin
-    AOutput.Add(#9 + SetNextIP(ANextIP).ToStringAndFree + ';');
+    AOutput.Add(#9 + SetNextIP(ANextIP).ToTrigEditAndFree + ';');
     actionCount += 1;
   end;
   if APreserve then
@@ -277,10 +277,7 @@ var
   condStr, instrStr: array of string;
   instrCount: integer;
 
-  addFromSwitch: TAddIntegerFromSwitchesInstruction;
   NextIP, whileIP, beforeIP: integer;
-  add2: TSetIntegerInstruction;
-  add2prog: TInstructionList;
   switchCheck: TSwitchCondition;
   dropThread: TDropThreadInstruction;
   waitCond: TWaitConditionInstruction;
@@ -305,7 +302,7 @@ begin
   if AIPStart <> -1 then
   begin
     setlength(condStr, length(condStr) + 1);
-    condStr[High(condStr)] := CheckIP(AIPStart).ToStringAndFree;
+    condStr[High(condStr)] := CheckIP(AIPStart).ToTrigEditAndFree;
   end;
 
   setlength(instrStr, ALastInstr - AFirstInstr + 1 + 1);
@@ -324,40 +321,13 @@ begin
     end;
     if waitFound then
     begin
-      instrStr[0] := SetNextIP(BusyIP).ToStringAndFree;
+      instrStr[0] := SetNextIP(BusyIP).ToTrigEditAndFree;
       inc(instrCount);
     end;
   end;
 
   for i := AFirstInstr to ALastInstr do
   begin
-    if AProg[i] is TAddIntegerFromSwitchesInstruction then
-    begin
-      addFromSwitch := TAddIntegerFromSwitchesInstruction(AProg[i]);
-
-      NextIP:= NewIP;
-
-      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), NextIP, APreserve or (ATempPreserve > 0));
-
-      //add powers of 2
-      switchCheck := TSwitchCondition.Create(0, true);
-      add2prog := TInstructionList.Create;
-      add2 := TSetIntegerInstruction.Create(addFromSwitch.Player, addFromSwitch.UnitType, simAdd, 0);
-      add2prog.add(add2);
-      for j := 0 to high(addFromSwitch.Switches) do
-      begin
-        switchCheck.Switch:= addFromSwitch.Switches[j];
-        add2.Value := 1 shl j;
-        WriteProg(AOutput, APlayers, [switchCheck], add2prog, NextIP, -1, APreserve, ATempPreserve);
-      end;
-      add2.Free;
-      add2prog.Free;
-      switchCheck.Free;
-
-      //carry on with the rest of the prog
-      WriteProg(AOutput, APlayers, [], AProg, NextIP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
-      exit;
-    end else
     if AProg[i] is TDropThreadInstruction then
     begin
       dropThread := TDropThreadInstruction(AProg[i]);

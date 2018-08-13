@@ -337,7 +337,6 @@ type
 function SetIntegerModeToStr(AMode: TSetIntegerMode): string;
 function StarcraftResourceToStr(AResource: TStarcraftResource): string;
 function StarcraftScoreToStr(AScore: TStarcraftScore): string;
-function ConvertSetIntegerInstructionIntoTriggerInstruction(AInstruction: TSetIntegerInstruction): TTriggerInstruction;
 
 const
   SwitchValueToStr : array[TSwitchValue] of string = ('clear','set','randomize','toggle');
@@ -377,43 +376,54 @@ begin
   end;
 end;
 
-function ConvertSetIntegerInstructionIntoTriggerInstruction(
-  AInstruction: TSetIntegerInstruction): TTriggerInstruction;
+function CreateSetIntegerInstructionImplementation(APlayer: TPlayer; AUnitType: string; AMode: TSetIntegerMode; AValue: integer): TInstruction;
 begin
-  with AInstruction do
+  if AValue < 0 then
   begin
-    if CompareText(UnitType,'Ore')=0 then
-      result := TSetResourceInstruction.Create(Player,srOre,Mode,Value) else
-    if CompareText(UnitType,'Gas')=0 then
-      result := TSetResourceInstruction.Create(Player,srGas,Mode,Value) else
-    if CompareText(UnitType,'Ore And Gas')=0 then
-      result := TSetResourceInstruction.Create(Player,srOreAndGas,Mode,Value) else
-    if CompareText(copy(UnitType,length(UnitType)-5,6),' Score')=0 then
+    if AMode = simSubtract then
     begin
-      if compareText(UnitType, 'Units Score')=0 then
-        result := TSetScoreInstruction.Create(Player,ssUnitScore,Mode,Value) else
-      if compareText(UnitType, 'Buildings Score')=0 then
-        result := TSetScoreInstruction.Create(Player,ssBuildingScore,Mode,Value) else
-      if compareText(UnitType, 'Units and buildings Score')=0 then
-        result := TSetScoreInstruction.Create(Player,ssUnitAndBuildingScore,Mode,Value) else
-      if compareText(UnitType, 'Kills Score')=0 then
-        result := TSetScoreInstruction.Create(Player,ssKillScore,Mode,Value) else
-      if compareText(UnitType, 'Razings Score')=0 then
-        result := TSetScoreInstruction.Create(Player,ssRazingScore,Mode,Value) else
-      if compareText(UnitType, 'Kills and razings Score')=0 then
-        result := TSetScoreInstruction.Create(Player,ssKillAndRazingScore,Mode,Value) else
-      if compareText(UnitType, 'Custom Score')=0 then
-        result := TSetScoreInstruction.Create(Player,ssCustomScore,Mode,Value) else
-      if compareText(UnitType, 'Total Score')=0 then
-        result := TSetScoreInstruction.Create(Player,ssTotalScore,Mode,Value) else
-          raise exception.Create('Unknown score type "'+UnitType+'"');
-    end
-    else
-    if CompareText(UnitType,'Countdown')= 0 then
-      result := TSetCountdownInstruction.Create(Mode,Value)
-    else
-      Result:= TSetDeathInstruction.Create(Player, UnitType, Mode, Value);
+      AValue := -AValue;
+      AMode := simAdd;
+    end else
+    if AMode = simAdd then
+    begin
+      AValue := -AValue;
+      AMode := simSubtract;
+    end else
+      AValue := 0;
   end;
+
+  if CompareText(AUnitType,'Ore')=0 then
+    result := TSetResourceInstruction.Create(APlayer,srOre,AMode,AValue) else
+  if CompareText(AUnitType,'Gas')=0 then
+    result := TSetResourceInstruction.Create(APlayer,srGas,AMode,AValue) else
+  if CompareText(AUnitType,'Ore And Gas')=0 then
+    result := TSetResourceInstruction.Create(APlayer,srOreAndGas,AMode,AValue) else
+  if CompareText(copy(AUnitType,length(AUnitType)-5,6),' Score')=0 then
+  begin
+    if compareText(AUnitType, 'Units Score')=0 then
+      result := TSetScoreInstruction.Create(APlayer,ssUnitScore,AMode,AValue) else
+    if compareText(AUnitType, 'Buildings Score')=0 then
+      result := TSetScoreInstruction.Create(APlayer,ssBuildingScore,AMode,AValue) else
+    if compareText(AUnitType, 'Units and buildings Score')=0 then
+      result := TSetScoreInstruction.Create(APlayer,ssUnitAndBuildingScore,AMode,AValue) else
+    if compareText(AUnitType, 'Kills Score')=0 then
+      result := TSetScoreInstruction.Create(APlayer,ssKillScore,AMode,AValue) else
+    if compareText(AUnitType, 'Razings Score')=0 then
+      result := TSetScoreInstruction.Create(APlayer,ssRazingScore,AMode,AValue) else
+    if compareText(AUnitType, 'Kills and razings Score')=0 then
+      result := TSetScoreInstruction.Create(APlayer,ssKillAndRazingScore,AMode,AValue) else
+    if compareText(AUnitType, 'Custom Score')=0 then
+      result := TSetScoreInstruction.Create(APlayer,ssCustomScore,AMode,AValue) else
+    if compareText(AUnitType, 'Total Score')=0 then
+      result := TSetScoreInstruction.Create(APlayer,ssTotalScore,AMode,AValue) else
+        raise exception.Create('Unknown score type "'+AUnitType+'"');
+  end
+  else
+  if CompareText(AUnitType,'Countdown')= 0 then
+    result := TSetCountdownInstruction.Create(AMode,AValue)
+  else
+    Result:= TSetDeathInstruction.Create(APlayer, AUnitType, AMode, AValue);
 end;
 
 { TTriggerInstruction }
@@ -1036,6 +1046,10 @@ begin
   end;
   result += ')';
 end;
+
+initialization
+
+  CreateSetIntegerInstruction := @CreateSetIntegerInstructionImplementation;
 
 end.
 

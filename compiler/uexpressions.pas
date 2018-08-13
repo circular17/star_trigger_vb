@@ -194,7 +194,7 @@ function TryExpression(AScope: integer; ALine: TStringList; var AIndex: integer;
 
 implementation
 
-uses uparsevb, uvariables, uarithmetic;
+uses uparsevb, uvariables, uarithmetic, utriggerconditions;
 
 function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string): boolean;
 begin
@@ -1029,7 +1029,7 @@ begin
       end;
 
       multiplicand := GetMultiplicandIntArray(BitCount);
-      AProg.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[multiplicand].UnitType, simSetTo,0));
+      AProg.Add(CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[multiplicand].UnitType, simSetTo,0));
       if factor <= 3 then
       begin
         for i := 1 to factor do
@@ -1062,7 +1062,7 @@ begin
   end;
 
   if AClearVar then
-    AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType, simSetTo,0));
+    AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType, simSetTo,0));
   if factor <= 3 then
   begin
     for i := 1 to factor do
@@ -1124,9 +1124,9 @@ procedure TConstantNode.LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer;
   AUnitType: string; AProg: TInstructionList);
 begin
   if AClearVar then
-    AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType, simSetTo, Value))
+    AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType, simSetTo, Value))
   else
-    AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType, simAdd, Value));
+    AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType, simAdd, Value));
 end;
 
 function TConstantNode.AlwaysClearAccumulator: boolean;
@@ -1195,7 +1195,7 @@ begin
     begin
       proc := TInstructionList.Create;
       proc.Add(TTransferIntegerInstruction.Create(1,itAddIntoAccumulator));
-      AProg.Add(TFastIfInstruction.Create( [TIntegerCondition.Create(IntVars[Vars[i]].Player, IntVars[Vars[i]].UnitType, icmExactly, TestValue)], proc));
+      AProg.Add(TFastIfInstruction.Create( [CreateIntegerCondition(IntVars[Vars[i]].Player, IntVars[Vars[i]].UnitType, icmExactly, TestValue)], proc));
     end;
 end;
 
@@ -1206,14 +1206,14 @@ var
   i: Integer;
 begin
   if AClearVar then
-    AProg.Add( TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0) );
+    AProg.Add( CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0) );
 
   with IntArrays[IntArray] do
     for i := 0 to size-1 do
     begin
       proc := TInstructionList.Create;
-      proc.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simAdd,1));
-      AProg.Add(TFastIfInstruction.Create( [TIntegerCondition.Create(IntVars[Vars[i]].Player, IntVars[Vars[i]].UnitType, icmExactly, TestValue)], proc));
+      proc.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simAdd,1));
+      AProg.Add(TFastIfInstruction.Create( [CreateIntegerCondition(IntVars[Vars[i]].Player, IntVars[Vars[i]].UnitType, icmExactly, TestValue)], proc));
     end;
 end;
 
@@ -1267,13 +1267,13 @@ var
   i: Integer;
 begin
   if AClearVar then
-    AProg.Add( TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0) );
+    AProg.Add( CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0) );
 
   with BoolArrays[BoolArray] do
     for i := 0 to size-1 do
     begin
       proc := TInstructionList.Create;
-      proc.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simAdd,1));
+      proc.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simAdd,1));
       AProg.Add(TFastIfInstruction.Create( [TSwitchCondition.Create(BoolVars[Vars[i]].Switch, TestValue)], proc));
     end;
 end;
@@ -1450,9 +1450,9 @@ begin
     else
     begin
       Elements[0].LoadIntoVariable( AMode = simSetTo, ADestPlayer, ADestUnitType, AProg );
-      AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simAdd, ConstElement) );
-      AProg.Add( TFastIfInstruction.Create( [TIntegerCondition.Create( ADestPlayer, ADestUnitType, icmAtLeast, 1 shl bitCount)],
-                    [TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSetTo, (1 shl bitCount) -1 )] ) );
+      AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simAdd, ConstElement) );
+      AProg.Add( TFastIfInstruction.Create( [CreateIntegerCondition( ADestPlayer, ADestUnitType, icmAtLeast, 1 shl bitCount)],
+                    [CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simSetTo, (1 shl bitCount) -1 )] ) );
     end;
   end else
   if (PositiveCount = 0) and (NegativeCount = 0) then
@@ -1462,17 +1462,17 @@ begin
       if (ConstElement < 0) or (ConstElement >= 1 shl bitCount) then
         raise exception.Create('Value out of bounds (' + IntToStr(ConstElement) + ')');
 
-      AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSetTo, ConstElement) );
+      AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simSetTo, ConstElement) );
     end else
     if ConstElement <> 0 then
     begin
       if (ConstElement <= - (1 shl bitCount)) or (ConstElement >= 1 shl bitCount) then
         raise exception.Create('Value out of bounds (' + IntToStr(ConstElement) + ')');
 
-      AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, AMode, ConstElement) );
+      AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, AMode, ConstElement) );
       if ConstElement > 0 then
-        AProg.Add( TFastIfInstruction.Create( [TIntegerCondition.Create( ADestPlayer, ADestUnitType, icmAtLeast, 1 shl bitCount)],
-                      [TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSetTo, (1 shl bitCount) -1 )] ) );
+        AProg.Add( TFastIfInstruction.Create( [CreateIntegerCondition( ADestPlayer, ADestUnitType, icmAtLeast, 1 shl bitCount)],
+                      [CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simSetTo, (1 shl bitCount) -1 )] ) );
     end;
   end
   else
@@ -1481,17 +1481,17 @@ begin
     begin
       if ConstElement > 0 then
       begin
-        AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSetTo, ConstElement) );
+        AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simSetTo, ConstElement) );
         ConstElement := 0;
       end else
       begin
-        AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSetTo, 0) );
+        AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simSetTo, 0) );
       end;
     end else
     begin
       if ConstElement > 0 then
       begin
-        AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simAdd, ConstElement) );
+        AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simAdd, ConstElement) );
         ConstElement := 0;
       end;
     end;
@@ -1527,7 +1527,7 @@ begin
       AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itSubtractAccumulator ) );
 
     if ConstElement < 0 then
-      AProg.Add( TSetIntegerInstruction.Create( ADestPlayer, ADestUnitType, simSubtract, -ConstElement) );
+      AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simSubtract, -ConstElement) );
   end;
 
   if assigned(removedElem) then Elements.Add(removedElem);

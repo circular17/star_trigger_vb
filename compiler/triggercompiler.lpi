@@ -24,7 +24,7 @@
         <FormatVersion Value="1"/>
       </local>
     </RunParams>
-    <Units Count="12">
+    <Units Count="13">
       <Unit0>
         <Filename Value="triggercompiler.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -73,6 +73,10 @@
         <Filename Value="utriggerinstructions.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit11>
+      <Unit12>
+        <Filename Value="utriggerconditions.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit12>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

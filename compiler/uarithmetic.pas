@@ -31,7 +31,7 @@ procedure ReleaseTempBool(ASwitch: integer);
 
 implementation
 
-uses utriggercode, uvariables, math, utriggerinstructions;
+uses utriggercode, uvariables, math, utriggerinstructions, utriggerconditions;
 
 function AllocateTempBool: integer;
 var
@@ -192,8 +192,8 @@ var
 var
   i, j: integer;
   condSwitch, condSub: TSwitchCondition;
-  addAcc, setValue: TSetIntegerInstruction;
-  condValue: TIntegerCondition;
+  addAcc, setValue: TInstruction;
+  condValue: TCondition;
   condVar, condIP2: TCondition;
   setSw: TSetSwitchInstruction;
   switchCopyVarToBits, switchAddToVarFromBits,
@@ -341,20 +341,19 @@ begin
   begin
     //transfer to bools
     condVar := CheckSysParam(i);
-    condValue := TIntegerCondition.Create(IntVars[i].Player, IntVars[i].UnitType, icmAtLeast, 0);
-    addAcc := TSetIntegerInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simSubtract, 0);
-    setSw := TSetSwitchInstruction.Create(0, svSet);
-    proc.Add(addAcc);
-    proc.Add(setSw);
     for j := min(TransferProcs[i].BitCount-1, ArithmeticMaxInputBits-1) downto 0 do
     begin
-      condValue.Value := 1 shl j;
-      addAcc.Value := condValue.Value;
-      setSw.Switch := ValueBools[j];
+      condValue := CreateIntegerCondition(IntVars[i].Player, IntVars[i].UnitType, icmAtLeast, 1 shl j);
+
+      addAcc := CreateSetIntegerInstruction(IntVars[i].Player, IntVars[i].UnitType, simSubtract, 1 shl j);
+      setSw := TSetSwitchInstruction.Create(ValueBools[j], svSet);
+      proc.Add(addAcc);
+      proc.Add(setSw);
       WriteProg(AOutput, [plAllPlayers], [condSub, condVar, condValue], proc, -1,-1, True);
+      EmptyProc;
+
+      condValue.Free;
     end;
-    EmptyProc;
-    condValue.Free;
   end;
   condSub.Free;
 
@@ -363,15 +362,15 @@ begin
     //adding temp bits to accumulator
     condSub := TSwitchCondition.Create(switchAddToAccFromBits,true);
     condSwitch := TSwitchCondition.Create(0,true);
-    addAcc := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simAdd, 0);
-    proc.Add(addAcc);
     for i := ArithmeticMaxInputBits-1 downto 0 do
     begin
       condSwitch.Switch := ValueBools[i];
-      addAcc.Value := 1 shl i;
+
+      addAcc := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[AccArray].UnitType, simAdd, 1 shl i);
+      proc.Add(addAcc);
       WriteProg(AOutput, [plAllPlayers], [condSub, condSwitch], proc, -1,-1, True);
+      EmptyProc;
     end;
-    EmptyProc;
     condSwitch.Free;
     condSub.Free;
   end;
@@ -381,15 +380,14 @@ begin
     //subtracting temp bits from accumulator
     condSub := TSwitchCondition.Create(switchSubtractIntoAccFromBits,true);
     condSwitch := TSwitchCondition.Create(0,true);
-    addAcc := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simSubtract, 0);
-    proc.Add(addAcc);
     for i := ArithmeticMaxInputBits-1 downto 0 do
     begin
       condSwitch.Switch := ValueBools[i];
-      addAcc.Value := 1 shl i;
+      addAcc := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[AccArray].UnitType, simSubtract, 1 shl i);
+      proc.Add(addAcc);
       WriteProg(AOutput, [plAllPlayers], [condSub, condSwitch], proc, -1,-1, True);
+      EmptyProc;
     end;
-    EmptyProc;
     condSwitch.Free;
     condSub.Free;
   end;
@@ -451,8 +449,8 @@ begin
   if TransferProcs[i].AddAcc then
   begin
     condVar := CheckSysParam(i);
-    condValue := TIntegerCondition.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, icmAtLeast, 1 shl TransferProcs[i].BitCount);
-    proc.Add(TSetIntegerInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simSetTo, (1 shl TransferProcs[i].BitCount)-1));
+    condValue := CreateIntegerCondition(plCurrentPlayer, IntArrays[AccArray].UnitType, icmAtLeast, 1 shl TransferProcs[i].BitCount);
+    proc.Add(CreateSetIntegerInstruction(IntVars[i].Player, IntVars[i].UnitType, simSetTo, (1 shl TransferProcs[i].BitCount)-1));
     proc.Add(SetNextSysIP(0));
     WriteProg(AOutput, [plAllPlayers], [condIP, condVar, condValue], proc, -1,-1, True);
     EmptyProc;
@@ -490,32 +488,30 @@ begin
   begin
     //copy acc to bits
     condSub := TSwitchCondition.Create(switchCopyAccToBits,true);
-    condValue := TIntegerCondition.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, icmAtLeast, 0);
-    addAcc := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simSubtract, 0);
-    setSw := TSetSwitchInstruction.Create(0, svSet);
-    proc.Add(addAcc);
-    proc.Add(setSw);
     for j := ArithmeticMaxAccBits-1 downto 0 do
     begin
-      condValue.Value := 1 shl j;
-      addAcc.Value := condValue.Value;
-      setSw.Switch := ValueBools[j];
+      condValue := CreateIntegerCondition(plCurrentPlayer, IntArrays[AccArray].UnitType, icmAtLeast, 1 shl j);
+
+      addAcc := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[AccArray].UnitType, simSubtract, 1 shl j);
+      setSw := TSetSwitchInstruction.Create(ValueBools[j], svSet);
+      proc.Add(addAcc);
+      proc.Add(setSw);
       WriteProg(AOutput, [plAllPlayers], [condSub, condValue], proc, -1,-1, True);
+      EmptyProc;
+
+      condValue.Free;
     end;
-    EmptyProc;
-    condValue.Free;
 
     // restore accumulator for successive additions
     condSwitch := TSwitchCondition.Create(0,true);
-    addAcc := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simAdd, 0);
-    proc.Add(addAcc);
     for j := ArithmeticMaxAccBits-1 downto 0 do
     begin
       condSwitch.Switch := ValueBools[j];
-      addAcc.Value := 1 shl j;
+      addAcc := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[AccArray].UnitType, simAdd, 1 shl j);
+      proc.Add(addAcc);
       WriteProg(AOutput, [plAllPlayers], [condSub, condSwitch], proc, -1,-1, True);
+      EmptyProc;
     end;
-    EmptyProc;
     condSwitch.Free;
 
     condSub.Free;
@@ -556,15 +552,14 @@ begin
   begin
     condVar := CheckSysParam(i);
     condSwitch := TSwitchCondition.Create(0,true);
-    addAcc := TSetIntegerInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simAdd, 0);
-    proc.Add(addAcc);
     for j := min(TransferProcs[i].BitCount-1, TotalBits-1) downto 0 do
     begin
       condSwitch.Switch := ValueBools[j];
-      addAcc.Value := 1 shl j;
+      addAcc := CreateSetIntegerInstruction(IntVars[i].Player, IntVars[i].UnitType, simAdd, 1 shl j);
+      proc.Add(addAcc);
       WriteProg(AOutput, [plAllPlayers], [condSub, condVar, condSwitch], proc, -1,-1, True);
+      EmptyProc;
     end;
-    EmptyProc;
     condSwitch.Free;
     condVar.Free;
   end;
@@ -576,8 +571,8 @@ begin
   if TransferProcs[i].AddAcc then
   begin
     condVar := CheckSysParam(i);
-    condValue := TIntegerCondition.Create(IntVars[i].Player, IntVars[i].UnitType, icmAtLeast, 1 shl TransferProcs[i].BitCount);
-    setValue := TSetIntegerInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simSetTo, (1 shl TransferProcs[i].BitCount)-1);
+    condValue := CreateIntegerCondition(IntVars[i].Player, IntVars[i].UnitType, icmAtLeast, 1 shl TransferProcs[i].BitCount);
+    setValue := CreateSetIntegerInstruction(IntVars[i].Player, IntVars[i].UnitType, simSetTo, (1 shl TransferProcs[i].BitCount)-1);
     proc.Add(setValue);
     WriteProg(AOutput, [plAllPlayers], [condIP, condVar, condValue], proc, -1,-1, True);
     EmptyProc;
@@ -594,7 +589,7 @@ begin
     if TransferProcs[i].SubAcc then
     begin
       condVar := CheckSysParam(i);
-      proc.Add( TSetIntegerInstruction.Create(IntVars[i].Player, IntVars[i].UnitType, simSubtract, (1 shl TotalBits )-1) );
+      proc.Add( CreateSetIntegerInstruction(IntVars[i].Player, IntVars[i].UnitType, simSubtract, (1 shl TotalBits )-1) );
       WriteProg(AOutput, [plAllPlayers], [condSub, condVar], proc, -1,-1, True);
       EmptyProc;
       condVar.Free;
@@ -635,12 +630,12 @@ begin
   begin
     NeedAcc;
     case ATransfer.Action of
-    itCopyIntoAccumulator: AExpanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simSetTo, ATransfer.Value));
-    itAddIntoAccumulator: AExpanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simAdd, ATransfer.Value));
-    itSubtractIntoAccumulator: AExpanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simSubtract, ATransfer.Value));
+    itCopyIntoAccumulator: AExpanded.Add(CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[AccArray].UnitType, simSetTo, ATransfer.Value));
+    itAddIntoAccumulator: AExpanded.Add(CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[AccArray].UnitType, simAdd, ATransfer.Value));
+    itSubtractIntoAccumulator: AExpanded.Add(CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[AccArray].UnitType, simSubtract, ATransfer.Value));
     itRandomizeAccumulator: AExpanded.Add(TRandomizeIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, ATransfer.Value));
-    itLimitAccumulator: AExpanded.Add(TFastIfInstruction.Create([TIntegerCondition.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, icmAtLeast, ATransfer.Value+1)],
-                                         [TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simSetTo, ATransfer.Value)]) );
+    itLimitAccumulator: AExpanded.Add(TFastIfInstruction.Create([CreateIntegerCondition(plCurrentPlayer, IntArrays[AccArray].UnitType, icmAtLeast, ATransfer.Value+1)],
+                                         [CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[AccArray].UnitType, simSetTo, ATransfer.Value)]) );
     else
       raise exception.Create('Unhandled case');
     end;
@@ -648,8 +643,8 @@ begin
   begin
     NeedTransfer;
     case ATransfer.Action of
-    itCopyIntoAccumulator: AExpanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, simSetTo, 0));
-    itCopyAccumulator: AExpanded.Add(TSetIntegerInstruction.Create(ATransfer.Player, ATransfer.UnitType, simSetTo, 0));
+    itCopyIntoAccumulator: AExpanded.Add(CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[AccArray].UnitType, simSetTo, 0));
+    itCopyAccumulator: AExpanded.Add(CreateSetIntegerInstruction(ATransfer.Player, ATransfer.UnitType, simSetTo, 0));
     end;
     nextIP := -1;
     case ATransfer.Action of
@@ -674,7 +669,7 @@ function CompareAccumulator(AMode: TIntegerConditionMode; AValue: integer
   ): TCondition;
 begin
   NeedAcc;
-  result := TIntegerCondition.Create(plCurrentPlayer, IntArrays[AccArray].UnitType, AMode, AValue);
+  result := CreateIntegerCondition(plCurrentPlayer, IntArrays[AccArray].UnitType, AMode, AValue);
 end;
 
 procedure InitArithmetic;

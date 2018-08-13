@@ -40,8 +40,6 @@ type
   { TCondition }
 
   TCondition = class
-    function ToTrigEditAndFree: ansistring;
-    function ToTrigEdit: string; virtual;
     function IsArithmetic: boolean; virtual;
     function IsComputed: boolean; virtual;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); virtual;
@@ -58,17 +56,6 @@ type
     procedure Compute(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string);
     procedure FreeAll;
     function Duplicate: TConditionList;
-  end;
-
-type
-  { TSetIntegerInstruction }
-
-  TSetIntegerInstruction = class(TInstruction)
-    Player: TPlayer;
-    UnitType: string;
-    Value: integer;
-    Mode: TSetIntegerMode;
-    constructor Create(APlayer: TPlayer; AUnitType: string; AMode: TSetIntegerMode; AValue: integer);
   end;
 
   { TRandomizeIntegerInstruction }
@@ -230,23 +217,6 @@ type
   /////////////////////////////////////////////////////////////////////////////////////////////
 
 type
-
-  { TAlwaysCondition }
-
-  TAlwaysCondition = class(TCondition)
-    function ToTrigEdit: string; override;
-    procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: string); override;
-    function Duplicate: TCondition; override;
-  end;
-
-  { TNeverCondition }
-
-  TNeverCondition = class(TCondition)
-    function ToTrigEdit: string; override;
-    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
-    function Duplicate: TCondition; override;
-  end;
-
   { TNotCondition }
 
   TNotCondition = class(TCondition)
@@ -254,7 +224,6 @@ type
     destructor Destroy; override;
     constructor Create(AConditions: array of TCondition);
     constructor Create(AConditions: TConditionList);
-    function ToTrigEdit: string; override;
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
@@ -268,7 +237,6 @@ type
     destructor Destroy; override;
     constructor Create(AConditions: array of TCondition);
     constructor Create(AConditions: TConditionList);
-    function ToTrigEdit: string; override;
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
@@ -282,118 +250,19 @@ type
     destructor Destroy; override;
     constructor Create(AConditions: array of TCondition);
     constructor Create(AConditions: TConditionList);
-    function ToTrigEdit: string; override;
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
     procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: string); override;
     function Duplicate: TCondition; override;
   end;
 
-  { TSwitchCondition }
-
-  TSwitchCondition = class(TCondition)
-    Switch: integer;
-    Value: boolean;
-    constructor Create(ASwitch: integer; AValue: boolean);
-    function ToTrigEdit: string; override;
-    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
-    function Duplicate: TCondition; override;
-  end;
-
-  TIntegerConditionMode = (icmAtLeast,icmAtMost,icmExactly);
-
-const
-  IntegerConditionModeToTrigEditStr: array[TIntegerConditionMode] of string =
-    ('At least', 'At most','Exactly');
-
 type
-  { TIntegerCondition }
+  TCreateSetIntegerInstructionProc = function (APlayer: TPlayer; AUnitType: string; AMode: TSetIntegerMode; AValue: integer): TInstruction;
+  TCreateIntegerConditionProc = function (APlayer: TPlayer; AUnitType: string; AMode: TIntegerConditionMode; AValue: integer): TCondition;
 
-  TIntegerCondition = class(TCondition)
-    Player: TPlayer;
-    UnitType: string;
-    Value: integer;
-    Mode: TIntegerConditionMode;
-    constructor Create(APlayer: TPlayer; AUnitType: string; AMode: TIntegerConditionMode; AValue: integer);
-    function ToTrigEdit: string; override;
-    function Duplicate: TCondition; override;
-  end;
-
-  { TBringCondition }
-
-  TBringCondition = class(TCondition)
-    Player: TPlayer;
-    UnitType, Location: string;
-    Value: integer;
-    Mode: TIntegerConditionMode;
-    constructor Create(APlayer: TPlayer; AUnitType, ALocation: string; AMode: TIntegerConditionMode; AValue: integer);
-    function ToTrigEdit: string; override;
-    function Duplicate: TCondition; override;
-  end;
-
-  { TKillCountCondition }
-
-  TKillCountCondition = class(TCondition)
-    Player: TPlayer;
-    UnitType: string;
-    Value: integer;
-    Mode: TIntegerConditionMode;
-    constructor Create(APlayer: TPlayer; AUnitType: string; AMode: TIntegerConditionMode; AValue: integer);
-    function ToTrigEdit: string; override;
-    function Duplicate: TCondition; override;
-  end;
-
-  { TOpponentCountCondition }
-
-  TOpponentCountCondition = class(TCondition)
-    Player: TPlayer;
-    Value: integer;
-    Mode: TIntegerConditionMode;
-    constructor Create(APlayer: TPlayer; AMode: TIntegerConditionMode; AValue: integer);
-    function ToTrigEdit: string; override;
-    function Duplicate: TCondition; override;
-  end;
-
-  { TElapsedTimeCondition }
-
-  TElapsedTimeCondition = class(TCondition)
-    Value: integer;
-    Mode: TIntegerConditionMode;
-    constructor Create(AMode: TIntegerConditionMode; AValue: integer);
-    function ToTrigEdit: string; override;
-    function Duplicate: TCondition; override;
-  end;
-
-  { TCompareUnitCountCondition }
-
-  TCompareUnitCountCondition = class(TCondition)
-    UnitType, Location: string;
-    Highest: boolean;
-    constructor Create(AUnitType, ALocation: string; AHighest: boolean);
-    function ToTrigEdit: string; override;
-    function Duplicate: TCondition; override;
-  end;
-
-  { TCompareKillCountCondition }
-
-  TCompareKillCountCondition = class(TCondition)
-    UnitType: string;
-    Highest: boolean;
-    constructor Create(AUnitType: string; AHighest: boolean);
-    function ToTrigEdit: string; override;
-    function Duplicate: TCondition; override;
-  end;
-
-  { TCompareIntegerCondition }
-
-  TCompareIntegerCondition = class(TCondition)
-    ValueType: string;
-    Highest: boolean;
-    IsScore, IsResource: boolean;
-    constructor Create(AValueType: string; AHighest: boolean);
-    function ToTrigEdit: string; override;
-    function Duplicate: TCondition; override;
-  end;
+var
+  CreateSetIntegerInstruction: TCreateSetIntegerInstructionProc;
+  CreateIntegerCondition: TCreateIntegerConditionProc;
 
 implementation
 
@@ -474,11 +343,6 @@ begin
   Conditions := AConditions;
 end;
 
-function TAndCondition.ToTrigEdit: string;
-begin
-  Result:= 'And condition';
-end;
-
 function TAndCondition.IsArithmetic: boolean;
 var
   i: Integer;
@@ -526,11 +390,6 @@ begin
   Conditions := AConditions;
 end;
 
-function TOrCondition.ToTrigEdit: string;
-begin
-  Result:='Or Condition';
-end;
-
 function TOrCondition.IsArithmetic: boolean;
 var
   i: Integer;
@@ -552,17 +411,17 @@ var
 begin
   if Conditions.Count > 0 then
   begin
-    AProg.Add(TIfInstruction.Create(TIntegerCondition.Create(APlayer,AUnitType,icmAtLeast,1)));
-    AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0));
+    AProg.Add(TIfInstruction.Create(CreateIntegerCondition(APlayer,AUnitType,icmAtLeast,1)));
+    AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0));
     for i := 0 to Conditions.Count-1 do
     begin
       if not Conditions[i].IsComputed then
       begin
-        AProg.Add(TFastIfInstruction.Create(Conditions[i],[TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,1)]));
+        AProg.Add(TFastIfInstruction.Create(Conditions[i],[CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,1)]));
       end else
       begin
         AProg.Add(TIfInstruction.Create(Conditions[i].Duplicate));
-        AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,1));
+        AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,1));
         AProg.Add(TEndIfInstruction.Create);
       end;
     end;
@@ -675,142 +534,6 @@ begin
   inherited Destroy;
 end;
 
-{ TCompareIntegerCondition }
-
-constructor TCompareIntegerCondition.Create(AValueType: string; AHighest: boolean);
-begin
-  ValueType := AValueType;
-  Highest:= AHighest;
-  IsScore := (CompareText(copy(ValueType,length(ValueType)-5,6),' Score')=0);
-  IsResource := (CompareText(ValueType,'ore')=0) or (CompareText(ValueType,'gas')=0) or (CompareText(ValueType,'ore and gas')=0);
-  if not IsScore and not IsResource then raise exception.Create('Unknown value type');
-end;
-
-function TCompareIntegerCondition.ToTrigEdit: string;
-begin
-  if IsScore then
-  begin
-    if Highest then result := 'Highest' else result := 'Lowest';
-    result += ' Score(' + copy(ValueType,1,length(ValueType)-6) + ')'
-  end else
-  if IsResource then
-  begin
-    if Highest then result := 'Most' else result := 'Least';
-    result += ' Resources(' + ValueType + ')'
-  end;
-end;
-
-function TCompareIntegerCondition.Duplicate: TCondition;
-begin
-  result := TCompareIntegerCondition.Create(ValueType,Highest);
-end;
-
-{ TCompareKillCountCondition }
-
-constructor TCompareKillCountCondition.Create(AUnitType: string;
-  AHighest: boolean);
-begin
-  UnitType := AUnitType;
-  Highest:= AHighest;
-end;
-
-function TCompareKillCountCondition.ToTrigEdit: string;
-begin
-  if Highest then result := 'Most' else result := 'Least';
-  Result += ' Kills';
-  result += '(' + AddTrigEditQuotes(UnitType) + ')';
-end;
-
-function TCompareKillCountCondition.Duplicate: TCondition;
-begin
-  result := TCompareKillCountCondition.Create(UnitType,Highest);
-end;
-
-{ TElapsedTimeCondition }
-
-constructor TElapsedTimeCondition.Create(AMode: TIntegerConditionMode;
-  AValue: integer);
-begin
-  Mode := AMode;
-  Value := AValue;
-end;
-
-function TElapsedTimeCondition.ToTrigEdit: string;
-begin
-  Result:= 'Elapsed Time(' + IntegerConditionModeToTrigEditStr[Mode] + ', ' + IntToStr(Value) + ')';
-end;
-
-function TElapsedTimeCondition.Duplicate: TCondition;
-begin
-  result := TElapsedTimeCondition.Create(Mode,Value);
-end;
-
-{ TOpponentCountCondition }
-
-constructor TOpponentCountCondition.Create(APlayer: TPlayer;
-  AMode: TIntegerConditionMode; AValue: integer);
-begin
-  Player := APlayer;
-  Mode := AMode;
-  Value := AValue;
-end;
-
-function TOpponentCountCondition.ToTrigEdit: string;
-begin
-  Result:= 'Opponents("' + PlayerToTrigEditStr(Player) + '", ' +
-       IntegerConditionModeToTrigEditStr[Mode] + ', ' + IntToStr(Value) + ')';
-end;
-
-function TOpponentCountCondition.Duplicate: TCondition;
-begin
-  result := TOpponentCountCondition.Create(Player,Mode,Value);
-end;
-
-{ TKillCountCondition }
-
-constructor TKillCountCondition.Create(APlayer: TPlayer; AUnitType: string;
-  AMode: TIntegerConditionMode; AValue: integer);
-begin
-  Player := APlayer;
-  UnitType := AUnitType;
-  Mode := AMode;
-  Value := AValue;
-end;
-
-function TKillCountCondition.ToTrigEdit: string;
-begin
-  Result:= 'Kill("' + PlayerToTrigEditStr(Player) + '", ' + AddTrigEditQuotes(UnitType) + ', ' +
-       IntegerConditionModeToTrigEditStr[Mode] + ', ' + IntToStr(Value) + ')';
-end;
-
-function TKillCountCondition.Duplicate: TCondition;
-begin
-  result := TKillCountCondition.Create(Player,UnitType,Mode,Value);
-end;
-
-{ TCompareUnitCountCondition }
-
-constructor TCompareUnitCountCondition.Create(AUnitType,
-  ALocation: string; AHighest: boolean);
-begin
-  UnitType := AUnitType;
-  Location:= ALocation;
-  Highest:= AHighest;
-end;
-
-function TCompareUnitCountCondition.ToTrigEdit: string;
-begin
-  Result:= 'Command ';
-  if Highest then result += 'the Most' else result += 'the Least';
-  if not IsAnywhere(Location) then result += ' At(' + AddTrigEditQuotes(UnitType) + ', ' +AddTrigEditQuotes(Location)+')'
-  else result += '(' + AddTrigEditQuotes(UnitType) + ')';
-end;
-
-function TCompareUnitCountCondition.Duplicate: TCondition;
-begin
-  result := TCompareUnitCountCondition.Create(UnitType,Location,Highest);
-end;
-
 { TNotCondition }
 
 destructor TNotCondition.Destroy;
@@ -837,11 +560,6 @@ begin
   Conditions := AConditions;
 end;
 
-function TNotCondition.ToTrigEdit: string;
-begin
-  Result:= '!' + Conditions.ToString;
-end;
-
 function TNotCondition.IsArithmetic: boolean;
 var
   i: Integer;
@@ -861,11 +579,11 @@ procedure TNotCondition.AddToProgAsAndVar(AProg: TInstructionList;
 begin
   if not Conditions.IsComputed then
   begin
-    AProg.Add(TFastIfInstruction.Create(Conditions,[TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0)]));
+    AProg.Add(TFastIfInstruction.Create(Conditions,[CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0)]));
   end else
   begin
     AProg.Add(TIfInstruction.Create(Conditions.Duplicate));
-    AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0));
+    AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0));
     AProg.Add(TEndIfInstruction.Create);
   end;
 end;
@@ -883,33 +601,6 @@ begin
   ResumeIP:= AResumeIP;
   EndIP := AEndIP;
   ChangePlayers := AChangePlayers;
-end;
-
-{ TBringCondition }
-
-constructor TBringCondition.Create(APlayer: TPlayer; AUnitType, ALocation: string;
-  AMode: TIntegerConditionMode; AValue: integer);
-begin
-  Player := APlayer;
-  UnitType := AUnitType;
-  Mode := AMode;
-  Value := AValue;
-  Location:= ALocation;
-end;
-
-function TBringCondition.ToTrigEdit: string;
-begin
-  if IsAnywhere(Location) then
-    Result:= 'Command("' + PlayerToTrigEditStr(Player) + '", ' + AddTrigEditQuotes(UnitType) + ', ' +
-         IntegerConditionModeToTrigEditStr[Mode] + ', ' + IntToStr(Value) + ')'
-  else
-    Result:= 'Bring("' + PlayerToTrigEditStr(Player) + '", ' + AddTrigEditQuotes(UnitType) + ', ' + AddTrigEditQuotes(Location) + ', ' +
-         IntegerConditionModeToTrigEditStr[Mode] + ', ' + IntToStr(Value) + ')';
-end;
-
-function TBringCondition.Duplicate: TCondition;
-begin
-  result := TBringCondition.Create(Player,UnitType,Location,Mode,Value);
 end;
 
 { TTransferIntegerInstruction }
@@ -979,7 +670,7 @@ procedure TConditionList.Compute(AProg: TInstructionList; APlayer: TPlayer;
 var
   i: Integer;
 begin
-  AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,1));
+  AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,1));
   for i := 0 to Count-1 do
     Items[i].AddToProgAsAndVar(AProg, APlayer, AUnitType);
 end;
@@ -1031,24 +722,6 @@ constructor TChangeIPInstruction.Create(AIP: Integer; APreserve: Integer);
 begin
   IP := AIP;
   Preserve := APreserve;
-end;
-
-{ TNeverCondition }
-
-function TNeverCondition.ToTrigEdit: string;
-begin
-  Result:= 'Never()';
-end;
-
-procedure TNeverCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: string);
-begin
-  AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0));
-end;
-
-function TNeverCondition.Duplicate: TCondition;
-begin
-  result := TNeverCondition.Create;
 end;
 
 { TEndIfInstruction }
@@ -1148,18 +821,6 @@ end;
 
 { TCondition }
 
-function TCondition.ToTrigEditAndFree: ansistring;
-begin
-  result := ToTrigEdit;
-  Free;
-end;
-
-function TCondition.ToTrigEdit: string;
-begin
-  result := '?';
-  raise exception.Create('Condition not translatable to TrigEdit code');
-end;
-
 function TCondition.IsArithmetic: boolean;
 begin
   result := false;
@@ -1175,108 +836,8 @@ procedure TCondition.AddToProgAsAndVar(AProg: TInstructionList;
 begin
   AProg.Add(TIfInstruction.Create(self.Duplicate));
   AProg.Add(TElseInstruction.Create);
-  AProg.Add(TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0));
+  AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0));
   AProg.Add(TEndIfInstruction.Create);
-end;
-
-{ TIntegerCondition }
-
-constructor TIntegerCondition.Create(APlayer: TPlayer; AUnitType: string;
-  AMode: TIntegerConditionMode; AValue: integer);
-begin
-  Player := APlayer;
-  UnitType := AUnitType;
-  Mode := AMode;
-  Value := AValue;
-end;
-
-function TIntegerCondition.ToTrigEdit: string;
-var
-  modeStr: string;
-begin
-  modeStr := IntegerConditionModeToTrigEditStr[Mode];
-  if (CompareText(UnitType,'ore')=0) or (CompareText(UnitType,'gas')=0) or (CompareText(UnitType,'ore and gas')=0) then
-      Result:= 'Accumulate("' + PlayerToTrigEditStr(Player) + '", ' + modeStr + ', ' + IntToStr(Value) + ', ' + LowerCase(UnitType) + ')'
-  else
-  if CompareText(copy(UnitType,length(UnitType)-5,6),' Score')=0 then
-    result := 'Score("' + PlayerToTrigEditStr(Player) + '", ' + copy(UnitType,1,length(UnitType)-6) + ', ' + modeStr + ', ' + IntToStr(Value) + ')'
-  else
-  if CompareText(UnitType,'Countdown')=0 then
-    result := 'Countdown Timer(' + modeStr + ', ' + IntToStr(Value) + ')'
-  else
-    Result:= 'Deaths("' + PlayerToTrigEditStr(Player) + '", ' + AddTrigEditQuotes(UnitType) + ', ' + modeStr + ', ' + IntToStr(Value) + ')';
-end;
-
-function TIntegerCondition.Duplicate: TCondition;
-begin
-  result := TIntegerCondition.Create(Player,UnitType,Mode,Value);
-end;
-
-{ TAlwaysCondition }
-
-function TAlwaysCondition.ToTrigEdit: string;
-begin
-  Result:= 'Always()';
-end;
-
-procedure TAlwaysCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: string);
-begin
-  //nothing
-end;
-
-function TAlwaysCondition.Duplicate: TCondition;
-begin
-  result := TAlwaysCondition.Create;
-end;
-
-{ TSwitchCondition }
-
-constructor TSwitchCondition.Create(ASwitch: integer; AValue: boolean);
-begin
-  Switch := ASwitch;
-  Value := AValue;
-end;
-
-function TSwitchCondition.ToTrigEdit: string;
-begin
-  Result:= 'Switch("Switch' + IntToStr(Switch) + '", ' + BoolToStr(Value, 'set', 'not set') + ')';
-end;
-
-procedure TSwitchCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: string);
-begin
-  AProg.Add(TFastIfInstruction.Create([TSwitchCondition.Create(Switch,not Value)], [TSetIntegerInstruction.Create(APlayer,AUnitType,simSetTo,0)]));
-end;
-
-function TSwitchCondition.Duplicate: TCondition;
-begin
-  result := TSwitchCondition.Create(Switch,Value);
-end;
-
-{ TSetIntegerInstruction }
-
-constructor TSetIntegerInstruction.Create(APlayer: TPlayer; AUnitType: string;
-  AMode: TSetIntegerMode; AValue: integer);
-begin
-  Player := APlayer;
-  UnitType := AUnitType;
-  Mode := AMode;
-  Value := AValue;
-  if Value < 0 then
-  begin
-    if Mode = simSubtract then
-    begin
-      Value := -Value;
-      Mode := simAdd;
-    end else
-    if Mode = simAdd then
-    begin
-      Value := -Value;
-      Mode := simSubtract;
-    end else
-      Value := 0;
-  end;
 end;
 
 end.

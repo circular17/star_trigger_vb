@@ -13,7 +13,7 @@ procedure WriteUnitProperties(AFilename: string);
 implementation
 
 uses utriggercode, uarithmetic, ureadprog, uinstructions, uvariables, uparsevb,
-  uexpressions, utriggerinstructions;
+  uexpressions, utriggerinstructions, utriggerconditions;
 
 var
   HyperWaitVar: integer;
@@ -111,7 +111,7 @@ var
         for k := 0 to tempExpand.Count-1 do
           expanded.Add(tempExpand[k]);
         tempExpand.Free;
-        result := TWaitConditionInstruction.Create(TIntegerCondition.Create(IntVars[tempInt].Player,IntVars[tempInt].UnitType, arithm.CompareMode,arithm.CompareValue), ANextIP);
+        result := TWaitConditionInstruction.Create(CreateIntegerCondition(IntVars[tempInt].Player,IntVars[tempInt].UnitType, arithm.CompareMode,arithm.CompareValue), ANextIP);
         expanded.Add(result);
       end;
     end else
@@ -133,7 +133,7 @@ var
         for k := 0 to tempExpand.Count-1 do
           expanded.Add(tempExpand[k]);
         tempExpand.Free;
-        result := TWaitConditionInstruction.Create(TIntegerCondition.Create(IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1), ANextIP);
+        result := TWaitConditionInstruction.Create(CreateIntegerCondition(IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1), ANextIP);
         expanded.Add(result);
       end else
       begin
@@ -161,7 +161,6 @@ var
   pl: TPlayer;
   endDoAs: TEndDoAsInstruction;
   endDoIP: integer;
-  setInt: TSetIntegerInstruction;
 
 begin
   expanded := TInstructionList.Create;
@@ -236,16 +235,16 @@ begin
     begin
       ConfigureHyperWait;
 
-      expanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, simSetTo, TWaitInstruction(AProg[i]).DelayMs));
+      expanded.Add(CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, simSetTo, TWaitInstruction(AProg[i]).DelayMs));
       AProg[i].Free;
 
       startWhileIP:= NewIP;
       expanded.Add(TChangeIPInstruction.Create(startWhileIP, 1));
 
-      waitInstr := TWaitConditionInstruction.Create(TIntegerCondition.Create(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, icmAtLeast, 1), NewIP);
+      waitInstr := TWaitConditionInstruction.Create(CreateIntegerCondition(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, icmAtLeast, 1), NewIP);
       expanded.Add(waitInstr);
 
-      expanded.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, simSubtract, 140));
+      expanded.Add(CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, simSubtract, 140));
 
       splitInstr := TSplitInstruction.Create(waitInstr.IP, startWhileIP);
 
@@ -359,7 +358,7 @@ begin
     if AProg[i] is TRandomizeIntegerInstruction then
     begin
       rndInstr := TRandomizeIntegerInstruction(AProg[i]);
-      expanded.Add(TSetIntegerInstruction.Create(rndInstr.Player, rndInstr.UnitType, simSetTo, 0));
+      expanded.Add(CreateSetIntegerInstruction(rndInstr.Player, rndInstr.UnitType, simSetTo, 0));
 
       //randomize bools
       expo := GetExponentOf2(rndInstr.Range);
@@ -373,7 +372,7 @@ begin
       //add powers of 2
       for j := 0 to high(switches) do
         expanded.Add( TFastIfInstruction.Create([TSwitchCondition.Create(switches[j], true)],
-                      [TSetIntegerInstruction.Create(rndInstr.Player, rndInstr.UnitType, simAdd, 1 shl j)]) );
+                      [CreateSetIntegerInstruction(rndInstr.Player, rndInstr.UnitType, simAdd, 1 shl j)]) );
 
       for j := 0 to expo-1 do
         ReleaseTempBool(switches[j]);
@@ -419,13 +418,6 @@ begin
     end;
     expanded.Add(AProg[i]);
   end;
-  for i := 0 to expanded.Count-1 do
-    if expanded[i] is TSetIntegerInstruction then
-    begin
-      setInt := TSetIntegerInstruction(expanded[i]);
-      expanded[i] := ConvertSetIntegerInstructionIntoTriggerInstruction(setInt);
-      setInt.Free;
-    end;
 
   AProg.Clear;
   for i := 0 to expanded.Count-1 do
@@ -541,7 +533,7 @@ var
   noSysIP: TCondition;
   proc : TInstructionList;
   computedConds, nonComputedConds: TConditionList;
-  tempCond: TIntegerCondition;
+  tempCond: TCondition;
 
 begin
   InitTriggerCode;
@@ -609,7 +601,7 @@ begin
         computedConds.Free;
         proc.Free;
 
-        tempCond := TIntegerCondition.Create(IntVars[tempInt].Player, IntVars[tempInt].UnitType, icmAtLeast, 1);
+        tempCond := CreateIntegerCondition(IntVars[tempInt].Player, IntVars[tempInt].UnitType, icmAtLeast, 1);
         nonComputedConds.Add(tempCond);
         WriteProg(mainOutput, players, nonComputedConds, Events[i].Instructions, EndIP, EndIP, Events[i].Preserve);
         tempCond.Free;

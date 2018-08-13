@@ -56,7 +56,7 @@ var HyperTriggers: boolean;
 
 implementation
 
-uses uparsevb, uvariables, uexpressions, uparseconditions, utriggerinstructions;
+uses uparsevb, uvariables, uexpressions, uparseconditions, utriggerinstructions, utriggerconditions;
 
 function TryUnitProperties(AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
 var idx, intVal: integer;
@@ -450,7 +450,7 @@ var
         if Randomize then
           AProg.Add( TRandomizeIntegerInstruction.Create(Player,UnitType, Value) )
         else
-          AProg.Add( TSetIntegerInstruction.Create(Player,UnitType, simSetTo, Value) );
+          AProg.Add( CreateSetIntegerInstruction(Player,UnitType, simSetTo, Value) );
       end;
     end;
   end;
@@ -853,8 +853,8 @@ begin
       begin
         subInstr := TInstructionList.Create;
         subInstr.Add( TCreateUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, propIndex) );
-        subInstr.Add( TSetIntegerInstruction.Create(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
-        AProg.Add( TFastIfInstruction.Create( [TIntegerCondition.Create( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i)], subInstr) );
+        subInstr.Add( CreateSetIntegerInstruction(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
+        AProg.Add( TFastIfInstruction.Create( [CreateIntegerCondition( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i)], subInstr) );
       end;
       ReleaseTempInt(tempInt);
     end;
@@ -1544,7 +1544,7 @@ begin
         else sim := simSetTo;
         for i := 0 to high(ints) do
           with IntVars[IntArrays[idxArr].Vars[i]] do
-          AProg.Add(TSetIntegerInstruction.Create(Player, UnitType, sim, ints[i]));
+          AProg.Add(CreateSetIntegerInstruction(Player, UnitType, sim, ints[i]));
       end;
     end;
 

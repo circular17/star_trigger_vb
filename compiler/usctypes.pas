@@ -15,6 +15,7 @@ type
                    ssKillScore, ssRazingScore, ssKillAndRazingScore,
                    ssTotalScore, ssCustomScore);
   TStarcraftResource = (srOre, srGas, srOreAndGas);
+  TIntegerConditionMode = (icmAtLeast,icmAtMost,icmExactly);
 
 const
   BoolToSwitch : array[Boolean] of TSwitchValue = (svClear, svSet);

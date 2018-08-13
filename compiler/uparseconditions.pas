@@ -12,7 +12,7 @@ function ExpectConditions(AScope: integer; ALine: TStringList; var AIndex: integ
 implementation
 
 uses
-  uvariables;
+  uvariables, utriggerconditions;
 
 function TryNeutralConditionFunction(AScope: integer; ALine: TStringList; var AIndex: Integer; ANegation: boolean): TCondition;
 var
@@ -227,18 +227,18 @@ begin
 
     intVal := ExpectIntegerConstant(AScope, ALine,AIndex);
     case op of
-    coEqual: result := TIntegerCondition.Create(APlayer, unitType, icmExactly, intVal);
-    coGreaterThanOrEqual: result := TIntegerCondition.Create(APlayer, unitType, icmAtLeast, intVal);
-    coLowerThanOrEqual: result := TIntegerCondition.Create(APlayer, unitType, icmAtMost, intVal);
+    coEqual: result := CreateIntegerCondition(APlayer, unitType, icmExactly, intVal);
+    coGreaterThanOrEqual: result := CreateIntegerCondition(APlayer, unitType, icmAtLeast, intVal);
+    coLowerThanOrEqual: result := CreateIntegerCondition(APlayer, unitType, icmAtMost, intVal);
     coGreaterThan: if intVal = maxLongint then
                       result := TNeverCondition.Create
                    else
-                      result := TIntegerCondition.Create(APlayer, unitType, icmAtLeast, intVal+1);
+                      result := CreateIntegerCondition(APlayer, unitType, icmAtLeast, intVal+1);
     coLowerThan: if intVal = 0 then
                       result := TNeverCondition.Create
                    else
-                      result := TIntegerCondition.Create(APlayer, unitType, icmAtMost, intVal-1);
-    coNotEqual: result := TNotCondition.Create([TIntegerCondition.Create(APlayer, unitType, icmExactly, intVal)]);
+                      result := CreateIntegerCondition(APlayer, unitType, icmAtMost, intVal-1);
+    coNotEqual: result := TNotCondition.Create([CreateIntegerCondition(APlayer, unitType, icmExactly, intVal)]);
     else
       raise exception.Create('Unhandled case');
     end;
@@ -454,11 +454,11 @@ begin
         begin
           case op of
           coEqual,coLowerThanOrEqual:
-            result := TCompareIntegerCondition.Create(scalar.UnitType,False);
+            result := CreateCompareIntegerCondition(scalar.UnitType,False);
           coGreaterThanOrEqual:
             result := TAlwaysCondition.Create;
           coGreaterThan,coNotEqual:
-            result := TNotCondition.Create([TCompareIntegerCondition.Create(scalar.UnitType,False)]);
+            result := TNotCondition.Create([CreateCompareIntegerCondition(scalar.UnitType,False)]);
           coLowerThan:
             result := TNeverCondition.Create;
           else
@@ -470,11 +470,11 @@ begin
         begin
           case op of
           coEqual,coGreaterThanOrEqual:
-            result := TCompareIntegerCondition.Create(scalar.UnitType,true);
+            result := CreateCompareIntegerCondition(scalar.UnitType,true);
           coLowerThanOrEqual:
             result := TAlwaysCondition.Create;
           coLowerThan,coNotEqual:
-            result := TNotCondition.Create([TCompareIntegerCondition.Create(scalar.UnitType,true)]);
+            result := TNotCondition.Create([CreateCompareIntegerCondition(scalar.UnitType,true)]);
           coGreaterThan:
             result := TNeverCondition.Create;
           else
@@ -491,18 +491,18 @@ begin
             exit;
           end;
           case op of
-          coEqual: result := TIntegerCondition.Create(scalar.Player, scalar.UnitType, icmExactly, intVal);
-          coGreaterThanOrEqual: result := TIntegerCondition.Create(scalar.Player, scalar.UnitType, icmAtLeast, intVal);
-          coLowerThanOrEqual: result := TIntegerCondition.Create(scalar.Player, scalar.UnitType, icmAtMost, intVal);
+          coEqual: result := CreateIntegerCondition(scalar.Player, scalar.UnitType, icmExactly, intVal);
+          coGreaterThanOrEqual: result := CreateIntegerCondition(scalar.Player, scalar.UnitType, icmAtLeast, intVal);
+          coLowerThanOrEqual: result := CreateIntegerCondition(scalar.Player, scalar.UnitType, icmAtMost, intVal);
           coGreaterThan: if intVal = maxLongint then
                             result := TNeverCondition.Create
                          else
-                            result := TIntegerCondition.Create(scalar.Player, scalar.UnitType, icmAtLeast, intVal+1);
+                            result := CreateIntegerCondition(scalar.Player, scalar.UnitType, icmAtLeast, intVal+1);
           coLowerThan: if intVal = 0 then
                             result := TNeverCondition.Create
                          else
-                            result := TIntegerCondition.Create(scalar.Player, scalar.UnitType, icmAtMost, intVal-1);
-          coNotEqual: result := TNotCondition.Create([TIntegerCondition.Create(scalar.Player, scalar.UnitType, icmExactly, intVal)]);
+                            result := CreateIntegerCondition(scalar.Player, scalar.UnitType, icmAtMost, intVal-1);
+          coNotEqual: result := TNotCondition.Create([CreateIntegerCondition(scalar.Player, scalar.UnitType, icmExactly, intVal)]);
           else
             raise exception.Create('Unhandled case');
           end;

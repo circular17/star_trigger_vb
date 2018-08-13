@@ -5,7 +5,7 @@ unit utriggercode;
 interface
 
 uses
-  Classes, SysUtils, fgl, uinstructions, utriggerinstructions, usctypes;
+  Classes, SysUtils, fgl, uinstructions, utriggerinstructions, utriggerconditions, usctypes;
 
 const
   MaxStackSize = 6;
@@ -27,7 +27,7 @@ procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: TCond
 
 function NewIP: integer;
 function SetNextIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TTriggerInstruction;
-function CheckIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCondition;
+function CheckIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TTriggerCondition;
 
 function NewSysIP: integer;
 function SetNextSysIP(AValue: integer; AMode: TSetIntegerMode = simSetTo): TInstruction;
@@ -59,12 +59,12 @@ end;
 
 function SetNextIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TTriggerInstruction;
 begin
-  result := TSetDeathInstruction.Create(APlayer, IntArrays[IPVar].UnitType, simSetTo, AValue);
+  result := CreateSetIntegerInstruction(APlayer, IntArrays[IPVar].UnitType, simSetTo, AValue) as TTriggerInstruction;
 end;
 
-function CheckIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCondition;
+function CheckIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TTriggerCondition;
 begin
-  result := TIntegerCondition.Create(APlayer, IntArrays[IPVar].UnitType, icmExactly, AValue);
+  result := CreateIntegerCondition(APlayer, IntArrays[IPVar].UnitType, icmExactly, AValue) as TTriggerCondition;
 end;
 
 procedure WriteTrigger(AOutput: TStringList; APlayers: TPlayers;
@@ -137,19 +137,19 @@ end;
 
 function SetNextSysIP(AValue: integer; AMode: TSetIntegerMode): TInstruction;
 begin
-  result := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[GetSysIPVar].UnitType, AMode, AValue);
+  result := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[GetSysIPVar].UnitType, AMode, AValue);
 end;
 
 function CheckSysIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCondition;
 begin
-  result := TIntegerCondition.Create(APlayer, IntArrays[GetSysIPVar].UnitType, icmExactly, AValue);
+  result := CreateIntegerCondition(APlayer, IntArrays[GetSysIPVar].UnitType, icmExactly, AValue);
 end;
 
 procedure CheckSysIPRange(AMinValue, AMaxValue: integer; out ACond1,
   ACond2: TCondition);
 begin
-  ACond1 := TIntegerCondition.Create(plCurrentPlayer, IntArrays[GetSysIPVar].UnitType, icmAtLeast, AMinValue);
-  ACond2 := TIntegerCondition.Create(plCurrentPlayer, IntArrays[GetSysIPVar].UnitType, icmAtMost, AMaxValue);
+  ACond1 := CreateIntegerCondition(plCurrentPlayer, IntArrays[GetSysIPVar].UnitType, icmAtLeast, AMinValue);
+  ACond2 := CreateIntegerCondition(plCurrentPlayer, IntArrays[GetSysIPVar].UnitType, icmAtMost, AMaxValue);
 end;
 
 procedure NeedSysParam;
@@ -165,13 +165,13 @@ end;
 function SetSysParam(AValue: integer): TInstruction;
 begin
   NeedSysParam;
-  result := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[SysParamArray].UnitType, simSetTo, AValue)
+  result := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[SysParamArray].UnitType, simSetTo, AValue)
 end;
 
 function CheckSysParam(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCondition;
 begin
   NeedSysParam;
-  result := TIntegerCondition.Create(APlayer, IntArrays[SysParamArray].UnitType, icmExactly, AValue)
+  result := CreateIntegerCondition(APlayer, IntArrays[SysParamArray].UnitType, icmExactly, AValue)
 end;
 
 function NewSysIP: integer;
@@ -380,7 +380,7 @@ begin
         if pl in waitFor.Players then
         begin
           switchCheck.Switch := BoolVars[ GetPlayerPresenceBoolVar(pl) ].Switch;
-          ipCheck := TIntegerCondition.Create(pl, IntArrays[IPVar].UnitType, icmAtLeast, 1);
+          ipCheck := CreateIntegerCondition(pl, IntArrays[IPVar].UnitType, icmAtLeast, 1);
           WriteProg(AOutput, APlayers, [switchCheck, ipCheck], proc, whileIP, beforeIP, true);
         end;
 
@@ -489,9 +489,9 @@ end;
 procedure WriteStackTriggers(AOutput: TStringList);
 var proc: TInstructionList;
   cond: TConditionList;
-  spCond, valCond: TIntegerCondition;
+  spCond, valCond: TCondition;
   returnCond, pushCond: TCondition;
-  subStackVal,addIP,addStackVal, subVal: TSetIntegerInstruction;
+  subStackVal,addIP,addStackVal, subVal: TInstruction;
   sp, bit: integer;
 
   procedure EmptyProc;
@@ -526,48 +526,44 @@ begin
   //SP -= 1, IP := 0
   returnCond := CheckSysIP(ReturnSysIP);
   cond.Add(returnCond);
-  proc.Add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, simSubtract, 1));
+  proc.Add(CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, simSubtract, 1));
   proc.Add(SetNextIP(0));
   WriteProg(AOutput, [plAllPlayers], cond, proc, -1, -1, True);
   EmptyProc;
 
   //copy stack value to IP
-  spCond := TIntegerCondition.Create(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, icmExactly, 0);
-  valCond := TIntegerCondition.Create(plCurrentPlayer, '', icmAtLeast, 0);
-  cond.Add(spCond);
-  cond.Add(valCond);
   for sp := 0 to StackSize-1 do
   begin
-    valCond.UnitType := IntArrays[StackArrays[sp+1]].UnitType;
+    spCond := CreateIntegerCondition(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, icmExactly, sp);
 
-    subStackVal := TSetIntegerInstruction.Create(plCurrentPlayer, valCond.UnitType, simSubtract, 0);
-    addIP := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[IPVar].UnitType, simAdd, 0);
-    proc.Add(subStackVal);
-    proc.Add(addIP);
 
-    spCond.Value := sp;
     for bit := MaxStackBits-1 downto 0 do
     begin
-      valCond.Value := 1 shl bit;
+      valCond := CreateIntegerCondition(plCurrentPlayer, IntArrays[StackArrays[sp+1]].UnitType, icmAtLeast, 1 shl bit);
 
-      subStackVal.Value := valCond.Value;
-      addIP.Value := valCond.Value;
+      subStackVal := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[StackArrays[sp+1]].UnitType, simSubtract, 1 shl bit);
+      addIP := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[IPVar].UnitType, simAdd, 1 shl bit);
+      proc.Add(subStackVal);
+      proc.Add(addIP);
 
-      WriteProg(AOutput, [plAllPlayers], cond, proc, -1, -1, True);
+      WriteProg(AOutput, [plAllPlayers], [spCond,valCond], proc, -1, -1, True);
+      EmptyProc;
+
+      valCond.Free;
     end;
 
-    EmptyProc;
     proc.Add(SetNextSysIP(0));
     WriteProg(AOutput, [plAllPlayers], [returnCond,spCond], proc, -1, -1, True);
     EmptyProc;
+
+    spCond.Free;
   end;
-  EmptyCond;
 
   AOutput.Add('// Push //');
 
   //stack overflow handler
   cond.Add(CheckSysIP(PushSysIP));
-  cond.Add(TIntegerCondition.Create(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, icmAtLeast, StackSize));
+  cond.Add(CreateIntegerCondition(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, icmAtLeast, StackSize));
   proc.Add(TDisplayTextMessageInstruction.Create(True, 'Stack overflow'));
   proc.Add(TWaitInstruction.Create(4000));
   WriteProg(AOutput, [plAllPlayers], cond, proc, -1, -1, True);
@@ -576,33 +572,31 @@ begin
 
   //push handler
   pushCond := CheckSysIP(PushSysIP);
-  spCond := TIntegerCondition.Create(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, icmExactly, 0);
-  valCond := TIntegerCondition.Create(plCurrentPlayer, IntArrays[SysParamArray].UnitType, icmAtLeast, 0);
-  cond.Add(pushCond);
-  cond.Add(spCond);
-  cond.Add(valCond);
   for sp := 0 to StackSize-1 do
   begin
-    spCond.Value:= sp;
-    addStackVal := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[StackArrays[sp+1]].UnitType, simAdd, 0);
-    proc.Add(addStackVal);
-    subVal := TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[SysParamArray].UnitType, simSubtract, 0);
-    proc.Add(subVal);
+    spCond := CreateIntegerCondition(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, icmExactly, sp);
     for bit := MaxStackBits-1 downto 0 do
     begin
-      valCond.Value := 1 shl bit;
-      addStackVal.Value := valCond.Value;
-      subVal.Value := valCond.Value;
+      valCond := CreateIntegerCondition(plCurrentPlayer, IntArrays[SysParamArray].UnitType, icmAtLeast, 1 shl bit);
 
-      WriteProg(AOutput, [plAllPlayers], cond, proc, -1, -1, True);
+      addStackVal := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[StackArrays[sp+1]].UnitType, simAdd, 1 shl bit);
+      subVal := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[SysParamArray].UnitType, simSubtract, 1 shl bit);
+      proc.Add(addStackVal);
+      proc.Add(subVal);
+
+      WriteProg(AOutput, [plAllPlayers], [pushCond,spCond,valCond], proc, -1, -1, True);
+      EmptyProc;
+      valCond.Free;
     end;
-    EmptyProc;
 
-    proc.add(TSetIntegerInstruction.Create(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, simAdd, 1));
+    proc.add(CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, simAdd, 1));
     proc.Add(SetNextSysIP(0));
     WriteProg(AOutput, [plAllPlayers], [pushCond, spCond], proc, -1, -1, True);
     EmptyProc;
+
+    spCond.Free;
   end;
+  pushCond.Free;
 
   cond.Free;
   proc.Free;

@@ -199,7 +199,7 @@ begin
             (ProcedureIndexOf(AName,AParamCount)<>-1) or (UnitPropIndexOf(AScope, AName, False) <> -1) or
             (StringIndexOf(AScope, AName, False)<>-1) or (SoundIndexOf(AScope, AName, False)<>-1) or
             (CompareText('AI',AName) = 0) or (CompareText('Present',AName) = 0) or
-            (CompareText('CountIf',AName)=0);
+            (CompareText('CountIf',AName)=0) or IsUnitType(AName);
 end;
 
 function CreateProcedure(AName: string; AParamCount: integer; AReturnType: string): integer;

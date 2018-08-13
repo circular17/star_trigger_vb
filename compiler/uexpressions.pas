@@ -21,6 +21,7 @@ type
 
 function ExpectString(AScope: integer; ALine: TStringList; var AIndex: integer): string;
 function ExpectUnitType({%H-}AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
+function IsUnitType(AName: string): boolean;
 function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string): boolean;
 function TryInteger(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
 function TryIntegerConstant(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
@@ -203,9 +204,18 @@ var
   ident: string;
 begin
   if not TryIdentifier(ALine, AIndex, ident) then raise exception.Create('Expecting identifier');
-  for u := low(TStarcraftUnit) to high(TStarcraftUnit) do
+  for u := low(TStarcraftUnit) to suFactories do
     if CompareText(StarcraftUnitIdentifier[u],ident)=0 then exit(u);
   raise exception.Create('Unknown unit type');
+end;
+
+function IsUnitType(AName: string): boolean;
+var
+  u: TStarcraftUnit;
+begin
+  for u := low(TStarcraftUnit) to suFactories do
+    if CompareText(StarcraftUnitIdentifier[u],AName)=0 then exit(true);
+  exit(false);
 end;
 
 function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string): boolean;

@@ -42,7 +42,7 @@ type
   TCondition = class
     function IsArithmetic: boolean; virtual;
     function IsComputed: boolean; virtual;
-    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); virtual;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); virtual;
     function Duplicate: TCondition; virtual; abstract;
   end;
 
@@ -53,7 +53,7 @@ type
   TConditionList = class(TCustomConditionList)
     function IsComputed: boolean;
     function IsArithmetic: boolean;
-    procedure Compute(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string);
+    procedure Compute(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit);
     procedure FreeAll;
     function Duplicate: TConditionList;
   end;
@@ -62,9 +62,9 @@ type
 
   TRandomizeIntegerInstruction = class(TInstruction)
     Player: TPlayer;
-    UnitType: string;
+    UnitType: TStarcraftUnit;
     Range: integer;
-    constructor Create(APlayer: TPlayer; AUnitType: string; ARange: integer);
+    constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; ARange: integer);
   end;
 
   TIntegerTransfer = (itCopyIntoAccumulator, itAddIntoAccumulator, itCopyAccumulator, itAddAccumulator,
@@ -74,11 +74,11 @@ type
 
   TTransferIntegerInstruction = class(TInstruction)
     Player: TPlayer;
-    UnitType: string;
+    UnitType: TStarcraftUnit;
     Action: TIntegerTransfer;
     Value: integer;
     Shift: integer;
-    constructor Create(APlayer: TPlayer; AUnitType: string; AAction: TIntegerTransfer; AShift: integer = 0);
+    constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; AAction: TIntegerTransfer; AShift: integer = 0);
     constructor Create(AValue: integer; AAction: TIntegerTransfer);
   end;
 
@@ -226,7 +226,7 @@ type
     constructor Create(AConditions: TConditionList);
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
-    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
     function Duplicate: TCondition; override;
   end;
 
@@ -239,7 +239,7 @@ type
     constructor Create(AConditions: TConditionList);
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
-    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: string); override;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
     function Duplicate: TCondition; override;
   end;
 
@@ -252,13 +252,13 @@ type
     constructor Create(AConditions: TConditionList);
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
-    procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: string); override;
+    procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: TStarcraftUnit); override;
     function Duplicate: TCondition; override;
   end;
 
 type
-  TCreateSetIntegerInstructionProc = function (APlayer: TPlayer; AUnitType: string; AMode: TSetIntegerMode; AValue: integer): TInstruction;
-  TCreateIntegerConditionProc = function (APlayer: TPlayer; AUnitType: string; AMode: TIntegerConditionMode; AValue: integer): TCondition;
+  TCreateSetIntegerInstructionProc = function (APlayer: TPlayer; AUnitType: TStarcraftUnit; AMode: TSetIntegerMode; AValue: integer): TInstruction;
+  TCreateIntegerConditionProc = function (APlayer: TPlayer; AUnitType: TStarcraftUnit; AMode: TIntegerConditionMode; AValue: integer): TCondition;
 
 var
   CreateSetIntegerInstruction: TCreateSetIntegerInstructionProc;
@@ -313,7 +313,7 @@ end;
 { TRandomizeIntegerInstruction }
 
 constructor TRandomizeIntegerInstruction.Create(APlayer: TPlayer;
-  AUnitType: string; ARange: integer);
+  AUnitType: TStarcraftUnit; ARange: integer);
 begin
   Player := APlayer;
   UnitType := AUnitType;
@@ -358,7 +358,7 @@ begin
 end;
 
 procedure TAndCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: string);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit);
 begin
   raise exception.Create('Not handled');
 end;
@@ -405,7 +405,7 @@ begin
 end;
 
 procedure TOrCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: string);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit);
 var
   i: Integer;
 begin
@@ -575,7 +575,7 @@ begin
 end;
 
 procedure TNotCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: string);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit);
 begin
   if not Conditions.IsComputed then
   begin
@@ -606,7 +606,7 @@ end;
 { TTransferIntegerInstruction }
 
 constructor TTransferIntegerInstruction.Create(APlayer: TPlayer;
-  AUnitType: string; AAction: TIntegerTransfer; AShift: integer);
+  AUnitType: TStarcraftUnit; AAction: TIntegerTransfer; AShift: integer);
 begin
   Player:= APlayer;
   UnitType:= AUnitType;
@@ -625,7 +625,7 @@ begin
   if AAction in [itAddAccumulator,itSubtractAccumulator,itCopyAccumulator] then
     raise exception.Create('Cannot copy into a constant');
   Player:= plNone;
-  UnitType:= 'Const';
+  UnitType:= suConst;
   Action:= AAction;
   Value := AValue;
   if Value < 0 then
@@ -666,7 +666,7 @@ begin
 end;
 
 procedure TConditionList.Compute(AProg: TInstructionList; APlayer: TPlayer;
-  AUnitType: string);
+  AUnitType: TStarcraftUnit);
 var
   i: Integer;
 begin
@@ -832,7 +832,7 @@ begin
 end;
 
 procedure TCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: string);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit);
 begin
   AProg.Add(TIfInstruction.Create(self.Duplicate));
   AProg.Add(TElseInstruction.Create);

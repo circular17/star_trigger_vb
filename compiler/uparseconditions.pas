@@ -51,7 +51,8 @@ end;
 
 function TryPlayerConditionFunction(AScope: integer; ALine: TStringList; var AIndex: Integer; APlayer: TPlayer; ANegation: boolean): TCondition;
 var
-  unitType, locStr: String;
+  unitType: TStarcraftUnit;
+  locStr: String;
   op: TConditionOperator;
   intVal, idxVar: Integer;
 
@@ -65,7 +66,7 @@ begin
   begin
     if TryToken(ALine,AIndex,'(') then
     begin
-      unitType := ExpectString(AScope, ALine,AIndex);
+      unitType := ExpectUnitType(AScope, ALine,AIndex);
       if TryToken(ALine,AIndex,',') then
         locStr := ExpectString(AScope, ALine,AIndex)
       else
@@ -73,7 +74,7 @@ begin
       ExpectToken(ALine,AIndex,')');
     end else
     begin
-      unitType := 'Any unit';
+      unitType := suAnyUnit;
       locStr := '';
     end;
     op := TryConditionOperator(ALine,AIndex);
@@ -142,11 +143,11 @@ begin
   begin
     if TryToken(ALine,AIndex,'(') then
     begin
-      unitType := ExpectString(AScope, ALine,AIndex);
+      unitType := ExpectUnitType(AScope, ALine,AIndex);
       ExpectToken(ALine,AIndex,')');
     end else
     begin
-      unitType := 'Any unit';
+      unitType := suAnyUnit;
     end;
     op := TryConditionOperator(ALine,AIndex);
     if op = coNone then
@@ -213,11 +214,11 @@ begin
   begin
     if TryToken(ALine,AIndex,'(') then
     begin
-      unitType := ExpectString(AScope, ALine,AIndex);
+      unitType := ExpectUnitType(AScope, ALine,AIndex);
       ExpectToken(ALine,AIndex,')');
     end else
     begin
-      unitType := 'Any unit';
+      unitType := suAnyUnit;
     end;
     op := TryConditionOperator(ALine,AIndex);
     if op = coNone then

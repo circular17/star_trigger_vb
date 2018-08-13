@@ -124,7 +124,7 @@ begin
   end;
 end;
 
-function GetTransferParam(APlayer: TPlayer; AUnitType: string; ASysIP: integer): integer;
+function GetTransferParam(APlayer: TPlayer; AUnitType: TStarcraftUnit; ASysIP: integer): integer;
 var
   i, shift: Integer;
 begin
@@ -626,7 +626,7 @@ procedure ExpandIntegerTransfer(ATransfer: TTransferIntegerInstruction; AExpande
 var
   nextIP: Integer;
 begin
-  if ATransfer.UnitType = 'Const' then
+  if ATransfer.UnitType = suConst then
   begin
     NeedAcc;
     case ATransfer.Action of

@@ -13,7 +13,7 @@ procedure WriteUnitProperties(AFilename: string);
 implementation
 
 uses utriggercode, uarithmetic, ureadprog, uinstructions, uvariables, uparsevb,
-  uexpressions, utriggerinstructions, utriggerconditions;
+  uexpressions, utriggerinstructions, utriggerconditions, utrigedittypes;
 
 var
   HyperWaitVar: integer;
@@ -435,7 +435,7 @@ begin
   for i := 0 to IntArrayCount-1 do
     if not IntArrays[i].Predefined and not IntArrays[i].Constant then
     begin
-      writeln(t, '// ', IntArrays[i].Name, '(1 to '+ intToStr(MaxTriggerPlayers)+') stored in "', IntArrays[i].UnitType, '" //');
+      writeln(t, '// ', IntArrays[i].Name, '(1 to '+ intToStr(MaxTriggerPlayers)+') stored in "', StarcraftUnitTrigEditNames[IntArrays[i].UnitType], '" //');
       for j := 1 to IntArrays[i].Size do
         with IntVars[IntArrays[i].Vars[j-1]] do
           if UnitType <> IntArrays[i].UnitType then
@@ -472,7 +472,7 @@ begin
 
   setlength(actions,63);
   for i := 0 to high(actions) do
-    actions[i] := wait.tostring;
+    actions[i] := wait.ToTrigEdit;
 
   for i := 1 to 4 do
     WriteTrigger(AOutput, [plAllPlayers], [], actions, -1, true);

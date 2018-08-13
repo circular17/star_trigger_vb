@@ -12,7 +12,7 @@ type
   TScalarVariable = record
     VarType: TScalarVariableType;
     Constant, ReadOnly: boolean;
-    UnitType: string;
+    UnitType: TStarcraftUnit;
     Player: TPlayer;
     Switch: integer;
     IntValue: integer;
@@ -20,6 +20,7 @@ type
   end;
 
 function ExpectString(AScope: integer; ALine: TStringList; var AIndex: integer): string;
+function ExpectUnitType({%H-}AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
 function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string): boolean;
 function TryInteger(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
 function TryIntegerConstant(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
@@ -36,7 +37,7 @@ type
     Negative: boolean;
     constructor Create(ANegative: boolean);
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); virtual; abstract;
-    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); virtual; abstract;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); virtual; abstract;
     function AlwaysClearAccumulator: boolean; virtual; abstract;
     function BitCount: integer; virtual; abstract;
     function Duplicate: TExpressionNode; virtual; abstract;
@@ -50,7 +51,7 @@ type
     Value: integer;
     constructor Create(ANegative: boolean; AValue: integer);
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
-    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
     function Duplicate: TExpressionNode; override;
@@ -61,10 +62,10 @@ type
 
   TVariableNode = class(TExpressionNode)
     Player: TPlayer;
-    UnitType: string;
-    constructor Create(ANegative: boolean; APlayer: TPlayer; AUnitType: string);
+    UnitType: TStarcraftUnit;
+    constructor Create(ANegative: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit);
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
-    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
     function Duplicate: TExpressionNode; override;
@@ -76,7 +77,7 @@ type
     Name: string;
     constructor Create(ANegative: boolean; AName: string);
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
-    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
     function Duplicate: TExpressionNode; override;
@@ -89,7 +90,7 @@ type
     TestValue: boolean;
     constructor Create(ANegative: boolean; ABoolArray: integer; ATestValue: boolean);
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
-    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
     function Duplicate: TExpressionNode; override;
@@ -102,7 +103,7 @@ type
     TestValue: integer;
     constructor Create(ANegative: boolean; AIntArray: integer; ATestValue: integer);
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
-    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
     function Duplicate: TExpressionNode; override;
@@ -114,7 +115,7 @@ type
     Range: integer;
     constructor Create(ANegative: boolean; ARange: integer);
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
-    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
     function Duplicate: TExpressionNode; override;
@@ -138,7 +139,7 @@ type
     constructor Create(ANode: TExpressionNode);
     procedure NegateAll;
     procedure AddToProgram(AProg: TInstructionList;
-                     ADestPlayer: TPlayer; ADestUnitType: string;
+                     ADestPlayer: TPlayer; ADestUnitType: TStarcraftUnit;
                      AMode: TSetIntegerMode);
     procedure AddToProgramInAccumulator(AProg: TInstructionList);
     property CanPutInAccumulator: boolean read GetCanPutInAccumulator;
@@ -157,7 +158,7 @@ type
     destructor Destroy; override;
     constructor Create(AExpr: TExpression; AFactor: integer);
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
-    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function FactorBitSize: integer;
     function IsFewTimesVar: boolean;
     function AlwaysClearAccumulator: boolean; override;
@@ -172,7 +173,7 @@ type
     destructor Destroy; override;
     constructor Create(AExpr: TExpression);
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
-    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: string; AProg: TInstructionList); override;
+    procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
     function Duplicate: TExpressionNode; override;
@@ -195,6 +196,17 @@ function TryExpression(AScope: integer; ALine: TStringList; var AIndex: integer;
 implementation
 
 uses uparsevb, uvariables, uarithmetic, utriggerconditions;
+
+function ExpectUnitType(AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
+var
+  u: TStarcraftUnit;
+  ident: string;
+begin
+  if not TryIdentifier(ALine, AIndex, ident) then raise exception.Create('Expecting identifier');
+  for u := low(TStarcraftUnit) to high(TStarcraftUnit) do
+    if CompareText(StarcraftUnitIdentifier[u],ident)=0 then exit(u);
+  raise exception.Create('Unknown unit type');
+end;
 
 function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string): boolean;
 begin
@@ -409,7 +421,7 @@ end;
 function TryScalarVariable(AScope: integer; ALine: TStringList; var AIndex: integer): TScalarVariable;
 var varIdx, arrayIndex, idx: integer;
   pl: TPlayer;
-  unitType: String;
+  unitType: TStarcraftUnit;
 begin
   result.VarType := svtNone;
   if (AIndex < ALine.Count) and IsValidVariableName(ALine[AIndex]) then
@@ -435,7 +447,7 @@ begin
       inc(AIndex);
       result.VarType := svtSwitch;
       result.Player := plNone;
-      result.UnitType := '';
+      result.UnitType := suSwitch;
       result.Switch := BoolVars[varIdx].Switch;
       result.Constant:= BoolVars[varIdx].Constant;
       result.ReadOnly := result.Constant;
@@ -457,7 +469,7 @@ begin
 
         result.VarType := svtSwitch;
         result.Player := plNone;
-        result.UnitType := '';
+        result.UnitType := suSwitch;
         result.Switch := BoolVars[BoolArrays[varIdx].Vars[arrayIndex-1]].Switch;
         result.Constant:= BoolArrays[varIdx].Constant;
         result.ReadOnly := result.Constant;
@@ -479,7 +491,7 @@ begin
 
         result.VarType := svtSwitch;
         result.Player := plNone;
-        result.UnitType := '';
+        result.UnitType := suSwitch;
         varIdx := GetPlayerPresenceBoolVar(TPlayer(ord(plPlayer1)+arrayIndex-1));
         result.Switch := BoolVars[varIdx].Switch;
         result.Constant:= false;
@@ -539,10 +551,10 @@ begin
         begin
           if TryToken(ALine,idx,'(') then
           begin
-            unitType := ExpectString(AScope, ALine,idx);
+            unitType := ExpectUnitType(AScope, ALine,idx);
             ExpectToken(ALine,idx,')');
           end else
-            unitType := 'Any unit';
+            unitType := suAnyUnit;
 
           result.VarType := svtInteger;
           result.Player := pl;
@@ -966,7 +978,7 @@ begin
 end;
 
 procedure TSubExpression.LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer;
-  AUnitType: string; AProg: TInstructionList);
+  AUnitType: TStarcraftUnit; AProg: TInstructionList);
 begin
   if AClearVar then
     Expr.AddToProgram(AProg,APlayer,AUnitType, simSetTo)
@@ -1048,7 +1060,7 @@ begin
 end;
 
 procedure TMultiplyNode.LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer;
-  AUnitType: string; AProg: TInstructionList);
+  AUnitType: TStarcraftUnit; AProg: TInstructionList);
 var
   multiplicand, bit, i: Integer;
 begin
@@ -1121,7 +1133,7 @@ begin
 end;
 
 procedure TConstantNode.LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer;
-  AUnitType: string; AProg: TInstructionList);
+  AUnitType: TStarcraftUnit; AProg: TInstructionList);
 begin
   if AClearVar then
     AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType, simSetTo, Value))
@@ -1200,7 +1212,7 @@ begin
 end;
 
 procedure TCountIfIntNode.LoadIntoVariable(AClearVar: boolean;
-  APlayer: TPlayer; AUnitType: string; AProg: TInstructionList);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList);
 var
   proc: TInstructionList;
   i: Integer;
@@ -1261,7 +1273,7 @@ begin
 end;
 
 procedure TCountIfBoolNode.LoadIntoVariable(AClearVar: boolean;
-  APlayer: TPlayer; AUnitType: string; AProg: TInstructionList);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList);
 var
   proc: TInstructionList;
   i: Integer;
@@ -1395,7 +1407,7 @@ begin
 end;
 
 procedure TExpression.AddToProgram(AProg: TInstructionList;
-  ADestPlayer: TPlayer; ADestUnitType: string; AMode: TSetIntegerMode);
+  ADestPlayer: TPlayer; ADestUnitType: TStarcraftUnit; AMode: TSetIntegerMode);
 var
   i: LongInt;
   firstElem: Boolean;
@@ -1579,7 +1591,7 @@ begin
 end;
 
 procedure TRandomNode.LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer;
-  AUnitType: string; AProg: TInstructionList);
+  AUnitType: TStarcraftUnit; AProg: TInstructionList);
 begin
   if AClearVar then
     AProg.Add( TRandomizeIntegerInstruction.Create(APlayer,AUnitType, Range) )
@@ -1624,7 +1636,7 @@ begin
 end;
 
 procedure TFunctionCallNode.LoadIntoVariable(AClearVar: boolean;
-  APlayer: TPlayer; AUnitType: string; AProg: TInstructionList);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList);
 begin
   AProg.Add(TCallInstruction.Create(Name,[],'UInt24'));
   if AClearVar then
@@ -1651,7 +1663,7 @@ end;
 { TVariableNode }
 
 constructor TVariableNode.Create(ANegative: boolean; APlayer: TPlayer;
-  AUnitType: string);
+  AUnitType: TStarcraftUnit);
 begin
   inherited Create(ANegative);
   Player:= APlayer;
@@ -1668,7 +1680,7 @@ begin
 end;
 
 procedure TVariableNode.LoadIntoVariable(AClearVar: boolean;
-  APlayer: TPlayer; AUnitType: string; AProg: TInstructionList);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList);
 begin
   AProg.Add(TTransferIntegerInstruction.Create(Player,UnitType,itCopyIntoAccumulator));
   if AClearVar then

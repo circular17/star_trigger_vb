@@ -776,7 +776,8 @@ end;
 function TryPlayerAction(AScope: integer; AProg: TInstructionList; ALine: TStringList; var AIndex: Integer; APlayer: TPlayer; AThreads: TPlayers): boolean;
 var
   intVal, propIndex, propVal, timeMs, tempInt, i: integer;
-  unitType, locStr, destLocStr, orderStr, filename, text: String;
+  unitType: TStarcraftUnit;
+  locStr, destLocStr, orderStr, filename, text: String;
   boolVal, textDefined: boolean;
   destPl: TPlayer;
   props: TUnitProperties;
@@ -821,7 +822,7 @@ begin
       raise exception.Create('Quantity must be at least 1');
     end;
     ExpectToken(ALine,AIndex,',');
-    unitType := ExpectString(AScope,ALine,AIndex);
+    unitType := ExpectUnitType(AScope,ALine,AIndex);
     ExpectToken(ALine,AIndex,',');
     locStr := ExpectString(AScope,ALine,AIndex);
     if TryToken(ALine,AIndex,',') then
@@ -865,7 +866,7 @@ begin
     boolVal:= upcase(ALine[AIndex-1][1])='K';
     ExpectToken(ALine,AIndex,'(');
     intVal := ParseOptionalQuantity;
-    unitType := ExpectString(AScope,ALine,AIndex);
+    unitType := ExpectUnitType(AScope,ALine,AIndex);
 
     if TryToken(ALine,AIndex,')') then
       locStr:= ''
@@ -881,7 +882,7 @@ begin
   begin
     ExpectToken(ALine,AIndex,'(');
     intVal := ParseOptionalQuantity;
-    unitType := ExpectString(AScope,ALine,AIndex);
+    unitType := ExpectUnitType(AScope,ALine,AIndex);
     ExpectToken(ALine,AIndex,',');
     locStr := ExpectString(AScope,ALine,AIndex);
     ExpectToken(ALine,AIndex,',');
@@ -895,7 +896,7 @@ begin
   begin
     ExpectToken(ALine,AIndex,'(');
     intVal := ParseOptionalQuantity;
-    unitType := ExpectString(AScope,ALine,AIndex);
+    unitType := ExpectUnitType(AScope,ALine,AIndex);
     if not TryToken(ALine,AIndex,',') then
       locStr := AnywhereLocation
     else
@@ -923,8 +924,11 @@ begin
       AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supLife, props.Life));
       AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supShield, props.Shield));
       AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supEnergy, props.Energy));
-      if CompareText(unitType, 'Any unit')=0 then
-        AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supResource, props.Resource));
+      if unitType = suAnyUnit then
+        AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supResource, props.Resource))
+      else
+        if props.Resource <> 0 then
+          raise exception.Create('Resource cannot be applied to a specific unit');
       AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supHangarCount, props.HangarCount));
 
       if intVal = -1 then
@@ -1063,7 +1067,7 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      unitType := ExpectString(AScope,ALine,AIndex);
+      unitType := ExpectUnitType(AScope,ALine,AIndex);
       ExpectToken(ALine,AIndex,',');
       timeMs := ExpectIntegerConstant(AScope,ALine,AIndex);
       ExpectToken(ALine,AIndex,')');
@@ -1176,11 +1180,11 @@ begin
           begin
             if TryToken(ALine,AIndex,'(') then
             begin
-              unitType := ExpectString(AScope,ALine,AIndex);
+              unitType := ExpectUnitType(AScope,ALine,AIndex);
               ExpectToken(ALine,AIndex,')');
             end else
             begin
-              unitType := 'Any unit';
+              unitType := suAnyUnit;
             end;
             if not textDefined then text := 'kills';
             AProg.Add(TShowLeaderboardKillCountInstruction.Create(text, unitType, intVal));
@@ -1189,7 +1193,7 @@ begin
           begin
             if TryToken(ALine,AIndex,'(') then
             begin
-              unitType := ExpectString(AScope,ALine,AIndex);
+              unitType := ExpectUnitType(AScope,ALine,AIndex);
               if TryToken(ALine,AIndex,',') then
                 locStr := ExpectString(AScope,ALine,AIndex)
               else
@@ -1197,7 +1201,7 @@ begin
               ExpectToken(ALine,AIndex,')');
             end else
             begin
-              unitType := 'Any unit';
+              unitType := suAnyUnit;
               locStr := '';
             end;
             if not textDefined then text := 'units';
@@ -1783,20 +1787,20 @@ begin
   InitVariables;
   MainProg.Clear;
 
-  PredefineIntArray(GlobalScope,'Ore','ore',24);
-  PredefineIntArray(GlobalScope,'Minerals','ore',24);
-  PredefineIntArray(GlobalScope,'Gas','gas',24);
-  PredefineIntArray(GlobalScope,'OreAndGas','ore and gas',24);
-  PredefineIntArray(GlobalScope,'MineralsAndGas','ore and gas',24);
-  PredefineIntArray(GlobalScope,'UnitScore','Units Score',24);
-  PredefineIntArray(GlobalScope,'BuildingScore','Buildings Score',24);
-  PredefineIntArray(GlobalScope,'UnitAndBuildingScore','Units and buildings Score',24);
-  PredefineIntArray(GlobalScope,'KillScore','Kills Score',24);
-  PredefineIntArray(GlobalScope,'RazingScore','Razings Score',24);
-  PredefineIntArray(GlobalScope,'KillAndRazingScore','Kills and razings Score',24);
-  PredefineIntArray(GlobalScope,'CustomScore','Custom Score',24);
-  PredefineIntArray(GlobalScope,'TotalScore','Total Score',24);
-  PredefineIntVar(GlobalScope,'Countdown', plNone, 'Countdown',16);
+  PredefineIntArray(GlobalScope,'Ore',suResourceOre,24);
+  PredefineIntArray(GlobalScope,'Minerals',suResourceOre,24);
+  PredefineIntArray(GlobalScope,'Gas',suResourceGas,24);
+  PredefineIntArray(GlobalScope,'OreAndGas',suResourceOreAndGas,24);
+  PredefineIntArray(GlobalScope,'MineralsAndGas',suResourceOreAndGas,24);
+  PredefineIntArray(GlobalScope,'UnitScore',suScoreUnits,24);
+  PredefineIntArray(GlobalScope,'BuildingScore',suScoreBuildings,24);
+  PredefineIntArray(GlobalScope,'UnitAndBuildingScore',suScoreUnitsAndBuildings,24);
+  PredefineIntArray(GlobalScope,'KillScore',suScoreKills,24);
+  PredefineIntArray(GlobalScope,'RazingScore',suScoreRazings,24);
+  PredefineIntArray(GlobalScope,'KillAndRazingScore',suScoreKillsAndRazings,24);
+  PredefineIntArray(GlobalScope,'CustomScore',suScoreCustom,24);
+  PredefineIntArray(GlobalScope,'TotalScore',suScoreTotal,24);
+  PredefineIntVar(GlobalScope,'Countdown', plNone, suCountdown,16);
   ProcessDim(GlobalScope,0,'Const vbCr = Chr(13)',MainProg, False);
   ProcessDim(GlobalScope,0,'Const vbLf = Chr(10)',MainProg, False);
   ProcessDim(GlobalScope,0,'Const vbTab = Chr(9)',MainProg, False);

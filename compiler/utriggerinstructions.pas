@@ -28,10 +28,10 @@ type
 
   TSetDeathInstruction = class(TTriggerInstruction)
     Player: TPlayer;
-    UnitType: string;
+    UnitType: TStarcraftUnit;
     Value: integer;
     Mode: TSetIntegerMode;
-    constructor Create(APlayer: TPlayer; AUnitType: string; AMode: TSetIntegerMode; AValue: integer);
+    constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; AMode: TSetIntegerMode; AValue: integer);
     function ToTrigEdit: string; override;
   end;
 
@@ -88,9 +88,10 @@ type
   TCreateUnitInstruction = class(TTriggerInstruction)
     Player: TPlayer;
     Quantity: integer;
-    UnitType, Location: string;
+    UnitType: TStarcraftUnit;
+    Location: string;
     Properties: integer;
-    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType, ALocation: string; AProperties: integer = -1);
+    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string; AProperties: integer = -1);
     function ToTrigEdit: string; override;
   end;
 
@@ -101,10 +102,11 @@ type
   TSetUnitPropertyInstruction = class(TTriggerInstruction)
     Player: TPlayer;
     Quantity: integer;
-    UnitType, Location: string;
+    UnitType: TStarcraftUnit;
+    Location: string;
     UnitProperty: TSetUnitProperty;
     Value: integer;
-    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType, ALocation: string; AProperty: TSetUnitProperty; AValue: integer);
+    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string; AProperty: TSetUnitProperty; AValue: integer);
     function ToTrigEdit: string; override;
   end;
 
@@ -115,10 +117,11 @@ type
 
   TSetUnitFlagInstruction = class(TTriggerInstruction)
     Player: TPlayer;
-    UnitType, Location: string;
+    UnitType: TStarcraftUnit;
+    Location: string;
     Flag: TSetUnitFlag;
     Value: TUnitFlagValue;
-    constructor Create(APlayer: TPlayer; AUnitType, ALocation: string; AFlag: TSetUnitFlag; AValue: TUnitFlagValue);
+    constructor Create(APlayer: TPlayer; AUnitType:TStarcraftUnit; ALocation: string; AFlag: TSetUnitFlag; AValue: TUnitFlagValue);
     function ToTrigEdit: string; override;
   end;
 
@@ -127,9 +130,10 @@ type
   TKillUnitInstruction = class(TTriggerInstruction)
     Player: TPlayer;
     Quantity: integer;
-    UnitType, Location: string;
+    UnitType: TStarcraftUnit;
+    Location: string;
     DeathAnimation: boolean;
-    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: string; ALocation: string = ''; ADeathAnimation: boolean = true);
+    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string = ''; ADeathAnimation: boolean = true);
     function ToTrigEdit: string; override;
   end;
 
@@ -138,8 +142,9 @@ type
   TGiveUnitInstruction = class(TTriggerInstruction)
     Player, DestPlayer: TPlayer;
     Quantity: integer;
-    UnitType, Location: string;
-    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType, ALocation: string; ADestPlayer: TPlayer);
+    UnitType: TStarcraftUnit;
+    Location: string;
+    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string; ADestPlayer: TPlayer);
     function ToTrigEdit: string; override;
   end;
 
@@ -148,9 +153,10 @@ type
   TTeleportUnitInstruction = class(TTriggerInstruction)
     Player: TPlayer;
     Quantity: integer;
-    UnitType, Location: string;
+    UnitType: TStarcraftUnit;
+    Location: string;
     DestLocation: string;
-    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType, ALocation: string; ADestLocation: string);
+    constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string; ADestLocation: string);
     function ToTrigEdit: string; override;
   end;
 
@@ -158,9 +164,10 @@ type
 
   TMoveLocationInstruction = class(TTriggerInstruction)
     Player: TPlayer;
-    UnitType, Location: string;
+    UnitType:TStarcraftUnit;
+    Location: string;
     LocationToChange: string;
-    constructor Create(APlayer: TPlayer; AUnitType, ALocation: string; ALocationToChange: string);
+    constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; ALocation: string; ALocationToChange: string);
     function ToTrigEdit: string; override;
   end;
 
@@ -170,10 +177,11 @@ type
 
   TOrderUnitInstruction = class(TTriggerInstruction)
     Player: TPlayer;
-    UnitType, Location: string;
+    UnitType: TStarcraftUnit;
+    Location: string;
     DestLocation: string;
     Order: TUnitOrder;
-    constructor Create(APlayer: TPlayer; AUnitType, ALocation: string; ADestLocation: string; AOrder: TUnitOrder);
+    constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; ALocation: string; ADestLocation: string; AOrder: TUnitOrder);
     function ToTrigEdit: string; override;
   end;
 
@@ -189,9 +197,9 @@ type
   { TTalkingPortraitInstruction }
 
   TTalkingPortraitInstruction = class(TTriggerInstruction)
-    UnitType: string;
+    UnitType: TStarcraftUnit;
     DurationMs: integer;
-    constructor Create(AUnitType: string; ADurationMs: integer);
+    constructor Create(AUnitType: TStarcraftUnit; ADurationMs: integer);
     function ToTrigEdit: string; override;
   end;
 
@@ -274,18 +282,21 @@ type
   { TShowLeaderboardKillCountInstruction }
 
   TShowLeaderboardKillCountInstruction = class(TTriggerInstruction)
-    Text, UnitType: string;
+    Text: string;
+    UnitType: TStarcraftUnit;
     Goal: integer;
-    constructor Create(AText,AUnitType: string; AGoal: integer = -1);
+    constructor Create(AText: string; AUnitType: TStarcraftUnit; AGoal: integer = -1);
     function ToTrigEdit: string; override;
   end;
 
   { TShowLeaderboardUnitCountInstruction }
 
   TShowLeaderboardUnitCountInstruction = class(TTriggerInstruction)
-    Text, UnitType,Location: string;
+    Text: string;
+    UnitType: TStarcraftUnit;
+    Location: string;
     Goal: integer;
-    constructor Create(AText,AUnitType,ALocation: string; AGoal: integer = -1);
+    constructor Create(AText: string; AUnitType:TStarcraftUnit; ALocation: string; AGoal: integer = -1);
     function ToTrigEdit: string; override;
   end;
 
@@ -334,49 +345,11 @@ type
     function ToTrigEdit: string; override;
   end;
 
-function SetIntegerModeToStr(AMode: TSetIntegerMode): string;
-function StarcraftResourceToStr(AResource: TStarcraftResource): string;
-function StarcraftScoreToStr(AScore: TStarcraftScore): string;
-
-const
-  SwitchValueToStr : array[TSwitchValue] of string = ('clear','set','randomize','toggle');
-
 implementation
 
-function SetIntegerModeToStr(AMode: TSetIntegerMode): string;
-begin
-  case AMode of
-  simSetTo: result := 'Set To';
-  simSubtract: result := 'Subtract';
-  else
-    {simAdd: }result := 'Add';
-  end;
-end;
+uses utrigedittypes;
 
-function StarcraftResourceToStr(AResource: TStarcraftResource): string;
-begin
-  case AResource of
-  srGas: result := 'gas';
-  srOreAndGas: result := 'ore and gas';
-  else {srOre:} result := 'ore';
-  end;
-end;
-
-function StarcraftScoreToStr(AScore: TStarcraftScore): string;
-begin
-  case AScore of
-  ssUnitScore: result := 'Units';
-  ssBuildingScore: result := 'Buildings';
-  ssUnitAndBuildingScore: result := 'Units and buidlings';
-  ssKillScore: result := 'Kills';
-  ssRazingScore: result := 'Razings';
-  ssKillAndRazingScore: result := 'Kills and razings';
-  ssTotalScore: result := 'Total';
-  ssCustomScore: result := 'Custom';
-  end;
-end;
-
-function CreateSetIntegerInstructionImplementation(APlayer: TPlayer; AUnitType: string; AMode: TSetIntegerMode; AValue: integer): TInstruction;
+function CreateSetIntegerInstructionImplementation(APlayer: TPlayer; AUnitType: TStarcraftUnit; AMode: TSetIntegerMode; AValue: integer): TInstruction;
 begin
   if AValue < 0 then
   begin
@@ -393,34 +366,29 @@ begin
       AValue := 0;
   end;
 
-  if CompareText(AUnitType,'Ore')=0 then
+  if AUnitType = suResourceOre then
     result := TSetResourceInstruction.Create(APlayer,srOre,AMode,AValue) else
-  if CompareText(AUnitType,'Gas')=0 then
+  if AUnitType = suResourceGas then
     result := TSetResourceInstruction.Create(APlayer,srGas,AMode,AValue) else
-  if CompareText(AUnitType,'Ore And Gas')=0 then
+  if AUnitType = suResourceOreAndGas then
     result := TSetResourceInstruction.Create(APlayer,srOreAndGas,AMode,AValue) else
-  if CompareText(copy(AUnitType,length(AUnitType)-5,6),' Score')=0 then
-  begin
-    if compareText(AUnitType, 'Units Score')=0 then
-      result := TSetScoreInstruction.Create(APlayer,ssUnitScore,AMode,AValue) else
-    if compareText(AUnitType, 'Buildings Score')=0 then
-      result := TSetScoreInstruction.Create(APlayer,ssBuildingScore,AMode,AValue) else
-    if compareText(AUnitType, 'Units and buildings Score')=0 then
-      result := TSetScoreInstruction.Create(APlayer,ssUnitAndBuildingScore,AMode,AValue) else
-    if compareText(AUnitType, 'Kills Score')=0 then
-      result := TSetScoreInstruction.Create(APlayer,ssKillScore,AMode,AValue) else
-    if compareText(AUnitType, 'Razings Score')=0 then
-      result := TSetScoreInstruction.Create(APlayer,ssRazingScore,AMode,AValue) else
-    if compareText(AUnitType, 'Kills and razings Score')=0 then
-      result := TSetScoreInstruction.Create(APlayer,ssKillAndRazingScore,AMode,AValue) else
-    if compareText(AUnitType, 'Custom Score')=0 then
-      result := TSetScoreInstruction.Create(APlayer,ssCustomScore,AMode,AValue) else
-    if compareText(AUnitType, 'Total Score')=0 then
-      result := TSetScoreInstruction.Create(APlayer,ssTotalScore,AMode,AValue) else
-        raise exception.Create('Unknown score type "'+AUnitType+'"');
-  end
-  else
-  if CompareText(AUnitType,'Countdown')= 0 then
+  if AUnitType = suScoreUnits then
+    result := TSetScoreInstruction.Create(APlayer,ssUnitScore,AMode,AValue) else
+  if AUnitType = suScoreBuildings then
+    result := TSetScoreInstruction.Create(APlayer,ssBuildingScore,AMode,AValue) else
+  if AUnitType = suScoreUnitsAndBuildings then
+    result := TSetScoreInstruction.Create(APlayer,ssUnitAndBuildingScore,AMode,AValue) else
+  if AUnitType = suScoreKills then
+    result := TSetScoreInstruction.Create(APlayer,ssKillScore,AMode,AValue) else
+  if AUnitType = suScoreRazings then
+    result := TSetScoreInstruction.Create(APlayer,ssRazingScore,AMode,AValue) else
+  if AUnitType = suScoreKillsAndRazings then
+    result := TSetScoreInstruction.Create(APlayer,ssKillAndRazingScore,AMode,AValue) else
+  if AUnitType = suScoreCustom then
+    result := TSetScoreInstruction.Create(APlayer,ssCustomScore,AMode,AValue) else
+  if AUnitType = suScoreTotal then
+    result := TSetScoreInstruction.Create(APlayer,ssTotalScore,AMode,AValue) else
+  if AUnitType = suCountdown then
     result := TSetCountdownInstruction.Create(AMode,AValue)
   else
     Result:= TSetDeathInstruction.Create(APlayer, AUnitType, AMode, AValue);
@@ -454,7 +422,7 @@ end;
 
 { TSetDeathInstruction }
 
-constructor TSetDeathInstruction.Create(APlayer: TPlayer; AUnitType: string;
+constructor TSetDeathInstruction.Create(APlayer: TPlayer; AUnitType: TStarcraftUnit;
   AMode: TSetIntegerMode; AValue: integer);
 begin
   Player:= APlayer;
@@ -465,7 +433,7 @@ end;
 
 function TSetDeathInstruction.ToTrigEdit: string;
 begin
-  Result:= 'Set Deaths("' + PlayerToTrigEditStr(Player) + '", ' + AddTrigEditQuotes(UnitType) + ', ' + SetIntegerModeToStr(Mode) + ', ' + IntToStr(Value) + ')';
+  Result:= 'Set Deaths("' + PlayerToTrigEditStr(Player) + '", ' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]) + ', ' + SetIntegerModeToStr(Mode) + ', ' + IntToStr(Value) + ')';
 end;
 
 { TSetResourceInstruction }
@@ -545,7 +513,7 @@ end;
 { TCreateUnitInstruction }
 
 constructor TCreateUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
-  AUnitType, ALocation: string; AProperties: integer);
+  AUnitType: TStarcraftUnit; ALocation: string; AProperties: integer);
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   Player:= APlayer;
@@ -560,7 +528,7 @@ begin
   Result:= 'Create Unit';
   if Properties >= 0 then result += ' with Properties';
 
-  result += '("'+ PlayerToTrigEditStr(Player)+'", ' + AddTrigEditQuotes(UnitType)+', ';
+  result += '("'+ PlayerToTrigEditStr(Player)+'", ' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
   result += inttostr(Quantity) + ', '+AddTrigEditQuotes(Location);
   if Properties >=0 then result += ', ' + inttostr(Properties+1);
 
@@ -570,7 +538,7 @@ end;
 { TSetUnitPropertyInstruction }
 
 constructor TSetUnitPropertyInstruction.Create(APlayer: TPlayer;
-  AQuantity: integer; AUnitType, ALocation: string;
+  AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string;
   AProperty: TSetUnitProperty; AValue: integer);
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
@@ -580,7 +548,7 @@ begin
   Location := ALocation;
   UnitProperty := AProperty;
   Value := AValue;
-  if (AProperty = supResource) and (CompareText(AUnitType, 'Any unit')<>0) then
+  if (AProperty = supResource) and (AUnitType <> suAnyUnit) then
     raise exception.Create('Setting resource amount cannot be applied to a specific unit');
   if (AProperty in [supLife, supShield, supEnergy]) and ((AValue < 0) or (AValue > 100)) then
     raise exception.Create('Property value out of bounds (0 to 100)')
@@ -605,15 +573,16 @@ begin
   else
     raise exception.Create('Case not handled');
   end;
-  result += '(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))+', '+AddTrigEditQuotes(UnitType)+', '+inttostr(Value)+', ';
+  result += '(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))+', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', '+inttostr(Value)+', ';
   if Quantity = -1 then result += 'All' else result += inttostr(Quantity);
   result += ', '+AddTrigEditQuotes(Location)+')';
 end;
 
 { TSetUnitFlagInstruction }
 
-constructor TSetUnitFlagInstruction.Create(APlayer: TPlayer; AUnitType,
-  ALocation: string; AFlag: TSetUnitFlag; AValue: TUnitFlagValue);
+constructor TSetUnitFlagInstruction.Create(APlayer: TPlayer;
+  AUnitType: TStarcraftUnit; ALocation: string; AFlag: TSetUnitFlag;
+  AValue: TUnitFlagValue);
 begin
   Player := APlayer;
   UnitType := AUnitType;
@@ -629,7 +598,7 @@ begin
   else
     result := 'Set Doodad State';
 
-  result += '(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))+', '+AddTrigEditQuotes(UnitType)+', '+AddTrigEditQuotes(Location)+', ';
+  result += '(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))+', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', '+AddTrigEditQuotes(Location)+', ';
   case Value of
   ufvDisable: result += 'disabled';
   ufvEnable: result += 'enabled';
@@ -640,8 +609,8 @@ end;
 
 { TKillUnitInstruction }
 
-constructor TKillUnitInstruction.Create(APlayer: TPlayer;
-  AQuantity: integer; AUnitType: string; ALocation: string; ADeathAnimation: boolean);
+constructor TKillUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
+  AUnitType: TStarcraftUnit; ALocation: string; ADeathAnimation: boolean);
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   Player:= APlayer;
@@ -658,18 +627,18 @@ begin
   if not IsAnywhere(Location) or (Quantity <> -1) then
   begin
     Result += ' At Location';
-    result += '("'+ PlayerToTrigEditStr(Player)+'", ' + AddTrigEditQuotes(UnitType)+', ';
+    result += '("'+ PlayerToTrigEditStr(Player)+'", ' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
     if Quantity = -1 then result += 'All' else result += inttostr(Quantity);
     result += ', '+AddTrigEditQuotes(Location) + ')';
   end
   else
-    Result += '(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))+', '+AddTrigEditQuotes(UnitType)+')';
+    Result += '(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))+', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+')';
 end;
 
 { TGiveUnitInstruction }
 
 constructor TGiveUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
-  AUnitType, ALocation: string; ADestPlayer: TPlayer);
+  AUnitType: TStarcraftUnit; ALocation: string; ADestPlayer: TPlayer);
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   Player := APlayer;
@@ -682,15 +651,16 @@ end;
 function TGiveUnitInstruction.ToTrigEdit: string;
 begin
   result := 'Give Units to Player(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))+', '+ AddTrigEditQuotes(PlayerToTrigEditStr(DestPlayer))+ ', ' +
-    AddTrigEditQuotes(UnitType)+', ';
+    AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
   if Quantity = -1 then result += 'All' else result += IntToStr(Quantity);
   result += ', ' + AddTrigEditQuotes(Location) + ')';
 end;
 
 { TTeleportUnitInstruction }
 
-constructor TTeleportUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer; AUnitType,
-  ALocation: string; ADestLocation: string);
+constructor TTeleportUnitInstruction.Create(APlayer: TPlayer;
+  AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string;
+  ADestLocation: string);
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   Player:= APlayer;
@@ -702,15 +672,15 @@ end;
 
 function TTeleportUnitInstruction.ToTrigEdit: string;
 begin
-  Result:= 'Move Unit(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player)) + ', '+AddTrigEditQuotes(UnitType)+', ';
+  Result:= 'Move Unit(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player)) + ', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
   if Quantity = -1 then result +='All' else result += inttostr(Quantity);
   result += ', '+AddTrigEditQuotes(Location)+', '+AddTrigEditQuotes(DestLocation)+')';
 end;
 
 { TMoveLocationInstruction }
 
-constructor TMoveLocationInstruction.Create(APlayer: TPlayer; AUnitType,
-  ALocation: string; ALocationToChange: string);
+constructor TMoveLocationInstruction.Create(APlayer: TPlayer;
+  AUnitType: TStarcraftUnit; ALocation: string; ALocationToChange: string);
 begin
   Player:= APlayer;
   UnitType:= AUnitType;
@@ -720,14 +690,15 @@ end;
 
 function TMoveLocationInstruction.ToTrigEdit: string;
 begin
-  Result:= 'Move Location(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player)) + ', '+AddTrigEditQuotes(UnitType)+', ';
+  Result:= 'Move Location(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player)) + ', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
   result += AddTrigEditQuotes(Location)+', '+AddTrigEditQuotes(LocationToChange)+')';
 end;
 
 { TOrderUnitInstruction }
 
-constructor TOrderUnitInstruction.Create(APlayer: TPlayer; AUnitType,
-  ALocation: string; ADestLocation: string; AOrder: TUnitOrder);
+constructor TOrderUnitInstruction.Create(APlayer: TPlayer;
+  AUnitType: TStarcraftUnit; ALocation: string; ADestLocation: string;
+  AOrder: TUnitOrder);
 begin
   Player:= APlayer;
   UnitType:= AUnitType;
@@ -738,7 +709,7 @@ end;
 
 function TOrderUnitInstruction.ToTrigEdit: string;
 begin
-  result := 'Order(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player)) + ', '+AddTrigEditQuotes(UnitType);
+  result := 'Order(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player)) + ', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]);
   result += ', '+AddTrigEditQuotes(Location)+', '+AddTrigEditQuotes(DestLocation)+', ';
   case Order of
   uoPatrol: result += 'patrol';
@@ -763,7 +734,7 @@ end;
 
 { TTalkingPortraitInstruction }
 
-constructor TTalkingPortraitInstruction.Create(AUnitType: string;
+constructor TTalkingPortraitInstruction.Create(AUnitType: TStarcraftUnit;
   ADurationMs: integer);
 begin
   UnitType:= AUnitType;
@@ -772,7 +743,7 @@ end;
 
 function TTalkingPortraitInstruction.ToTrigEdit: string;
 begin
-  Result:= 'Talking Portrait(' + AddTrigEditQuotes(UnitType) + ', ' + inttostr(DurationMs) + ')';
+  Result:= 'Talking Portrait(' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]) + ', ' + inttostr(DurationMs) + ')';
 end;
 
 { TRunAIScriptInstruction }
@@ -880,7 +851,6 @@ end;
 
 function TShowLeaderboardResourceInstruction.ToTrigEdit: string;
 begin
-  Result:=inherited ToString;
   if Goal = -1 then
     result := 'Leader Board Resources'
   else
@@ -913,8 +883,8 @@ end;
 
 { TShowLeaderboardKillCountInstruction }
 
-constructor TShowLeaderboardKillCountInstruction.Create(AText,
-  AUnitType: string; AGoal: integer);
+constructor TShowLeaderboardKillCountInstruction.Create(AText: string;
+  AUnitType: TStarcraftUnit; AGoal: integer);
 begin
   Text:= AText;
   UnitType := AUnitType;
@@ -928,7 +898,7 @@ begin
   else
     result := 'Leader Board Kills';
 
-  result += '(' + AddTrigEditQuotes(Text) + ', '+ AddTrigEditQuotes(UnitType);
+  result += '(' + AddTrigEditQuotes(Text) + ', '+ AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]);
 
   if Goal <> -1 then
     result += ', ' + IntToStr(Goal);
@@ -937,8 +907,8 @@ end;
 
 { TShowLeaderboardUnitCountInstruction }
 
-constructor TShowLeaderboardUnitCountInstruction.Create(AText, AUnitType,
-  ALocation: string; AGoal: integer);
+constructor TShowLeaderboardUnitCountInstruction.Create(AText: string;
+  AUnitType: TStarcraftUnit; ALocation: string; AGoal: integer);
 begin
   Text:= AText;
   UnitType := AUnitType;
@@ -955,7 +925,7 @@ begin
 
   if not IsAnywhere(Location) then result += ' At Location';
 
-  result += '(' + AddTrigEditQuotes(Text) + ', '+ AddTrigEditQuotes(UnitType);
+  result += '(' + AddTrigEditQuotes(Text) + ', '+ AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]);
 
   if Goal <> -1 then
     result += ', ' + IntToStr(Goal);

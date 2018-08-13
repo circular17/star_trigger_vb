@@ -1,4 +1,4 @@
 Sub New()
-  Player1.DeathCount("Terran Marine") = &HF00D
+  Player1.DeathCount(TerranMarine) = &HF00D
 End Sub
 

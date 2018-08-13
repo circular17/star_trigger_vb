@@ -19,7 +19,7 @@ var
     Predefined, Constant: boolean;
     Name: string;
     Size: integer;
-    UnitType: string;
+    UnitType: TStarcraftUnit;
     Values: array of integer;
     Vars: array of integer;
     BitCount: integer;
@@ -29,7 +29,7 @@ var
   CurIntArrayUnitNameIndex: integer;
 
 function CreateIntArray(AScope: integer; AName: string; ASize: integer; AValues: array of integer; ABitCount: integer; AConstant: boolean = false): integer;
-function PredefineIntArray(AScope: integer; AName: string; AUnitType: string; ABitCount: integer): integer;
+function PredefineIntArray(AScope: integer; AName: string; AUnitType: TStarcraftUnit; ABitCount: integer): integer;
 function IntArrayIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean = true): integer;
 function GetMultiplicandIntArray(AMaxBitCount: integer): integer;
 
@@ -38,7 +38,7 @@ var
     Predefined, Constant: boolean;
     Name: string;
     Player: TPlayer;
-    UnitType: string;
+    UnitType: TStarcraftUnit;
     BitCount: integer;
     Value: integer;
     Randomize: boolean;
@@ -50,7 +50,7 @@ var
   CurIntVarUnitNameIndex: integer;
 
 function CreateIntVar(AScope: integer; AName: string; AValue: integer; ABitCount: integer; ARandomize: boolean = false; AConstant: boolean = false): integer;
-function PredefineIntVar(AScope: integer; AName: string; APlayer: TPlayer; AUnitType: string; ABitCount: integer): integer;
+function PredefineIntVar(AScope: integer; AName: string; APlayer: TPlayer; AUnitType: TStarcraftUnit; ABitCount: integer): integer;
 function IntVarIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean = true): integer;
 function AllocateTempInt(ABitCount: integer): integer;
 procedure ReleaseTempInt(ATempInt: integer);
@@ -213,7 +213,7 @@ begin
     Predefined := false;
     Name := AName;
     Size:= ASize;
-    if AConstant then UnitType := 'Const'
+    if AConstant then UnitType := suConst
     else UnitType := NonKillableUnits[CurIntArrayUnitNameIndex];
     BitCount:= ABitCount;
 
@@ -244,7 +244,7 @@ begin
   end;
 end;
 
-function PredefineIntArray(AScope: integer; AName: string; AUnitType: string;
+function PredefineIntArray(AScope: integer; AName: string; AUnitType: TStarcraftUnit;
   ABitCount: integer): integer;
 var
   i: Integer;
@@ -346,7 +346,7 @@ begin
     if AConstant then
     begin
       Player := plNone;
-      UnitType := 'Const';
+      UnitType := suConst;
     end else
     begin
       Player := CurIntVarPlayer;
@@ -359,7 +359,7 @@ begin
 end;
 
 function PredefineIntVar(AScope: integer; AName: string; APlayer: TPlayer;
-  AUnitType: string; ABitCount: integer): integer;
+  AUnitType: TStarcraftUnit; ABitCount: integer): integer;
 begin
   if IntVarCount = 0 then
   begin

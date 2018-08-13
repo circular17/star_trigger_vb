@@ -225,13 +225,14 @@ var
   var j,sub: integer;
   begin
     result := ADepth;
-    if Procedures[AProc].StackChecked then raise exception.Create('Recursive calls not allowed (' + Procedures[AProc].Name + ')');
-    Procedures[AProc].StackChecked := true;
     if ADepth = MaxStackSize+1 then exit;
 
     with Procedures[AProc] do
       for j := 0 to Calls.Count-1 do
       begin
+        if Procedures[Calls[j]].StackChecked then raise exception.Create('Recursive calls not allowed (' + Procedures[AProc].Name + ' => ' + Procedures[Calls[j]].Name + ')');
+        Procedures[Calls[j]].StackChecked := true;
+
         sub:= GetDepthRec(Calls[j], ADepth+1);
         if sub > result then result := sub;
       end;
@@ -241,6 +242,8 @@ begin
   MaxStackBits:= 1;
   while (1 shl MaxStackBits) - 1 < CurIPValue do inc(MaxStackBits);
 
+  for i := 0 to ProcedureCount-1 do
+    Procedures[i].StackChecked := false;
   StackSize := 1;
   for i := 0 to ProcedureCount-1 do
   if Procedures[i].StartIP <> -1 then
@@ -296,7 +299,9 @@ begin
   begin
     if AConditions[i].IsComputed then
       raise exception.Create('Computed conditions cannot be used as trigger conditions');
-    condStr[i] := AConditions[i].ToString;
+    if not (AConditions[i] is TTriggerCondition) then
+      raise exception.Create('Supplied condition is not translatable to a trigger condition');
+    condStr[i] := TTriggerCondition(AConditions[i]).ToTrigEdit;
   end;
 
   if AIPStart <> -1 then
@@ -442,7 +447,7 @@ begin
     if not (AProg[i] is TTriggerInstruction) then
       raise exception.Create('Expecting trigger instruction')
     else
-      instrStr[instrCount] := TTriggerInstruction(AProg[i]).ToTrigEditAndFree;
+      instrStr[instrCount] := TTriggerInstruction(AProg[i]).ToTrigEdit;
     inc(instrCount);
   end;
 

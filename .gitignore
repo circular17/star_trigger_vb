@@ -20,3 +20,7 @@ lib/x86_64-win64/
 compiler/lib/i386-win32/
 
 lib/i386-win32/
+
+*.dll
+
+compiler/lib/x86_64-linux/

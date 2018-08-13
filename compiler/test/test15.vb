@@ -1,7 +1,7 @@
 Dim PlayerScore(8) As Byte
 
-When Player2.DeathCount("Terran Marine") > 0
-  Player2.DeathCount("Terran Marine") -= 1
+When Player2.DeathCount(TerranMarine) > 0
+  Player2.DeathCount(TerranMarine) -= 1
   PlayerScore(1) += 1
   PlayerScore(2) += 1
 End When

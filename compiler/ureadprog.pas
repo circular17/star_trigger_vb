@@ -56,7 +56,7 @@ var HyperTriggers: boolean;
 
 implementation
 
-uses uparsevb, uvariables, uexpressions, uparseconditions, utriggerinstructions, utriggerconditions;
+uses uparsevb, uvariables, uexpressions, uparseconditions, utriggerinstructions, utriggerconditions, umapinfo;
 
 function TryUnitProperties(AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
 var idx, intVal: integer;
@@ -898,7 +898,7 @@ begin
     intVal := ParseOptionalQuantity;
     unitType := ExpectUnitType(AScope,ALine,AIndex);
     if not TryToken(ALine,AIndex,',') then
-      locStr := AnywhereLocation
+      locStr := GetAnywhereLocation
     else
       locStr := ExpectString(AScope,ALine,AIndex);
     ExpectToken(ALine,AIndex,')');

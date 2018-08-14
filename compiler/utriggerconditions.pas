@@ -234,7 +234,7 @@ function CreateCompareIntegerCondition(AUnitType: TStarcraftUnit; AHighest: bool
 
 implementation
 
-uses utriggerinstructions, utrigedittypes;
+uses utriggerinstructions, utrigedittypes, umapinfo;
 
 function CreateIntegerConditionImplementation(APlayer: TPlayer; AUnitType: TStarcraftUnit;
   AMode: TIntegerConditionMode; AValue: integer): TCondition;
@@ -344,7 +344,7 @@ end;
 function TTriggerConditionData.GetResourceType: TStarcraftResource;
 begin
   if NonUnitVariable <= ord(high(TStarcraftResource)) then
-    result := TStarcraftScore(NonUnitVariable)
+    result := TStarcraftResource(NonUnitVariable)
   else
     raise exception.Create('Value out of bounds');
 end;
@@ -637,7 +637,7 @@ end;
 
 function TSwitchCondition.ToTrigEdit: string;
 begin
-  Result:= 'Switch('+AddTrigEditQuotes(SwitchToStr(Switch))+ ', ' + BoolToStr(Value, 'set', 'not set') + ')';
+  Result:= 'Switch('+SwitchToTrigEditCode(Switch)+ ', ' + BoolToStr(Value, 'set', 'not set') + ')';
 end;
 
 procedure TSwitchCondition.AddToProgAsAndVar(AProg: TInstructionList;

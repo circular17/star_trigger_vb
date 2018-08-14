@@ -5,7 +5,6 @@
     <General>
       <Flags>
         <MainUnitHasCreateFormStatements Value="False"/>
-        <MainUnitHasScaledStatement Value="False"/>
       </Flags>
       <SessionStorage Value="InProjectDir"/>
       <MainUnit Value="0"/>
@@ -24,7 +23,7 @@
         <FormatVersion Value="1"/>
       </local>
     </RunParams>
-    <Units Count="14">
+    <Units Count="15">
       <Unit0>
         <Filename Value="triggercompiler.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -81,6 +80,10 @@
         <Filename Value="utrigedittypes.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit13>
+      <Unit14>
+        <Filename Value="umapinfo.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit14>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

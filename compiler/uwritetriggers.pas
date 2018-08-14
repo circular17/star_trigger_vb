@@ -439,7 +439,7 @@ begin
       for j := 1 to IntArrays[i].Size do
         with IntVars[IntArrays[i].Vars[j-1]] do
           if UnitType <> IntArrays[i].UnitType then
-            writeln(t, '// ', IntArrays[i].Name, '('+ intToStr(j)+') stored in "', UnitType, '" of "', PlayerToTrigEditStr(Player),'" //');
+            writeln(t, '// ', IntArrays[i].Name, '('+ intToStr(j)+') stored in "', StarcraftUnitTrigEditNames[UnitType], '" of "', PlayerToTrigEditStr(Player),'" //');
     end;
   for i := 0 to IntVarCount-1 do
     if not IntVars[i].Predefined and not IntVars[i].Constant then

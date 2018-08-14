@@ -43,7 +43,7 @@ procedure WriteStackTriggers(AOutput: TStringList);
 
 implementation
 
-uses ureadprog, uvariables;
+uses ureadprog, uvariables, utrigedittypes;
 
 // instruction pointer for regular blocks
 

@@ -7,16 +7,6 @@ interface
 uses
   Classes, SysUtils, fgl, usctypes;
 
-var
-  AnywhereLocation : string = 'Anywhere';
-  Force : array[1..4] of string = ('Force 1', 'Force 2', 'Force 3', 'Force 4');
-  SwitchNames : array[1..256] of string;
-
-function AddTrigEditQuotes(AText: string): string;
-function PlayerToTrigEditStr(APlayer: TPlayer): string;
-function IsAnywhere(ALocation: string): boolean;
-function SwitchToStr(ASwitch: integer): string;
-
 type
   { TInstruction }
 
@@ -265,50 +255,6 @@ var
   CreateIntegerCondition: TCreateIntegerConditionProc;
 
 implementation
-
-function AddTrigEditQuotes(AText: string): string;
-var
-  i: Integer;
-begin
-  result := '"' + StringReplace(StringReplace(AText, '\', '\\', [rfReplaceAll]), '"', '\"', [rfReplaceAll]) + '"';
-  for i := length(result) downto 1 do
-    if result[i] in [#0..#31] then
-    begin
-      if result[i] = #13 then insert('\r',result,i+1)
-      else if result[i] = #10 then insert('\n',result,i+1)
-      else insert('\x0' +IntToHex(ord(result[i]),2), result,i+1);
-      delete(result,i,1);
-    end;
-end;
-
-function PlayerToTrigEditStr(APlayer: TPlayer): string;
-begin
-  case APlayer of
-  plNone: result := 'None';
-  plPlayer1..plPlayer12: result := 'Player ' + IntToStr(ord(APlayer) - ord(plPlayer1)+1);
-  plCurrentPlayer: result := 'Current Player';
-  plFoes: result := 'Foes';
-  plAllies: result := 'Allies';
-  plNeutralPlayers: result := 'Neutral players';
-  plAllPlayers: result := 'All players';
-  plForce1..plForce4: result := Force[ord(APlayer)-ord(plForce1)+1];
-  plNonAlliedVictoryPlayers: result := 'Non Allied Victory Players';
-  else result := 'Unknown';
-  end;
-end;
-
-function IsAnywhere(ALocation: string): boolean;
-begin
-  result := (ALocation = '') or (CompareText(ALocation, AnywhereLocation)=0);
-end;
-
-function SwitchToStr(ASwitch: integer): string;
-begin
-  if (ASwitch < low(SwitchNames)) or (ASwitch > high(SwitchNames)) then
-    raise exception.Create('Index out of bounds');
-  if SwitchNames[ASwitch] = '' then result := 'Switch'+IntToStr(ASwitch)
-  else result := SwitchNames[ASwitch];
-end;
 
 { TRandomizeIntegerInstruction }
 

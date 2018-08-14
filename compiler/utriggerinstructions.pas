@@ -347,7 +347,7 @@ type
 
 implementation
 
-uses utrigedittypes;
+uses utrigedittypes, umapinfo;
 
 function CreateSetIntegerInstructionImplementation(APlayer: TPlayer; AUnitType: TStarcraftUnit; AMode: TSetIntegerMode; AValue: integer): TInstruction;
 begin
@@ -417,7 +417,7 @@ end;
 
 function TSetSwitchInstruction.ToTrigEdit: string;
 begin
-  Result:= 'Set Switch('+AddTrigEditQuotes(SwitchToStr(Switch))+ ', ' + SwitchValueToStr[Value] + ')';
+  Result:= 'Set Switch('+SwitchToTrigEditCode(Switch)+ ', ' + SwitchValueToStr[Value] + ')';
 end;
 
 { TSetDeathInstruction }
@@ -618,7 +618,7 @@ begin
   UnitType:= AUnitType;
   Location:= ALocation;
   DeathAnimation:= ADeathAnimation;
-  If IsAnywhere(Location) then Location := AnywhereLocation;
+  If IsAnywhere(Location) then Location := GetAnywhereLocation;
 end;
 
 function TKillUnitInstruction.ToTrigEdit: string;

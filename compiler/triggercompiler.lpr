@@ -8,7 +8,8 @@ uses
   {$ENDIF}{$ENDIF}
   Classes, SysUtils, CustApp, ureadprog, uwritetriggers, uinstructions,
   utriggercode, uarithmetic, usctypes, uparsevb, uvariables, uexpressions,
-  uparseconditions, utriggerinstructions, utriggerconditions, utrigedittypes
+  uparseconditions, utriggerinstructions, utriggerconditions, utrigedittypes,
+  umapinfo
   { you can add units after this };
 
 type

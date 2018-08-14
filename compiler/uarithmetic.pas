@@ -13,7 +13,7 @@ const
 procedure ExpandIntegerTransfer(ATransfer: TTransferIntegerInstruction; AExpanded: TInstructionList);
 function CompareAccumulator(AMode: TIntegerConditionMode; AValue: integer): TCondition;
 procedure InitArithmetic;
-procedure WriteArithmeticTriggers(AOutput: TStringList);
+procedure WriteArithmeticTriggers;
 function GetExponentOf2(AValue: integer): integer;
 function IsPowerOf2(ANumber: integer): boolean;
 
@@ -175,7 +175,7 @@ begin
   raise exception.Create('Unable to find variable');
 end;
 
-procedure WriteArithmeticTriggers(AOutput: TStringList);
+procedure WriteArithmeticTriggers;
 var
   condIP: TCondition;
   proc: TInstructionList;
@@ -217,7 +217,7 @@ var
     if (j >= 0) and (j < ArithmeticMaxAccBits) then
     begin
       condSwitch.Switch := ValueBools[j];
-      WriteProg(AOutput,[plAllPlayers], [condSub,condSwitch], proc, -1,-1, True);
+      WriteProg([plAllPlayers], [condSub,condSwitch], proc, -1,-1, True);
     end;
     EmptyProc;
 
@@ -232,13 +232,13 @@ var
       condSwitch.Switch := ValueBools[j];
       setSw.Switch:= ValueBools[j+AShift];
       setSw2.Switch:= ValueBools[j];
-      WriteProg(AOutput,[plAllPlayers], [condSub,condSwitch], proc, -1,-1, True);
+      WriteProg([plAllPlayers], [condSub,condSwitch], proc, -1,-1, True);
     end;
     EmptyProc;
 
     for j := min(AShift-1, ArithmeticMaxAccBits-1) downto 0 do
       proc.Add(TSetSwitchInstruction.Create(ValueBools[j], svClear));
-    WriteProg(AOutput,[plAllPlayers], [condSub], proc, -1,-1,true);
+    WriteProg([plAllPlayers], [condSub], proc, -1,-1,true);
     EmptyProc;
 
     condSub.Free;
@@ -286,8 +286,7 @@ begin
 
   proc := TInstructionList.Create;
 
-  AOutput.Add('// Add or subtract into accumulator //');;
-
+  proc.Add(TCommentInstruction.Create('Arithmetic'));
   //clear temp bits
   for i := 0 to TotalBits-1 do
     proc.Add(TSetSwitchInstruction.Create(ValueBools[i], svClear));
@@ -305,7 +304,7 @@ begin
   if switchShift1 <> -1 then           proc.Add(TSetSwitchInstruction.Create(switchShift1, svClear));
   if switchShiftOverflow <> -1 then    proc.Add(TSetSwitchInstruction.Create(switchShiftOverflow, svClear));
 
-  WriteProg(AOutput, [plAllPlayers], [], proc, -1, -1, True);
+  WriteProg([plAllPlayers], [], proc, -1, -1, True);
   EmptyProc;
 
   if hasAddFromBits then
@@ -316,7 +315,7 @@ begin
     proc.Add(TSetSwitchInstruction.Create(switchAddToVarFromBits, svSet));
     proc.Add(TSetSwitchInstruction.Create(switchAddToAccFromBits, svSet));
     proc.Add(TSetSwitchInstruction.Create(switchClearSysIP, svSet));
-    WriteProg(AOutput, [plAllPlayers], [condIP], proc, -1, -1, True);
+    WriteProg([plAllPlayers], [condIP], proc, -1, -1, True);
     EmptyProc;
     condIP.Free;
   end;
@@ -329,7 +328,7 @@ begin
     proc.Add(TSetSwitchInstruction.Create(switchAddToVarFromBits, svSet));
     proc.Add(TSetSwitchInstruction.Create(switchSubtractIntoAccFromBits, svSet));
     proc.Add(TSetSwitchInstruction.Create(switchClearSysIP, svSet));
-    WriteProg(AOutput, [plAllPlayers], [condIP], proc, -1, -1, True);
+    WriteProg([plAllPlayers], [condIP], proc, -1, -1, True);
     EmptyProc;
     condIP.Free;
   end;
@@ -349,7 +348,7 @@ begin
       setSw := TSetSwitchInstruction.Create(ValueBools[j], svSet);
       proc.Add(addAcc);
       proc.Add(setSw);
-      WriteProg(AOutput, [plAllPlayers], [condSub, condVar, condValue], proc, -1,-1, True);
+      WriteProg([plAllPlayers], [condSub, condVar, condValue], proc, -1,-1, True);
       EmptyProc;
 
       condValue.Free;
@@ -368,7 +367,7 @@ begin
 
       addAcc := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[AccArray].UnitType, simAdd, 1 shl i);
       proc.Add(addAcc);
-      WriteProg(AOutput, [plAllPlayers], [condSub, condSwitch], proc, -1,-1, True);
+      WriteProg([plAllPlayers], [condSub, condSwitch], proc, -1,-1, True);
       EmptyProc;
     end;
     condSwitch.Free;
@@ -385,7 +384,7 @@ begin
       condSwitch.Switch := ValueBools[i];
       addAcc := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[AccArray].UnitType, simSubtract, 1 shl i);
       proc.Add(addAcc);
-      WriteProg(AOutput, [plAllPlayers], [condSub, condSwitch], proc, -1,-1, True);
+      WriteProg([plAllPlayers], [condSub, condSwitch], proc, -1,-1, True);
       EmptyProc;
     end;
     condSwitch.Free;
@@ -394,13 +393,12 @@ begin
 
   if hasShift then
   begin
-    AOutput.Add('// Init bit shifting //');
     if ShiftUsed16 then
     begin
       CheckSysIPRange(AddAccSysIP[16],AddAccSysIP[23],condIP,condIP2);
       proc.Add(SetNextSysIP(16,simSubtract));
       proc.Add(TSetSwitchInstruction.Create(switchShift16, svSet));
-      WriteProg(AOutput, [plAllPlayers], [condIP,condIP2], proc, -1,-1, True);
+      WriteProg([plAllPlayers], [condIP,condIP2], proc, -1,-1, True);
       EmptyProc; condIP.Free; condIP2.Free;
     end;
 
@@ -409,7 +407,7 @@ begin
       CheckSysIPRange(AddAccSysIP[8],AddAccSysIP[23],condIP,condIP2);
       proc.Add(SetNextSysIP(8,simSubtract));
       proc.Add(TSetSwitchInstruction.Create(switchShift8, svSet));
-      WriteProg(AOutput, [plAllPlayers], [condIP,condIP2], proc, -1,-1, True);
+      WriteProg([plAllPlayers], [condIP,condIP2], proc, -1,-1, True);
       EmptyProc; condIP.Free; condIP2.Free;
     end;
 
@@ -418,7 +416,7 @@ begin
       CheckSysIPRange(AddAccSysIP[4],AddAccSysIP[23],condIP,condIP2);
       proc.Add(SetNextSysIP(4,simSubtract));
       proc.Add(TSetSwitchInstruction.Create(switchShift4, svSet));
-      WriteProg(AOutput, [plAllPlayers], [condIP,condIP2], proc, -1,-1, True);
+      WriteProg([plAllPlayers], [condIP,condIP2], proc, -1,-1, True);
       EmptyProc; condIP.Free; condIP2.Free;
     end;
 
@@ -427,7 +425,7 @@ begin
       CheckSysIPRange(AddAccSysIP[2],AddAccSysIP[23],condIP,condIP2);
       proc.Add(SetNextSysIP(2,simSubtract));
       proc.Add(TSetSwitchInstruction.Create(switchShift2, svSet));
-      WriteProg(AOutput, [plAllPlayers], [condIP,condIP2], proc, -1,-1, True);
+      WriteProg([plAllPlayers], [condIP,condIP2], proc, -1,-1, True);
       EmptyProc; condIP.Free; condIP2.Free;
     end;
 
@@ -436,12 +434,10 @@ begin
       CheckSysIPRange(AddAccSysIP[1],AddAccSysIP[23],condIP,condIP2);
       proc.Add(SetNextSysIP(1,simSubtract));
       proc.Add(TSetSwitchInstruction.Create(switchShift1, svSet));
-      WriteProg(AOutput, [plAllPlayers], [condIP,condIP2], proc, -1,-1, True);
+      WriteProg([plAllPlayers], [condIP,condIP2], proc, -1,-1, True);
       EmptyProc; condIP.Free; condIP2.Free;
     end;
   end;
-
-  AOutput.Add('// Add or subtract from accumulator //');
 
   //checking initial overflow
   condIP := CheckSysIP(AddAccSysIP[0]);
@@ -452,7 +448,7 @@ begin
     condValue := CreateIntegerCondition(plCurrentPlayer, IntArrays[AccArray].UnitType, icmAtLeast, 1 shl TransferProcs[i].BitCount);
     proc.Add(CreateSetIntegerInstruction(IntVars[i].Player, IntVars[i].UnitType, simSetTo, (1 shl TransferProcs[i].BitCount)-1));
     proc.Add(SetNextSysIP(0));
-    WriteProg(AOutput, [plAllPlayers], [condIP, condVar, condValue], proc, -1,-1, True);
+    WriteProg([plAllPlayers], [condIP, condVar, condValue], proc, -1,-1, True);
     EmptyProc;
     condValue.Free;
     condVar.Free;
@@ -466,7 +462,7 @@ begin
     proc.Add(TSetSwitchInstruction.Create(switchCopyAccToBits, svSet));
     proc.Add(TSetSwitchInstruction.Create(switchAddToVarFromBits, svSet));
     proc.Add(TSetSwitchInstruction.Create(switchClearSysIP, svSet));
-    WriteProg(AOutput, [plAllPlayers], [condIP], proc, -1, -1, True);
+    WriteProg([plAllPlayers], [condIP], proc, -1, -1, True);
     EmptyProc;
     condIP.Free;
   end;
@@ -479,7 +475,7 @@ begin
     proc.Add(TSetSwitchInstruction.Create(switchNegateBits2, svSet));
     proc.Add(TSetSwitchInstruction.Create(switchAddToVarFromBits, svSet));
     proc.Add(TSetSwitchInstruction.Create(switchClearSysIP, svSet));
-    WriteProg(AOutput, [plAllPlayers], [condIP], proc, -1, -1, True);
+    WriteProg([plAllPlayers], [condIP], proc, -1, -1, True);
     EmptyProc;
     condIP.Free;
   end;
@@ -496,7 +492,7 @@ begin
       setSw := TSetSwitchInstruction.Create(ValueBools[j], svSet);
       proc.Add(addAcc);
       proc.Add(setSw);
-      WriteProg(AOutput, [plAllPlayers], [condSub, condValue], proc, -1,-1, True);
+      WriteProg([plAllPlayers], [condSub, condValue], proc, -1,-1, True);
       EmptyProc;
 
       condValue.Free;
@@ -509,7 +505,7 @@ begin
       condSwitch.Switch := ValueBools[j];
       addAcc := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[AccArray].UnitType, simAdd, 1 shl j);
       proc.Add(addAcc);
-      WriteProg(AOutput, [plAllPlayers], [condSub, condSwitch], proc, -1,-1, True);
+      WriteProg([plAllPlayers], [condSub, condSwitch], proc, -1,-1, True);
       EmptyProc;
     end;
     condSwitch.Free;
@@ -519,7 +515,6 @@ begin
 
   if hasShift then
   begin
-    AOutput.Add('// Handle bit shifting //');
     if ShiftUsed16 then WriteShiftProg(16, switchShift16);
     if ShiftUsed8 then WriteShiftProg(8, switchShift8);
     if ShiftUsed4 then WriteShiftProg(4, switchShift4);
@@ -529,7 +524,7 @@ begin
     condSub := TSwitchCondition.Create(switchShiftOverflow,true);
     for i := 0 to TotalBits-1 do
       proc.Add(TSetSwitchInstruction.Create(ValueBools[i], svSet));
-    WriteProg(AOutput, [plAllPlayers], [condSub], proc, -1,-1, True);
+    WriteProg([plAllPlayers], [condSub], proc, -1,-1, True);
     EmptyProc;
     condSub.Free;
   end;
@@ -540,7 +535,7 @@ begin
     condSub := TSwitchCondition.Create(switchNegateBits2,true);
     for i := 0 to TotalBits-1 do
       proc.Add(TSetSwitchInstruction.Create(ValueBools[i], svToggle));
-    WriteProg(AOutput, [plAllPlayers], [condSub], proc, -1,-1, True);
+    WriteProg([plAllPlayers], [condSub], proc, -1,-1, True);
     EmptyProc;
     condSub.Free;
   end;
@@ -557,7 +552,7 @@ begin
       condSwitch.Switch := ValueBools[j];
       addAcc := CreateSetIntegerInstruction(IntVars[i].Player, IntVars[i].UnitType, simAdd, 1 shl j);
       proc.Add(addAcc);
-      WriteProg(AOutput, [plAllPlayers], [condSub, condVar, condSwitch], proc, -1,-1, True);
+      WriteProg([plAllPlayers], [condSub, condVar, condSwitch], proc, -1,-1, True);
       EmptyProc;
     end;
     condSwitch.Free;
@@ -574,7 +569,7 @@ begin
     condValue := CreateIntegerCondition(IntVars[i].Player, IntVars[i].UnitType, icmAtLeast, 1 shl TransferProcs[i].BitCount);
     setValue := CreateSetIntegerInstruction(IntVars[i].Player, IntVars[i].UnitType, simSetTo, (1 shl TransferProcs[i].BitCount)-1);
     proc.Add(setValue);
-    WriteProg(AOutput, [plAllPlayers], [condIP, condVar, condValue], proc, -1,-1, True);
+    WriteProg([plAllPlayers], [condIP, condVar, condValue], proc, -1,-1, True);
     EmptyProc;
     condValue.Free;
     condVar.Free;
@@ -590,7 +585,7 @@ begin
     begin
       condVar := CheckSysParam(i);
       proc.Add( CreateSetIntegerInstruction(IntVars[i].Player, IntVars[i].UnitType, simSubtract, (1 shl TotalBits )-1) );
-      WriteProg(AOutput, [plAllPlayers], [condSub, condVar], proc, -1,-1, True);
+      WriteProg([plAllPlayers], [condSub, condVar], proc, -1,-1, True);
       EmptyProc;
       condVar.Free;
     end;
@@ -599,7 +594,7 @@ begin
 
   condSub := TSwitchCondition.Create(switchClearSysIP,true);
   proc.Add(SetNextSysIP(0));
-  WriteProg(AOutput, [plAllPlayers], [condSub], proc, -1,-1, True);
+  WriteProg([plAllPlayers], [condSub], proc, -1,-1, True);
   EmptyProc;
   condSub.Free;
 

@@ -9,7 +9,7 @@ uses
   Classes, SysUtils, CustApp, ureadprog, uwritetriggers, uinstructions,
   utriggercode, uarithmetic, usctypes, uparsevb, uvariables, uexpressions,
   uparseconditions, utriggerinstructions, utriggerconditions, utrigedittypes,
-  umapinfo, utriggerchunk
+  umapinfo, utriggerchunk, utrigeditoutput
   { you can add units after this };
 
 type
@@ -58,11 +58,14 @@ begin
     if success then
     begin
       if MainThread = plNone then MainThread := plPlayer8;
-      uwritetriggers.WriteTriggers('prog.trigger', MainThread);
-      uwritetriggers.WriteUnitProperties('prog.property');
+
+      CreateTriggers(MainThread);
+
+      WriteTrigEditCode('prog.trigger');
+      WriteTrigEditUnitProperties('prog.property');
     end;
   finally
-    MapInfo.Free;
+    FreeAndNil(MapInfo);
   end;
 
   // stop program loop

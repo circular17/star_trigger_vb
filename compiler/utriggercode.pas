@@ -5,24 +5,58 @@ unit utriggercode;
 interface
 
 uses
-  Classes, SysUtils, fgl, uinstructions, utriggerinstructions, utriggerconditions, usctypes;
+  Classes, SysUtils, fgl, uinstructions, utriggerinstructions, utriggerconditions, usctypes,
+  utriggerchunk;
 
 const
   MaxStackSize = 6;
 
+type
+  TTriggerConditionList = specialize TFPGObjectList<TTriggerCondition>;
+  TTriggerInstructionList = specialize TFPGObjectList<TTriggerInstruction>;
+
+  { TTrigger }
+
+  TTrigger = class
+  private
+    function GetActionCount: integer;
+    function GetConditionCount: integer;
+    procedure SetPreserve(AValue: boolean);
+  protected
+    FPlayers: TPlayers;
+    FConditions: TTriggerConditionList;
+    FActions: TTriggerInstructionList;
+    FPreserve: boolean;
+  public
+    constructor Create(APlayers: TPlayers);
+    destructor Destroy; override;
+    procedure AddCondition(ACondition: TCondition);
+    procedure AddAction(AInstruction: TInstruction);
+    function ToTrigEdit: string;
+    procedure WriteTriggerData(var AData: TTriggerData);
+
+    property ConditionCount: integer read GetConditionCount;
+    property ActionCount: integer read GetActionCount;
+    property Preserve: boolean read FPreserve write SetPreserve;
+  end;
+  TTriggerList = specialize TFPGObjectList<TTrigger>;
+
+var
+  Triggers: TTriggerList;
+
 procedure InitTriggerCode;
 
 //basic trigger output function
-procedure WriteTrigger(AOutput: TStringList; APlayers: TPlayers;
-                       AConditions: array of string;
-                       AActions: array of string;
+procedure WriteTrigger(APlayers: TPlayers;
+                       AConditions: array of TTriggerCondition;
+                       AActions: array of TInstruction;
                        ANextIP: integer;
                        APreserve: boolean);
 
-procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: array of TCondition; AProg: TInstructionList;
+procedure WriteProg(APlayers: TPlayers; AConditions: array of TCondition; AProg: TInstructionList;
                     AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer = 0);
 
-procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: TConditionList; AProg: TInstructionList;
+procedure WriteProg(APlayers: TPlayers; AConditions: TConditionList; AProg: TInstructionList;
                     AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer = 0);
 
 function NewIP: integer;
@@ -39,7 +73,7 @@ function CheckSysParam(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TCo
 
 procedure AddSysCall(AInstructions: TInstructionList; AReturnIP, ACalledIP: integer);
 procedure AddSysReturn(AInstructions: TInstructionList);
-procedure WriteStackTriggers(AOutput: TStringList);
+procedure WriteStackTriggers;
 
 implementation
 
@@ -67,55 +101,31 @@ begin
   result := CreateIntegerCondition(APlayer, IntArrays[IPVar].UnitType, icmExactly, AValue) as TTriggerCondition;
 end;
 
-procedure WriteTrigger(AOutput: TStringList; APlayers: TPlayers;
-                       AConditions: array of string;
-                       AActions: array of string;
+procedure WriteTrigger(APlayers: TPlayers;
+                       AConditions: array of TTriggerCondition;
+                       AActions: array of TInstruction;
                        ANextIP: integer;
                        APreserve: boolean);
 var
+  t: TTrigger;
   i: Integer;
-  pl: TPlayer;
-  firstPl: boolean;
-  s: string;
-  actionCount: integer;
 begin
-  s := 'Trigger(';
-  firstPl:= true;
-  for pl := low(TPlayer) to high(TPlayer) do
-    if pl in APlayers then
-    begin
-      if not firstPl then s += ',';
-      s += '"' + PlayerToTrigEditStr(pl) + '"';
-      firstPl:= false;
-    end;
-  s += '){';
-  AOutput.Add(s);
-  AOutput.Add('Conditions:');
-  for i := 0 to high(AConditions) do
-    AOutput.Add(#9 + AConditions[i] + ';');
-  if length(AConditions) = 0 then
-    AOutput.Add(#9 + 'Always();');
-  AOutput.Add('Actions:');
-  actionCount := 0;
-  for i := 0 to high(AActions) do
-    if AActions[i] <> '' then
-    begin
-      AOutput.Add(#9 + AActions[i] + ';');
-      actionCount += 1;
-    end;
-  if ANextIP <> -1 then
-  begin
-    AOutput.Add(#9 + SetNextIP(ANextIP).ToTrigEditAndFree + ';');
-    actionCount += 1;
+  t := TTrigger.Create(APlayers);
+  try
+
+  except on ex: exception do
+   begin
+     t.Free;
+     raise exception.Create('Unable to create trigger. '+ex.Message);
+   end;
   end;
-  if APreserve then
-  begin
-    AOutput.Add(#9 + 'Preserve Trigger();');
-    actionCount += 1;
-  end;
-  AOutput.Add('}');
-  AOutput.Add('');
-  if actionCount > 64 then raise exception.Create('Too many actions in trigger');
+  for i := 0 to high(AConditions) do t.AddCondition(AConditions[i]);
+  for i := 0 to high(AActions) do t.AddAction(AActions[i]);
+  if t.ConditionCount = 0 then t.AddCondition(TAlwaysCondition.Create);
+  if ANextIP <> -1 then t.AddAction(SetNextIP(ANextIP));
+  if APreserve then t.AddAction(TPreserveTriggerInstruction.Create);
+
+  Triggers.Add(t);
 end;
 
 // instruction pointer for system calls
@@ -268,16 +278,17 @@ end;
 
 // write instruction block
 
-procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: TConditionList; AProg: TInstructionList;
+procedure WriteProg(APlayers: TPlayers; AConditions: TConditionList; AProg: TInstructionList;
                     AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer;
                     AFirstInstr, ALastInstr: integer); forward;
 
-procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: array of TCondition; AProg: TInstructionList;
+procedure WriteProg(APlayers: TPlayers; AConditions: array of TCondition; AProg: TInstructionList;
                     AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer;
                     AFirstInstr, ALastInstr: integer);
 var
   i,j: Integer;
-  condStr, instrStr: array of string;
+  finalConditions : array of TTriggerCondition;
+  consecutiveInstructions: array of TInstruction;
   instrCount: integer;
 
   NextIP, whileIP, beforeIP: integer;
@@ -293,24 +304,28 @@ var
   splitInstr: TSplitInstruction;
   waitFound: Boolean;
 
+  checkIPStart: TTriggerCondition;
+
 begin
-  setlength(condStr, length(AConditions) );
+  setlength(finalConditions, length(AConditions) );
   for i := 0 to high(AConditions) do
   begin
     if AConditions[i].IsComputed then
       raise exception.Create('Computed conditions cannot be used as trigger conditions');
     if not (AConditions[i] is TTriggerCondition) then
       raise exception.Create('Supplied condition is not translatable to a trigger condition');
-    condStr[i] := TTriggerCondition(AConditions[i]).ToTrigEdit;
+    finalConditions[i] := TTriggerCondition(AConditions[i]);
   end;
 
   if AIPStart <> -1 then
   begin
-    setlength(condStr, length(condStr) + 1);
-    condStr[High(condStr)] := CheckIP(AIPStart).ToTrigEditAndFree;
-  end;
+    setlength(finalConditions, length(finalConditions) + 1);
+    checkIPStart := CheckIP(AIPStart);
+    finalConditions[High(finalConditions)] := checkIPStart;
+  end else
+    checkIPStart := nil;
 
-  setlength(instrStr, ALastInstr - AFirstInstr + 1 + 1);
+  setlength(consecutiveInstructions, ALastInstr - AFirstInstr + 1 + 1);
   instrCount := 0;
   if (AIPStart <> -1) and (AReturnIP <> -1) then
   begin
@@ -326,7 +341,7 @@ begin
     end;
     if waitFound then
     begin
-      instrStr[0] := SetNextIP(BusyIP).ToTrigEditAndFree;
+      consecutiveInstructions[0] := SetNextIP(BusyIP);
       inc(instrCount);
     end;
   end;
@@ -340,21 +355,22 @@ begin
       if dropThread.PlayersToResume <> [] then
       begin
         NextIP := NewIP;
-        WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), nextIP, APreserve or (ATempPreserve > 0));
+        WriteTrigger(APlayers, finalConditions, slice(consecutiveInstructions, instrCount), nextIP, APreserve or (ATempPreserve > 0));
 
         proc := TInstructionList.Create;
         if APlayers * (dropThread.PlayersToResume - dropThread.PlayersToDrop) <> [] then
-          WriteProg(AOutput, APlayers * (dropThread.PlayersToResume - dropThread.PlayersToDrop), [], proc, nextIP, dropThread.ResumeIP, APreserve or (ATempPreserve > 0));
+          WriteProg(APlayers * (dropThread.PlayersToResume - dropThread.PlayersToDrop), [], proc, nextIP, dropThread.ResumeIP, APreserve or (ATempPreserve > 0));
 
         if APlayers * dropThread.PlayersToDrop <> [] then
-          WriteProg(AOutput, APlayers * dropThread.PlayersToDrop, [], proc, nextIP, dropThread.DropIP, APreserve or (ATempPreserve > 0));
+          WriteProg(APlayers * dropThread.PlayersToDrop, [], proc, nextIP, dropThread.DropIP, APreserve or (ATempPreserve > 0));
         proc.Free;
 
         //carry on with the rest of the prog
-        WriteProg(AOutput, dropThread.PlayersToResume, [], AProg, dropThread.ResumeIP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
+        WriteProg(dropThread.PlayersToResume, [], AProg, dropThread.ResumeIP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
       end else
-        WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), dropThread.DropIP, APreserve or (ATempPreserve > 0));
+        WriteTrigger(APlayers, finalConditions, slice(consecutiveInstructions, instrCount), dropThread.DropIP, APreserve or (ATempPreserve > 0));
 
+      checkIPStart.Free;
       exit;
     end else
     if AProg[i] is TWaitForPlayersInstruction then
@@ -366,17 +382,17 @@ begin
       else
       begin
         beforeIP := NewIP;
-        WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), beforeIP, APreserve or (ATempPreserve > 0));
+        WriteTrigger(APlayers, finalConditions, slice(consecutiveInstructions, instrCount), beforeIP, APreserve or (ATempPreserve > 0));
       end;
 
       proc := TInstructionList.Create;
       whileIP := NewIP;
-      WriteProg(AOutput, APlayers, [], proc, beforeIP,whileIP, true);
+      WriteProg(APlayers, [], proc, beforeIP,whileIP, true);
 
       if waitFor.AwaitPresenceDefined then
       begin
         switchCheck := TSwitchCondition.Create( BoolVars[ GetPlayerPresenceDefinedVar() ].Switch, false);
-        WriteProg(AOutput, APlayers, [switchCheck], proc, whileIP, beforeIP, true);
+        WriteProg(APlayers, [switchCheck], proc, whileIP, beforeIP, true);
         switchCheck.Free;
       end;
 
@@ -386,23 +402,25 @@ begin
         begin
           switchCheck.Switch := BoolVars[ GetPlayerPresenceBoolVar(pl) ].Switch;
           ipCheck := CreateIntegerCondition(pl, IntArrays[IPVar].UnitType, icmAtLeast, 1);
-          WriteProg(AOutput, APlayers, [switchCheck, ipCheck], proc, whileIP, beforeIP, true);
+          WriteProg(APlayers, [switchCheck, ipCheck], proc, whileIP, beforeIP, true);
         end;
 
       switchCheck.Free;
       proc.FreeAll;
 
       //carry on with the rest of the prog
-      WriteProg(AOutput, APlayers, [], AProg, whileIP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
+      WriteProg(APlayers, [], AProg, whileIP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
+      checkIPStart.Free;
       exit;
     end else
     if AProg[i] is TWaitConditionInstruction then
     begin
       waitCond := TWaitConditionInstruction(AProg[i]);
-      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), waitCond.IP, APreserve or (ATempPreserve > 0));
+      WriteTrigger(APlayers, finalConditions, slice(consecutiveInstructions, instrCount), waitCond.IP, APreserve or (ATempPreserve > 0));
 
       //carry on with the rest of the prog
-      WriteProg(AOutput, APlayers, waitCond.Conditions, AProg, waitCond.IP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
+      WriteProg(APlayers, waitCond.Conditions, AProg, waitCond.IP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
+      checkIPStart.Free;
       exit;
     end else
     if AProg[i] is TSplitInstruction then
@@ -410,57 +428,61 @@ begin
       splitInstr := TSplitInstruction(AProg[i]);
       if splitInstr.EndIP = -1 then splitInstr.EndIP := AReturnIP;
 
-      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), splitInstr.EndIP, APreserve or (ATempPreserve > 0));
+      WriteTrigger(APlayers, finalConditions, slice(consecutiveInstructions, instrCount), splitInstr.EndIP, APreserve or (ATempPreserve > 0));
 
       //carry on with the rest of the prog
       if splitInstr.ChangePlayers <> [] then APlayers := splitInstr.ChangePlayers;
-      WriteProg(AOutput, APlayers, [], AProg, splitInstr.ResumeIP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
+      WriteProg(APlayers, [], AProg, splitInstr.ResumeIP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
+      checkIPStart.Free;
       exit;
     end else
     if AProg[i] is TChangeIPInstruction then
     begin
       changeIP := TChangeIPInstruction(AProg[i]);
-      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), changeIP.IP, APreserve or (ATempPreserve > 0));
+      WriteTrigger(APlayers, finalConditions, slice(consecutiveInstructions, instrCount), changeIP.IP, APreserve or (ATempPreserve > 0));
 
       //carry on with the rest of the prog
-      WriteProg(AOutput, APlayers, [], AProg, changeIP.IP, AReturnIP,
+      WriteProg(APlayers, [], AProg, changeIP.IP, AReturnIP,
                 APreserve, ATempPreserve + changeIP.Preserve,  i+1, ALastInstr);
+      checkIPStart.Free;
       exit;
     end else
     if AProg[i] is TFastIfInstruction then
     begin
       NextIP:= NewIP;
-      WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), NextIP, APreserve or (ATempPreserve > 0));
+      WriteTrigger(APlayers, finalConditions, slice(consecutiveInstructions, instrCount), NextIP, APreserve or (ATempPreserve > 0));
 
       j := i;
       while (j <= ALastInstr) and (AProg[j] is TFastIfInstruction) do
       begin
         fastIf := TFastIfInstruction(AProg[j]);
-        WriteProg(AOutput, APlayers, fastIf.Conditions, fastIf.Instructions, NextIP, NextIP, APreserve, ATempPreserve);
+        WriteProg(APlayers, fastIf.Conditions, fastIf.Instructions, NextIP, NextIP, APreserve, ATempPreserve);
         inc(j);
       end;
 
       //carry on with the rest of the prog
-      WriteProg(AOutput, APlayers, [], AProg, NextIP, AReturnIP, APreserve, ATempPreserve, j, ALastInstr);
+      WriteProg(APlayers, [], AProg, NextIP, AReturnIP, APreserve, ATempPreserve, j, ALastInstr);
+      checkIPStart.Free;
       exit;
     end;
     if not (AProg[i] is TTriggerInstruction) then
       raise exception.Create('Expecting trigger instruction')
     else
-      instrStr[instrCount] := TTriggerInstruction(AProg[i]).ToTrigEdit;
+      consecutiveInstructions[instrCount] := TTriggerInstruction(AProg[i]);
     inc(instrCount);
   end;
 
-  WriteTrigger(AOutput, APlayers, condStr, slice(instrStr, instrCount), AReturnIP, APreserve or (ATempPreserve > 0));
+  WriteTrigger(APlayers, finalConditions, slice(consecutiveInstructions, instrCount), AReturnIP, APreserve or (ATempPreserve > 0));
+  checkIPStart.Free;
 end;
 
-procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: array of TCondition; AProg: TInstructionList;
+procedure WriteProg(APlayers: TPlayers; AConditions: array of TCondition; AProg: TInstructionList;
                     AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer = 0);
 begin
-  WriteProg(AOutput, APlayers, AConditions, AProg, AIPStart, AReturnIP, APreserve, ATempPreserve, 0, AProg.Count-1);
+  WriteProg(APlayers, AConditions, AProg, AIPStart, AReturnIP, APreserve, ATempPreserve, 0, AProg.Count-1);
 end;
 
-procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: TConditionList; AProg: TInstructionList;
+procedure WriteProg(APlayers: TPlayers; AConditions: TConditionList; AProg: TInstructionList;
                     AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer;
                     AFirstInstr, ALastInstr: integer);
 var cond: array of TCondition;
@@ -469,13 +491,13 @@ begin
   setlength(cond,AConditions.Count);
   for i := 0 to AConditions.Count-1 do
     cond[i] := AConditions[i];
-  WriteProg(AOutput, APlayers, cond, AProg, AIPStart, AReturnIP, APreserve, ATempPreserve, AFirstInstr, ALastInstr);
+  WriteProg(APlayers, cond, AProg, AIPStart, AReturnIP, APreserve, ATempPreserve, AFirstInstr, ALastInstr);
 end;
 
-procedure WriteProg(AOutput: TStringList; APlayers: TPlayers; AConditions: TConditionList; AProg: TInstructionList;
+procedure WriteProg(APlayers: TPlayers; AConditions: TConditionList; AProg: TInstructionList;
                     AIPStart: integer; AReturnIP: integer; APreserve: boolean; ATempPreserve: integer = 0);
 begin
-  WriteProg(AOutput, APlayers, AConditions, AProg, AIPStart, AReturnIP, APreserve, ATempPreserve, 0, AProg.Count-1);
+  WriteProg(APlayers, AConditions, AProg, AIPStart, AReturnIP, APreserve, ATempPreserve, 0, AProg.Count-1);
 end;
 
 procedure AddSysCall(AInstructions: TInstructionList; AReturnIP, ACalledIP: integer);
@@ -491,7 +513,7 @@ begin
   AInstructions.Add( TSplitInstruction.Create(NewIP, WaitReturnIP));
 end;
 
-procedure WriteStackTriggers(AOutput: TStringList);
+procedure WriteStackTriggers;
 var proc: TInstructionList;
   cond: TConditionList;
   spCond, valCond: TCondition;
@@ -525,15 +547,15 @@ begin
   proc := TInstructionList.Create;
   cond := TConditionList.Create;
 
-  AOutput.Add('// Return //');
   //return handler
 
   //SP -= 1, IP := 0
   returnCond := CheckSysIP(ReturnSysIP);
   cond.Add(returnCond);
+  proc.Add(TCommentInstruction.Create('Return'));
   proc.Add(CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, simSubtract, 1));
   proc.Add(SetNextIP(0));
-  WriteProg(AOutput, [plAllPlayers], cond, proc, -1, -1, True);
+  WriteProg([plAllPlayers], cond, proc, -1, -1, True);
   EmptyProc;
 
   //copy stack value to IP
@@ -551,27 +573,26 @@ begin
       proc.Add(subStackVal);
       proc.Add(addIP);
 
-      WriteProg(AOutput, [plAllPlayers], [spCond,valCond], proc, -1, -1, True);
+      WriteProg([plAllPlayers], [spCond,valCond], proc, -1, -1, True);
       EmptyProc;
 
       valCond.Free;
     end;
 
     proc.Add(SetNextSysIP(0));
-    WriteProg(AOutput, [plAllPlayers], [returnCond,spCond], proc, -1, -1, True);
+    WriteProg([plAllPlayers], [returnCond,spCond], proc, -1, -1, True);
     EmptyProc;
 
     spCond.Free;
   end;
 
-  AOutput.Add('// Push //');
-
   //stack overflow handler
   cond.Add(CheckSysIP(PushSysIP));
   cond.Add(CreateIntegerCondition(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, icmAtLeast, StackSize));
+  proc.Add(TCommentInstruction.Create('Push'));
   proc.Add(TDisplayTextMessageInstruction.Create(True, 'Stack overflow'));
   proc.Add(TWaitInstruction.Create(4000));
-  WriteProg(AOutput, [plAllPlayers], cond, proc, -1, -1, True);
+  WriteProg([plAllPlayers], cond, proc, -1, -1, True);
   EmptyCond;
   EmptyProc;
 
@@ -589,14 +610,14 @@ begin
       proc.Add(addStackVal);
       proc.Add(subVal);
 
-      WriteProg(AOutput, [plAllPlayers], [pushCond,spCond,valCond], proc, -1, -1, True);
+      WriteProg([plAllPlayers], [pushCond,spCond,valCond], proc, -1, -1, True);
       EmptyProc;
       valCond.Free;
     end;
 
     proc.add(CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, simAdd, 1));
     proc.Add(SetNextSysIP(0));
-    WriteProg(AOutput, [plAllPlayers], [pushCond, spCond], proc, -1, -1, True);
+    WriteProg([plAllPlayers], [pushCond, spCond], proc, -1, -1, True);
     EmptyProc;
 
     spCond.Free;
@@ -625,7 +646,102 @@ begin
   SysParamArray := -1;
 
   BusyIP := NewIP;
+  Triggers.Clear;
 end;
+
+{ TTrigger }
+
+function TTrigger.GetActionCount: integer;
+begin
+  result := FActions.Count;
+end;
+
+function TTrigger.GetConditionCount: integer;
+begin
+  result := FConditions.Count;
+end;
+
+procedure TTrigger.SetPreserve(AValue: boolean);
+begin
+  if FPreserve=AValue then Exit;
+  FPreserve:=AValue;
+end;
+
+constructor TTrigger.Create(APlayers: TPlayers);
+begin
+  FPlayers := APlayers;
+  FConditions := TTriggerConditionList.Create;
+  FActions := TTriggerInstructionList.Create;
+end;
+
+destructor TTrigger.Destroy;
+begin
+  FConditions.Free;
+  FActions.Free;
+  inherited Destroy;
+end;
+
+procedure TTrigger.AddCondition(ACondition: TCondition);
+begin
+  if not (ACondition is TTriggerCondition) then
+    raise exception.Create('Expecting trigger condition');
+  if ConditionCount > 16 then
+    raise exception.Create('Too many conditions');
+  FConditions.Add(TTriggerCondition(ACondition.Duplicate));
+end;
+
+procedure TTrigger.AddAction(AInstruction: TInstruction);
+begin
+  if AInstruction is TEmptyInstruction then exit;
+  if not (AInstruction is TTriggerInstruction) then
+    raise exception.Create('Expecting trigger instruction');
+  if ActionCount > 64 then
+    raise exception.Create('Too many actions');
+  FActions.Add(TTriggerInstruction(AInstruction).Duplicate);
+end;
+
+function TTrigger.ToTrigEdit: string;
+var
+  i: Integer;
+  pl: TPlayer;
+  firstPl: boolean;
+begin
+  result := 'Trigger(';
+  firstPl:= true;
+  for pl := low(TPlayer) to high(TPlayer) do
+    if pl in FPlayers then
+    begin
+      if not firstPl then result += ',';
+      result += '"' + PlayerToTrigEditStr(pl) + '"';
+      firstPl:= false;
+    end;
+  result += '){'+LineEnding+'Conditions:'+LineEnding;
+  for i := 0 to FConditions.Count-1 do
+    result+= #9 + FConditions[i].ToTrigEdit + ';'+LineEnding;
+  result += 'Actions:'+LineEnding;
+  for i := 0 to FActions.Count-1 do
+    result += #9 + FActions[i].ToTrigEdit + ';'+LineEnding;
+  result += '}';
+end;
+
+procedure TTrigger.WriteTriggerData(var AData: TTriggerData);
+var
+  i: Integer;
+begin
+  for i := 0 to FConditions.Count-1 do
+    FConditions[i].WriteTriggerData(AData.Conditions[i]);
+  for i := 0 to FActions.Count-1 do
+    FActions[i].WriteTriggerData(AData.Actions[i]);
+  AData.Players := FPlayers;
+end;
+
+initialization
+
+  Triggers:= TTriggerList.Create;
+
+finalization
+
+  Triggers.Free;
 
 end.
 

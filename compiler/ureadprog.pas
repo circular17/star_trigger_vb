@@ -218,6 +218,7 @@ begin
     Name := AName;
     ParamCount:= AParamCount;
     Instructions := TInstructionList.Create;
+    Instructions.Add(TCommentInstruction.Create('Sub '+AName));
     StartIP := -1;
     ReturnType := AReturnType;
     ReturnBitCount:= GetBitCountOfType(AReturnType);
@@ -274,6 +275,7 @@ begin
     Players := APlayers;
     Conditions := AConditions;
     Instructions := TInstructionList.Create;
+    Instructions.Add(TCommentInstruction.Create('When'));
     Preserve := APreserve;
     InnerScope := -1-result;
   end;
@@ -1785,7 +1787,9 @@ begin
 
   HyperTriggers := false;
   InitVariables;
-  MainProg.Clear;
+  MainProg.FreeAll;
+  MainProg := TInstructionList.Create;
+  MainProg.Add(TCommentInstruction.Create('Sub New'));
 
   PredefineIntArray(GlobalScope,'Ore',suResourceOre,24);
   PredefineIntArray(GlobalScope,'Minerals',suResourceOre,24);

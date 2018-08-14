@@ -58,7 +58,7 @@ var
 
 implementation
 
-uses ureadprog, uparsevb, uvariables, usctypes, umapinfo;
+uses ureadprog, uparsevb, uvariables, usctypes, umapinfo, uwritetriggers;
 
 {$R *.lfm}
 
@@ -207,6 +207,14 @@ begin
 
     //full program for validation
     success := ureadprog.ReadProg(SynEdit1.Lines, MainThread);
+    if success then
+    begin
+      try
+        uwritetriggers.CreateTriggers(MainThread);
+      except on ex:exception do
+        ReadProgErrors.Add(ex.Message);
+      end;
+    end;
 
     //update error list
     ListBox_Errors.Items.BeginUpdate;

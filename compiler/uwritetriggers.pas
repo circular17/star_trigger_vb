@@ -7,8 +7,7 @@ interface
 uses
   Classes, SysUtils, fgl, usctypes;
 
-procedure WriteTriggers(AFilename: string; AMainThread: TPlayer);
-procedure WriteUnitProperties(AFilename: string);
+procedure CreateTriggers(AMainThread: TPlayer);
 
 implementation
 
@@ -47,7 +46,7 @@ begin
   result := GlobalExprTempVarInt;
 end;
 
-procedure WriteMessageTriggers(AOutput: TStringList; AMainThread: TPlayer);
+procedure WriteMessageTriggers(AMainThread: TPlayer);
 var
   i: Integer;
   proc: TInstructionList;
@@ -56,20 +55,19 @@ var
 begin
   If MessageSysIP = -1 then exit;
   condSysIP := CheckSysIP( MessageSysIP, AMainThread );
-  AOutput.Add('// Messages //');
   for i := 0 to MessageCount-1 do
   begin
     proc := TInstructionList.Create;
     proc.Add( TDisplayTextMessageInstruction.Create(True, Messages[i].Text) );
     condSysParam := CheckSysParam( i, AMainThread );
-    WriteProg(AOutput, Messages[i].Players, [condSysIP, condSysParam], proc, -1, -1, True);
+    WriteProg(Messages[i].Players, [condSysIP, condSysParam], proc, -1, -1, True);
     condSysParam.Free;
     proc.FreeAll;
   end;
 
   proc := TInstructionList.Create;
   proc.Add( SetNextSysIP(0) );
-  WriteProg(AOutput, [AMainThread], [condSysIP], proc, -1,-1, true);
+  WriteProg([AMainThread], [condSysIP], proc, -1,-1, true);
   condSysIP.Free;
   proc.FreeAll;
 end;
@@ -425,92 +423,46 @@ begin
   expanded.Free;
 end;
 
-procedure WriteFile(AFilename: string; ALines: TStringList);
+procedure WriteHyperTriggers;
 var
-  t: TextFile;
-  i, j: Integer;
-begin
-  AssignFile(t, AFilename);
-  Rewrite(t);
-  for i := 0 to IntArrayCount-1 do
-    if not IntArrays[i].Predefined and not IntArrays[i].Constant then
-    begin
-      writeln(t, '// ', IntArrays[i].Name, '(1 to '+ intToStr(MaxTriggerPlayers)+') stored in "', StarcraftUnitTrigEditNames[IntArrays[i].UnitType], '" //');
-      for j := 1 to IntArrays[i].Size do
-        with IntVars[IntArrays[i].Vars[j-1]] do
-          if UnitType <> IntArrays[i].UnitType then
-            writeln(t, '// ', IntArrays[i].Name, '('+ intToStr(j)+') stored in "', StarcraftUnitTrigEditNames[UnitType], '" of "', PlayerToTrigEditStr(Player),'" //');
-    end;
-  for i := 0 to IntVarCount-1 do
-    if not IntVars[i].Predefined and not IntVars[i].Constant then
-      writeln(t, '// ', IntVars[i].Name, ' stored in "', IntVars[i].UnitType, '" of "', PlayerToTrigEditStr(IntVars[i].Player),'" //');
-  for i := 0 to BoolArrayCount-1 do
-    if not BoolArrays[i].Constant then
-      writeln(t, '// ', BoolArrays[i].Name, '(1 to '+inttostr(BoolArrays[i].Size)+') stored in ' +
-      '"Switch', BoolVars[BoolArrays[i].Vars[0]].Switch, '" to '+
-      '"Switch', BoolVars[BoolArrays[i].Vars[BoolArrays[i].Size-1]].Switch,'" //');
-  for i := 0 to BoolVarCount-1 do
-    if not BoolVars[i].Constant and (BoolVars[i].BoolArray = -1) then
-      writeln(t, '// ', BoolVars[i].Name, ' stored in "Switch', BoolVars[i].Switch, '" //');
-  writeln(t);
-  for i := 0 to ALines.Count-1 do
-    writeln(t,ALines[i]);
-  CloseFile(t);
-end;
-
-procedure WriteHyperTriggers(AOutput: TStringList);
-var
-  wait: TWaitInstruction;
-  actions: array of string;
+  actions: array of TInstruction;
   i: Integer;
 begin
   if not HyperTriggers then exit;
 
-  AOutput.Add('// Hyper Triggers //');
-
-  wait := TWaitInstruction.Create(15);
-
   setlength(actions,63);
-  for i := 0 to high(actions) do
-    actions[i] := wait.ToTrigEdit;
+  actions[0] := TCommentInstruction.Create('Hyper triggers');
+  for i := 1 to high(actions) do
+    actions[i] := TWaitInstruction.Create(15);
 
   for i := 1 to 4 do
-    WriteTrigger(AOutput, [plAllPlayers], [], actions, -1, true);
-
-  wait.Free;
+    WriteTrigger([plAllPlayers], [], actions, -1, true);
+  for i := 0 to high(actions) do actions[i].Free;
 end;
 
-procedure WritePlayerPresenceTrigger(AOutput: TStringList; AMainThread: TPlayer);
+procedure WritePlayerPresenceTopTrigger({%H-}AMainThread: TPlayer);
 var
   proc: TInstructionList;
   pl: TPlayer;
-  tempOutput: TStringList;
-  i: Integer;
-  someEntry: Boolean;
 begin
   //at the begining of the cycle, set presence
-  tempOutput := TstringList.Create;
-  tempOutput.Add('// Player presence //');
   proc := TInstructionList.Create;
-  someEntry := false;
   for pl := plPlayer1 to plPlayer8 do
     if IsPlayerPresenceUsed(pl) then
     begin
-      someEntry := true;
       proc.Add(TSetSwitchInstruction.Create(BoolVars[GetPlayerPresenceBoolVar(pl)].Switch, svSet));
-      WriteProg(tempOutput, [pl], [], proc, -1, -1, true);
+      WriteProg([pl], [], proc, -1, -1, true);
       proc[0].Free;
       proc.Clear;
     end;
   proc.Free;
+end;
 
-  if someEntry then
-  begin
-    for i := 0 to tempOutput.Count-1 do
-      AOutput.Insert(i, tempOutput[i]);
-  end;
-  tempOutput.Free;
-
+procedure WritePlayerPresenceBottomTrigger(AMainThread: TPlayer);
+var
+  proc: TInstructionList;
+  pl: TPlayer;
+begin
   //at the end of main thread cycle, clear presence flags (they will be set until next main thread cycle)
   proc := TInstructionList.Create;
   for pl := plPlayer1 to plPlayer8 do
@@ -519,15 +471,14 @@ begin
   if proc.Count > 0 then
   begin
     proc.Add(TSetSwitchInstruction.Create(BoolVars[GetPlayerPresenceDefinedVar].Switch, svSet)); //will be until next cycle
-    WriteProg(AOutput, [AMainThread], [], proc, -1, -1, true);
+    WriteProg([AMainThread], [], proc, -1, -1, true);
   end;
   proc.Free;
 end;
 
-procedure WriteTriggers(AFilename: string; AMainThread: TPlayer);
+procedure CreateTriggers(AMainThread: TPlayer);
 var
   i, EndIP, tempInt, j: Integer;
-  mainOutput: TStringList;
   allProcDone: Boolean;
   players: TPlayers;
   noSysIP: TCondition;
@@ -561,96 +512,55 @@ begin
       end;
   until allProcDone;
 
-  try
-    mainOutput := TStringList.Create;
+  WritePlayerPresenceTopTrigger(AMainThread);
+  WriteMessageTriggers(AMainThread);
 
-    WriteMessageTriggers(mainOutput, AMainThread);
+  WriteProg([AMainThread], [], MainProg, -1, EndIP, False);
 
-    mainOutput.Add('// Program //');
-    WriteProg(mainOutput, [AMainThread], [], MainProg, -1, EndIP, False);
+  noSysIP := CheckSysIP(0);
+  for i := 0 to ProcedureCount-1 do
+    if Procedures[i].StartIP <> -1 then
+      WriteProg([plAllPlayers], [noSysIP], Procedures[i].Instructions, Procedures[i].StartIP, EndIP, true);
+  noSysIP.Free;
 
-    noSysIP := CheckSysIP(0);
-    for i := 0 to ProcedureCount-1 do
-      if Procedures[i].StartIP <> -1 then
-      begin
-        mainOutput.Add('// Sub ' + Procedures[i].Name + ' //');
-        WriteProg(mainOutput, [plAllPlayers], [noSysIP], Procedures[i].Instructions, Procedures[i].StartIP, EndIP, true);
-      end;
-    noSysIP.Free;
-
-    for i := 0 to EventCount-1 do
-    begin
-      mainOutput.Add('// When //');
-      players := Events[i].Players;
-      if players = [] then players := [AMainThread];
-
-      if Events[i].Conditions.IsComputed then
-      begin
-        tempInt := GetGlobalExprTempVarInt(8);
-        proc := TInstructionList.Create;
-        nonComputedConds := TConditionList.Create;
-
-        computedConds := TConditionList.Create;
-        for j := 0 to Events[i].Conditions.Count-1 do
-          if Events[i].Conditions[j].IsComputed then
-            computedConds.Add(Events[i].Conditions[j])
-          else
-            nonComputedConds.Add(Events[i].Conditions[j]);
-        computedConds.Compute(proc, IntVars[tempInt].Player, IntVars[tempInt].UnitType);
-        WriteProg(mainOutput, players, [], proc, EndIP, EndIP, Events[i].Preserve);
-        computedConds.Free;
-        proc.Free;
-
-        tempCond := CreateIntegerCondition(IntVars[tempInt].Player, IntVars[tempInt].UnitType, icmAtLeast, 1);
-        nonComputedConds.Add(tempCond);
-        WriteProg(mainOutput, players, nonComputedConds, Events[i].Instructions, EndIP, EndIP, Events[i].Preserve);
-        tempCond.Free;
-        nonComputedConds.Free;
-      end else
-        WriteProg(mainOutput, players, Events[i].Conditions, Events[i].Instructions, EndIP, EndIP, Events[i].Preserve);
-    end;
-
-    //write generated code at the end of the file
-    WriteStackTriggers(mainOutput);
-    WriteArithmeticTriggers(mainOutput);
-    WritePlayerPresenceTrigger(mainOutput, AMainThread);
-
-    //it is recommended to put hyper triggers at the end
-    WriteHyperTriggers(mainOutput);
-
-    WriteFile(AFilename, mainOutput);
-  finally
-    mainOutput.Free;
-  end;
-end;
-
-procedure WriteUnitProperties(AFilename: string);
-var
-  t: TextFile;
-  i: Integer;
-begin
-  AssignFile(t, AFilename);
-  Rewrite(t);
-  for i := 0 to UnitPropCount-1 do
-  with UnitPropVars[i].Value do
+  for i := 0 to EventCount-1 do
   begin
-    writeln(t,'Unit Property ' + inttostr(i) + ' // ' + UnitPropVars[i].Name);
-    writeln(t);
-    writeln(t,'HP: ' + inttostr(Life));
-    writeln(t,'SP: ' + inttostr(Shield));
-    writeln(t,'EP: ' + inttostr(Energy));
-    writeln(t,'Res: ' + inttostr(Resource));
-    writeln(t,'Hangar Units: ' + inttostr(HangarCount));
-    write(t,'Flags: ');
-    if Hallucinated then write(t,'HALLUCINATED');
-    if Invincible then write(t,'INVINCIBLE');
-    if Burrowed then write(t,'BURROWED');
-    if Lifted then write(t,'INTRANSIT');
-    if Cloaked then write(t,'CLOAKED');
-    writeln(t);
-    writeln(t);
+    players := Events[i].Players;
+    if players = [] then players := [AMainThread];
+
+    if Events[i].Conditions.IsComputed then
+    begin
+      tempInt := GetGlobalExprTempVarInt(8);
+      proc := TInstructionList.Create;
+      nonComputedConds := TConditionList.Create;
+
+      computedConds := TConditionList.Create;
+      for j := 0 to Events[i].Conditions.Count-1 do
+        if Events[i].Conditions[j].IsComputed then
+          computedConds.Add(Events[i].Conditions[j])
+        else
+          nonComputedConds.Add(Events[i].Conditions[j]);
+      computedConds.Compute(proc, IntVars[tempInt].Player, IntVars[tempInt].UnitType);
+      WriteProg(players, [], proc, EndIP, EndIP, Events[i].Preserve);
+      computedConds.Free;
+      proc.Free;
+
+      tempCond := CreateIntegerCondition(IntVars[tempInt].Player, IntVars[tempInt].UnitType, icmAtLeast, 1);
+      nonComputedConds.Add(tempCond);
+      WriteProg(players, nonComputedConds, Events[i].Instructions, EndIP, EndIP, Events[i].Preserve);
+      tempCond.Free;
+      nonComputedConds.Free;
+    end else
+      WriteProg(players, Events[i].Conditions, Events[i].Instructions, EndIP, EndIP, Events[i].Preserve);
   end;
-  CloseFile(t);
+
+  //write generated code at the end of the file
+  WriteStackTriggers;
+  WriteArithmeticTriggers;
+  WritePlayerPresenceBottomTrigger(AMainThread);
+
+  //it is recommended to put hyper triggers at the end
+  WriteHyperTriggers
 end;
 
 end.

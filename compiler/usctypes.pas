@@ -11,9 +11,9 @@ type
   TSwitchValue = (svClear, svSet, svRandomize, svToggle);
   ArrayOfSwitchValue = array of TSwitchValue;
   TSetIntegerMode = (simSetTo, simAdd, simSubtract);
-  TStarcraftScore = (ssUnitScore, ssBuildingScore, ssUnitAndBuildingScore,
+  TStarcraftScore = (ssTotalScore, ssUnitScore, ssBuildingScore, ssUnitAndBuildingScore,
                    ssKillScore, ssRazingScore, ssKillAndRazingScore,
-                   ssTotalScore, ssCustomScore);
+                   ssCustomScore);
   TStarcraftResource = (srOre, srGas, srOreAndGas);
   TIntegerConditionMode = (icmAtLeast,icmAtMost,icmExactly);
 

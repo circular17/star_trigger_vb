@@ -13,19 +13,50 @@ type
 
   TTriggerConditionData = object
   private
+    function GetAlwaysDisplay: boolean;
+    function GetEnabled: boolean;
+    function GetExpectedSwitchValue: boolean;
     function GetHasLocation: boolean;
-    function GetLocationIndex: Integer;
+    function GetIntegerComparison: TIntegerConditionMode;
+    function GetLocationBase0: Integer;
     function GetPlayer: TPlayer;
-    procedure SetLocationIndex(AValue: Integer);
+    function GetResourceType: TStarcraftResource;
+    function GetScoreType: TStarcraftScore;
+    function GetSwitch: integer;
+    function GetUnitPropUsed: boolean;
+    function GetUnitType: TStarcraftUnit;
+    function GetUnitTypeUsed: boolean;
+    procedure SetAlwaysDisplay(AValue: boolean);
+    procedure SetEnabled(AValue: boolean);
+    procedure SetExpectedSwitchValue(AValue: boolean);
+    procedure SetIntegerComparison(AValue: TIntegerConditionMode);
+    procedure SetLocationBase0(AValue: Integer);
     procedure SetPlayer(AValue: TPlayer);
+    procedure SetResourceType(AValue: TStarcraftResource);
+    procedure SetScoreType(AValue: TStarcraftScore);
+    procedure SetSwitch(AValue: integer);
+    procedure SetUnitPropUsed(AValue: boolean);
+    procedure SetUnitType(AValue: TStarcraftUnit);
+    procedure SetUnitTypeUsed(AValue: boolean);
   public
-    LocationPlus1, PlayerBase0, res: LongWord;
-    uid: Word;
-    setting, condtype, res_setting, prop: byte;
-    dummy: Word;
+    LocationBase1, PlayerBase0, Quantity: LongWord;
+    UnitTypeW: Word;
+    Comparison, ConditionType, NonUnitVariable: byte;
+    Flags: bitpacked array[0..7] of boolean;
+    Reserved: Word;
     property HasLocation: boolean read GetHasLocation;
-    property LocationIndex: Integer read GetLocationIndex write SetLocationIndex;
+    property LocationBase0: Integer read GetLocationBase0 write SetLocationBase0;
     property Player: TPlayer read GetPlayer write SetPlayer;
+    property UnitType: TStarcraftUnit read GetUnitType write SetUnitType;
+    property IntegerComparison: TIntegerConditionMode read GetIntegerComparison write SetIntegerComparison;
+    property ExpectedSwitchValue: boolean read GetExpectedSwitchValue write SetExpectedSwitchValue;
+    property ScoreType: TStarcraftScore read GetScoreType write SetScoreType;
+    property ResourceType: TStarcraftResource read GetResourceType write SetResourceType;
+    property Switch: integer read GetSwitch write SetSwitch;
+    property Enabled: boolean read GetEnabled write SetEnabled;
+    property AlwaysDisplay: boolean read GetAlwaysDisplay write SetAlwaysDisplay;
+    property UnitPropUsed: boolean read GetUnitPropUsed write SetUnitPropUsed;
+    property UnitTypeUsed: boolean read GetUnitTypeUsed write SetUnitTypeUsed;
   end;
 
   { TTriggerCondition }
@@ -33,7 +64,7 @@ type
   TTriggerCondition = class(TCondition)
     function ToTrigEditAndFree: string;
     function ToTrigEdit: string; virtual; abstract;
-//    procedure WriteTriggerData(var AData: TTriggerConditionData); virtual; abstract;
+    procedure WriteTriggerData(var AData: TTriggerConditionData); virtual; abstract;
   end;
 
   { TAlwaysCondition }
@@ -42,6 +73,7 @@ type
     function ToTrigEdit: string; override;
     procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: TStarcraftUnit); override;
     function Duplicate: TTriggerCondition; override;
+    procedure WriteTriggerData(var AData: TTriggerConditionData); override;
   end;
 
   { TNeverCondition }
@@ -50,6 +82,7 @@ type
     function ToTrigEdit: string; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
     function Duplicate: TTriggerCondition; override;
+    procedure WriteTriggerData(var AData: TTriggerConditionData); override;
   end;
 
   { TSwitchCondition }
@@ -61,6 +94,7 @@ type
     function ToTrigEdit: string; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
     function Duplicate: TTriggerCondition; override;
+    procedure WriteTriggerData(var AData: TTriggerConditionData); override;
   end;
 
   { TBringCondition }
@@ -263,14 +297,43 @@ end;
 
 { TTriggerConditionData }
 
-function TTriggerConditionData.GetHasLocation: boolean;
+function TTriggerConditionData.GetAlwaysDisplay: boolean;
 begin
-  result := LocationPlus1 <> 0;
+  result := Flags[2];
 end;
 
-function TTriggerConditionData.GetLocationIndex: Integer;
+function TTriggerConditionData.GetEnabled: boolean;
 begin
-  result := LocationPlus1-1;
+  result := not Flags[1];
+end;
+
+function TTriggerConditionData.GetExpectedSwitchValue: boolean;
+begin
+  case Comparison of
+  2: result := true;
+  3: result := false;
+  else raise exception.Create('Not an expected boolean value');
+  end;
+end;
+
+function TTriggerConditionData.GetHasLocation: boolean;
+begin
+  result := LocationBase1 <> 0;
+end;
+
+function TTriggerConditionData.GetIntegerComparison: TIntegerConditionMode;
+begin
+  case Comparison of
+  0: result := icmAtLeast;
+  1: result := icmAtMost;
+  10: result := icmExactly;
+  else raise exception.Create('Not an integer comparison');
+  end;
+end;
+
+function TTriggerConditionData.GetLocationBase0: Integer;
+begin
+  result := LocationBase1-1;
 end;
 
 function TTriggerConditionData.GetPlayer: TPlayer;
@@ -278,14 +341,108 @@ begin
   result := TPlayer(PlayerBase0+ord(plPlayer1));
 end;
 
-procedure TTriggerConditionData.SetLocationIndex(AValue: Integer);
+function TTriggerConditionData.GetResourceType: TStarcraftResource;
 begin
-  LocationPlus1 := AValue+1;
+  if NonUnitVariable <= ord(high(TStarcraftResource)) then
+    result := TStarcraftScore(NonUnitVariable)
+  else
+    raise exception.Create('Value out of bounds');
+end;
+
+function TTriggerConditionData.GetScoreType: TStarcraftScore;
+begin
+  if NonUnitVariable <= ord(high(TStarcraftScore)) then
+    result := TStarcraftScore(NonUnitVariable)
+  else
+    raise exception.Create('Value out of bounds');
+end;
+
+function TTriggerConditionData.GetSwitch: integer;
+begin
+  result := NonUnitVariable+1;
+end;
+
+function TTriggerConditionData.GetUnitPropUsed: boolean;
+begin
+  result := Flags[3];
+end;
+
+function TTriggerConditionData.GetUnitType: TStarcraftUnit;
+begin
+  result := TStarcraftUnit(UnitTypeW);
+end;
+
+function TTriggerConditionData.GetUnitTypeUsed: boolean;
+begin
+  result := Flags[4];
+end;
+
+procedure TTriggerConditionData.SetAlwaysDisplay(AValue: boolean);
+begin
+  Flags[2] := AValue;
+end;
+
+procedure TTriggerConditionData.SetEnabled(AValue: boolean);
+begin
+  Flags[1] := not AValue;
+end;
+
+procedure TTriggerConditionData.SetExpectedSwitchValue(AValue: boolean);
+begin
+  if AValue then Comparison := 2 else Comparison := 3;
+end;
+
+procedure TTriggerConditionData.SetIntegerComparison(
+  AValue: TIntegerConditionMode);
+begin
+  case AValue of
+  icmAtLeast: Comparison := 0;
+  icmAtMost: Comparison:= 1;
+  icmExactly: Comparison:= 10;
+  else raise exception.Create('Case not handled');
+  end;
+end;
+
+procedure TTriggerConditionData.SetLocationBase0(AValue: Integer);
+begin
+  LocationBase1 := AValue+1;
 end;
 
 procedure TTriggerConditionData.SetPlayer(AValue: TPlayer);
 begin
   PlayerBase0 := Ord(AValue)-Ord(plPlayer1);
+end;
+
+procedure TTriggerConditionData.SetResourceType(AValue: TStarcraftResource);
+begin
+  NonUnitVariable:= ord(AValue);
+end;
+
+procedure TTriggerConditionData.SetScoreType(AValue: TStarcraftScore);
+begin
+  NonUnitVariable:= ord(AValue);
+end;
+
+procedure TTriggerConditionData.SetSwitch(AValue: integer);
+begin
+  if (AValue < 1) or (AValue > 256) then
+    raise exception.Create('Value out of bounds');
+  NonUnitVariable:= AValue-1;
+end;
+
+procedure TTriggerConditionData.SetUnitPropUsed(AValue: boolean);
+begin
+  Flags[3] := AValue;
+end;
+
+procedure TTriggerConditionData.SetUnitType(AValue: TStarcraftUnit);
+begin
+  UnitTypeW := Ord(AValue);
+end;
+
+procedure TTriggerConditionData.SetUnitTypeUsed(AValue: boolean);
+begin
+  Flags[4] := AValue;
 end;
 
 { TTriggerCondition }
@@ -442,6 +599,11 @@ begin
   result := TAlwaysCondition.Create;
 end;
 
+procedure TAlwaysCondition.WriteTriggerData(var AData: TTriggerConditionData);
+begin
+  AData.ConditionType:= 22;
+end;
+
 { TNeverCondition }
 
 function TNeverCondition.ToTrigEdit: string;
@@ -458,6 +620,11 @@ end;
 function TNeverCondition.Duplicate: TTriggerCondition;
 begin
   result := TNeverCondition.Create;
+end;
+
+procedure TNeverCondition.WriteTriggerData(var AData: TTriggerConditionData);
+begin
+  AData.ConditionType:= 23;
 end;
 
 { TSwitchCondition }
@@ -482,6 +649,13 @@ end;
 function TSwitchCondition.Duplicate: TTriggerCondition;
 begin
   result := TSwitchCondition.Create(Switch,Value);
+end;
+
+procedure TSwitchCondition.WriteTriggerData(var AData: TTriggerConditionData);
+begin
+  AData.ConditionType:= 11;
+  AData.Switch := Switch;
+  AData.ExpectedSwitchValue:= Value;
 end;
 
 { TBringCondition }

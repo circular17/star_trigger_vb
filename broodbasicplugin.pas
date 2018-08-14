@@ -61,6 +61,9 @@ begin
   Context.SwitchRenaming := SwitchRenaming;
   Context.UnitProperties := UnitProperties;
   Context.UnitPropUsage := UnitPropUsage;
+  Context.AllocRam := scmd2_malloc;
+  Context.DeAllocRam := scmd2_free;
+  Context.ReAllocRam := scmd2_realloc;
   result := RunMyPlugin(Context);
   EnableWindow(hSCMD2MainWindow, true);
 end;

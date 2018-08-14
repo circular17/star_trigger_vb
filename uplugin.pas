@@ -42,28 +42,34 @@ function RunMyPlugin(const AContext: TPluginContext): boolean;
     rewrite(dump,1);
     BlockWrite(dump, AChunk^.Data^, AChunk^.Size);
     closefile(dump);
-  end;}
+  end; }
 
 var
   fMain: TFMain;
 begin
   if AContext.Section = SectionCodeToLongWord(PluginMenuSection) then
   begin
-{    DumpChunk(Context.Triggers, 'triggers');
-    DumpChunk(Context.UnitProperties, 'unitprop');
-    DumpChunk(Context.UnitPropUsage, 'unitpropuse');}
+ {   DumpChunk(AContext.Triggers, 'triggers');
+    DumpChunk(AContext.UnitProperties, 'unitprop');
+    DumpChunk(AContext.UnitPropUsage, 'unitpropuse');   }
 
     MapInfo := TPluginMapInfo.Create(AContext);
-    fMain := TFMain.Create(nil);
     try
-      fMain.Position := poDefault;
-      fMain.ShowModal;
+      fMain := TFMain.Create(nil);
+      try
+        fMain.Position := poDefault;
+        fMain.ShowModal;
+      except
+        on ex: Exception do
+          MessageBox(0, pchar(ex.Message), 'Error', 0);
+      end;
+      fMain.Free;
     except
       on ex: Exception do
         MessageBox(0, pchar(ex.Message), 'Error', 0);
     end;
-    fMain.Free;
-    MapInfo.Free;
+
+    FreeAndNil(MapInfo);
     result := true;
   end
   else

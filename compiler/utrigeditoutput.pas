@@ -42,9 +42,9 @@ begin
     if not BoolVars[i].Constant and (BoolVars[i].BoolArray = -1) then
       writeln(t, '// ', BoolVars[i].Name, ' stored in "Switch', BoolVars[i].Switch, '" //');
   writeln(t);
-  for i := 0 to Triggers.Count-1 do
+  for i := 0 to CompiledTriggers.Count-1 do
   begin
-    writeln(t,Triggers[i].ToTrigEdit);
+    writeln(t,CompiledTriggers[i].ToTrigEdit);
     writeln(t);
   end;
   CloseFile(t);

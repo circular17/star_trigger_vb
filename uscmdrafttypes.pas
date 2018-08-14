@@ -95,6 +95,8 @@ type
     function GetCustomUnitName(AIndex: integer): string;
     function GetWavFilename(AIndex: integer): string;
     function GetWavIndex(AFilename: string): integer;
+    function TrigAllocateString(AText: string): integer;
+    procedure TrigReleaseString(AIndex: integer);
   end;
 
 type
@@ -123,6 +125,8 @@ end;
 
 function TEngineData.GetLocationName(AIndex: integer): string;
 begin
+  if (AIndex < LocationMinIndex) or (AIndex > LocationMaxIndex) then
+    raise exception.Create('Index out of bounds');
   with MapLocations^[AIndex] do
     result := MapStrings^.GetString(NameIndex)
 end;
@@ -142,6 +146,8 @@ end;
 
 function TEngineData.LocationExists(AIndex: integer): boolean;
 begin
+  if (AIndex < LocationMinIndex) or (AIndex > LocationMaxIndex) then
+    raise exception.Create('Index out of bounds');
   result := MapLocations^[AIndex].NameIndex<>0;
 end;
 
@@ -152,16 +158,22 @@ end;
 
 function TEngineData.GetStandardUnitName(AIndex: integer): string;
 begin
+  if (AIndex < MIN_UNIT_TYPE) or (AIndex > MAX_UNIT_TYPE) then
+    raise exception.Create('Index out of bounds');
   result := StandardUnitNames^[AIndex];
 end;
 
 function TEngineData.GetCustomUnitName(AIndex: integer): string;
 begin
+  if (AIndex < MIN_UNIT_TYPE) or (AIndex > MAX_UNIT_TYPE) then
+    raise exception.Create('Index out of bounds');
   result := MapStrings^.GetString(CustomUnitNames^[AIndex]);
 end;
 
 function TEngineData.GetWavFilename(AIndex: integer): string;
 begin
+  if (AIndex < MIN_WAV) or (AIndex > MAX_WAV) then
+    raise exception.Create('Index out of bounds');
   result := MapStrings^.GetString(WavFilenames^[AIndex]);
 end;
 
@@ -173,6 +185,16 @@ begin
   for i := MIN_WAV to MAX_WAV do
     if GetWavFilename(i) = AFilename then exit(i);
   exit(-1);
+end;
+
+function TEngineData.TrigAllocateString(AText: string): integer;
+begin
+  result := MapStrings^.AllocateString(AText, SectionCodeToLongWord('TRIG'));
+end;
+
+procedure TEngineData.TrigReleaseString(AIndex: integer);
+begin
+  MapStrings^.ReleaseString(AIndex, SectionCodeToLongWord('TRIG'));
 end;
 
 {$asmmode intel}
@@ -239,7 +261,6 @@ begin
     call eax
     mov result, eax
   end;
-  if result >= 0 then inc(result);
 end;
 
 procedure TSCStringList.ReleaseString(AIndex: integer; ASection: LongWord);

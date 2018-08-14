@@ -225,6 +225,7 @@ type
 
   { TTriggerData }
 
+  PTriggerData = ^TTriggerData;
   TTriggerData = object
   private
     function GetAllConditionsMet: boolean;
@@ -491,7 +492,7 @@ end;
 procedure TTriggerConditionData.SetSwitch(AValue: integer);
 begin
   if (AValue < 1) or (AValue > 256) then
-    raise exception.Create('Value out of bounds');
+    raise exception.Create('Switch index out of bounds');
   NonUnitVariable:= AValue-1;
 end;
 
@@ -725,7 +726,7 @@ end;
 procedure TTriggerInstructionData.SetSwitch(AValue: integer);
 begin
   if (AValue < 1) or (AValue > 256) then
-    raise exception.Create('Value out of bounds');
+    raise exception.Create('Switch index out of bounds');
   GenericValue := AValue-1;
 end;
 
@@ -746,8 +747,8 @@ begin
     UnitCountOrState:= 0 //all
   else if AValue = 0 then
     raise exception.Create('Zero value not allowed')
-  else if GenericValue < 255 then
-    raise exception.Create('Value out of bounds')
+  else if GenericValue > 255 then
+    raise exception.Create('Unit count out of bounds')
   else
     UnitCountOrState:= AValue;
 end;

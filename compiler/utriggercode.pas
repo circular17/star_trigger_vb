@@ -42,7 +42,7 @@ type
   TTriggerList = specialize TFPGObjectList<TTrigger>;
 
 var
-  Triggers: TTriggerList;
+  CompiledTriggers: TTriggerList;
 
 procedure InitTriggerCode;
 
@@ -125,7 +125,7 @@ begin
   if ANextIP <> -1 then t.AddAction(SetNextIP(ANextIP));
   if APreserve then t.AddAction(TPreserveTriggerInstruction.Create);
 
-  Triggers.Add(t);
+  CompiledTriggers.Add(t);
 end;
 
 // instruction pointer for system calls
@@ -646,7 +646,7 @@ begin
   SysParamArray := -1;
 
   BusyIP := NewIP;
-  Triggers.Clear;
+  CompiledTriggers.Clear;
 end;
 
 { TTrigger }
@@ -737,11 +737,11 @@ end;
 
 initialization
 
-  Triggers:= TTriggerList.Create;
+  CompiledTriggers:= TTriggerList.Create;
 
 finalization
 
-  Triggers.Free;
+  CompiledTriggers.Free;
 
 end.
 

@@ -24,15 +24,15 @@ type
     function GetLocationName(AIndex: integer): string; virtual; abstract;
     function GetSwitchName(AIndexBase1: integer): string; virtual; abstract;
   public
+    function RetrieveStoredProgram: string; virtual; abstract;
     procedure UpdateTriggers; virtual; abstract;
     function IsAnywhere(ALocation: string): boolean; virtual; abstract;
     function LocationIndexOf(ALocation:string): integer; virtual; abstract;
     function LocationExists(AIndex: integer): boolean; virtual; abstract;
-    function MapStringAllocate(AText: string): integer; virtual; abstract;
     function MapStringRead(AIndex: integer): string; virtual; abstract;
-    procedure MapStringRelease(AIndex: integer); virtual; abstract;
     function MapStringIndexOf(AText: string): integer; virtual; abstract;
-    function UseSoundFilename(AFilename: string): integer; virtual; abstract;
+    function TrigStringAllocate(AText: string): integer; virtual; abstract;
+    procedure TrigStringRelease(AIndex: integer); virtual; abstract;
     function SoundFilenameExists(AFilename: string): boolean; virtual; abstract;
     property ForceName[AIndexBase1: integer]: string read GetForceName;
     property SwitchName[AIndexBase1: integer]: string read GetSwitchName;
@@ -51,15 +51,15 @@ type
     function GetLocationName(AIndex: integer): string; override;
     function GetSwitchName(AIndexBase1: integer): string; override;
   public
+    function RetrieveStoredProgram: string; override;
     procedure UpdateTriggers; override;
     function IsAnywhere(ALocation: string): boolean; override;
     function LocationExists(AIndex: integer): boolean; override;
     function LocationIndexOf(ALocation:string): integer; override;
-    function MapStringAllocate({%H-}AText: string): integer; override;
+    function TrigStringAllocate(AText: string): integer; override;
+    procedure TrigStringRelease(AIndex: integer); override;
     function MapStringRead({%H-}AIndex: integer): string; override;
-    procedure MapStringRelease({%H-}AIndex: integer); override;
     function MapStringIndexOf({%H-}AText: string): integer; override;
-    function UseSoundFilename({%H-}AFilename: string): integer; override;
     function SoundFilenameExists({%H-}AFilename: string): boolean; override;
   end;
 
@@ -97,6 +97,12 @@ begin
   result := 'Switch'+inttostr(AIndexBase1);
 end;
 
+function TDefaultMapInfo.RetrieveStoredProgram: string;
+begin
+  result := '';
+  raise exception.Create('Not implemented');
+end;
+
 procedure TDefaultMapInfo.UpdateTriggers;
 begin
   raise exception.Create('Not implemented');
@@ -121,9 +127,13 @@ begin
   exit(-1);
 end;
 
-function TDefaultMapInfo.MapStringAllocate(AText: string): integer;
+function TDefaultMapInfo.TrigStringAllocate(AText: string): integer;
 begin
-  result := 0;
+  raise exception.Create('Not implemented');
+end;
+
+procedure TDefaultMapInfo.TrigStringRelease(AIndex: integer);
+begin
   raise exception.Create('Not implemented');
 end;
 
@@ -133,18 +143,7 @@ begin
   raise exception.Create('Not implemented');
 end;
 
-procedure TDefaultMapInfo.MapStringRelease(AIndex: integer);
-begin
-  raise exception.Create('Not implemented');
-end;
-
 function TDefaultMapInfo.MapStringIndexOf(AText: string): integer;
-begin
-  result := 0;
-  raise exception.Create('Not implemented');
-end;
-
-function TDefaultMapInfo.UseSoundFilename(AFilename: string): integer;
 begin
   result := 0;
   raise exception.Create('Not implemented');

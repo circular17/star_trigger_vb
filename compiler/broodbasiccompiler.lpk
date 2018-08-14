@@ -12,7 +12,7 @@
       </SearchPaths>
     </CompilerOptions>
     <Version Minor="1"/>
-    <Files Count="11">
+    <Files Count="15">
       <Item1>
         <Filename Value="uarithmetic.pas"/>
         <UnitName Value="uarithmetic"/>
@@ -57,6 +57,22 @@
         <Filename Value="utrigeditoutput.pas"/>
         <UnitName Value="utrigeditoutput"/>
       </Item11>
+      <Item12>
+        <Filename Value="utriggerchunk.pas"/>
+        <UnitName Value="utriggerchunk"/>
+      </Item12>
+      <Item13>
+        <Filename Value="umapinfo.pas"/>
+        <UnitName Value="umapinfo"/>
+      </Item13>
+      <Item14>
+        <Filename Value="utriggerinstructions.pas"/>
+        <UnitName Value="utriggerinstructions"/>
+      </Item14>
+      <Item15>
+        <Filename Value="utriggerconditions.pas"/>
+        <UnitName Value="utriggerconditions"/>
+      </Item15>
     </Files>
     <RequiredPkgs Count="1">
       <Item1>

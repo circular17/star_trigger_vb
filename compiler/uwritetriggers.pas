@@ -571,8 +571,11 @@ begin
   WriteArithmeticTriggers;
   WritePlayerPresenceBottomTrigger(AMainThread);
 
-  //it is recommended to put hyper triggers at the end
-  WriteHyperTriggers
+  //it is recommended to put hyper CompiledTriggers at the end
+  WriteHyperTriggers;
+
+  if CompiledTriggers.Count > 65534 then
+    raise exception.Create('Too many triggers');
 end;
 
 end.

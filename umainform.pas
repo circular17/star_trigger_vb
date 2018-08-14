@@ -261,6 +261,15 @@ begin
             ShowMessage(ex.Message);
         end;
       end;
+    end else
+    begin
+      try
+        MapInfo.UpdateTriggers;
+        ShowMessage('Triggers have been updated');
+      except
+        on ex:Exception do
+          ShowMessage(ex.Message);
+      end;
     end;
   end;
 end;
@@ -325,13 +334,19 @@ var
 begin
   AllCompletion := TStringList.Create;
 
+  ListBox_Locations.Items.BeginUpdate;
   AddLocation('Anywhere', False);
   for i := LocationMinIndex to LocationMaxIndex do
     if (i <> AnywhereLocationIndex) and MapInfo.LocationExists(i) then
-      fMain.AddLocation(MapInfo.LocationName[i], True);
+      AddLocation(MapInfo.LocationName[i], True);
+  ListBox_Locations.Items.EndUpdate;
+
+  if MapInfo.ProgramMapEmbedded then
+    SynEdit1.Text := MapInfo.RetrieveStoredProgram;
+
   Modified := false;
 
-  ErrorsToUpdate:= true;
+  ErrorsToUpdate:= false; //true;
 end;
 
 procedure TFMain.FormDestroy(Sender: TObject);

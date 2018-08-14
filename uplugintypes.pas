@@ -5,7 +5,7 @@ unit uplugintypes;
 interface
 
 uses
-  Classes, SysUtils, uscmdrafttypes, umapinfo, utriggercode;
+  Classes, SysUtils, uscmdrafttypes, umapinfo, utriggercode, utriggerchunk;
 
 const
   PluginMenu = 'BroodBasic program';
@@ -16,11 +16,20 @@ type
   { TPluginContext }
 
   TPluginContext = object
+  private
+    function GetTrigger(AIndex: integer): PTriggerData;
+    function GetTriggerCount: integer;
+  public
     Section: TMenuSection;
     EngineData: PEngineData;
     Triggers, MissionBriefing, SwitchRenaming,
     UnitProperties, UnitPropUsage: PChunkData;
-
+    AllocRam: TAllocRamProc;
+    DeAllocRam: TDeAllocRamProc;
+    ReAllocRam: TReAllocRamProc;
+    procedure ClearTriggers;
+    procedure AddCompiledTriggers;
+    function UseWavFilename(AFilename: string): integer;
     function GetLocationName(AIndex: integer): string;
     function GetLocationIndex(AName: string): integer;
     function LocationExists(AIndex: integer): boolean;
@@ -31,6 +40,8 @@ type
     function GetWavIndex(AFilename: string): integer;
     function GetSwitchName(AIndex: integer): string;
     function GetSwitchIndex(AName: string): integer;
+    property TriggerCount: integer read GetTriggerCount;
+    property Trigger[AIndex: integer]: PTriggerData read GetTrigger;
   end;
 
   { TPluginMapInfo }
@@ -45,21 +56,80 @@ type
     function GetProgramMapEmbedded: boolean; override;
   public
     constructor Create(const AContext: TPluginContext);
+    function RetrieveStoredProgram: string; override;
     procedure UpdateTriggers; override;
     function IsAnywhere(ALocation: string): boolean; override;
     function LocationIndexOf(ALocation:string): integer; override;
-    function MapStringAllocate(AText: string): integer; override;
+    function TrigStringAllocate(AText: string): integer; override;
+    procedure TrigStringRelease(AIndex: integer); override;
     function MapStringRead(AIndex: integer): string; override;
-    procedure MapStringRelease(AIndex: integer); override;
     function MapStringIndexOf(AText: string): integer; override;
     function SoundFilenameExists(AFilename: string): boolean; override;
-    function UseSoundFilename(AFilename: string): integer; override;
     function LocationExists(AIndex: integer): boolean; override;
   end;
 
 implementation
 
 { TPluginContext }
+
+function TPluginContext.GetTrigger(AIndex: integer): PTriggerData;
+begin
+  result := PTriggerData(Triggers^.Data)+AIndex;
+end;
+
+function TPluginContext.GetTriggerCount: integer;
+begin
+  result := Triggers^.Size div sizeof(TTriggerData);
+end;
+
+procedure TPluginContext.ClearTriggers;
+var
+  i, a: Integer;
+  t: PTriggerData;
+begin
+  for i := 0 to TriggerCount-1 do
+  begin
+    t := Trigger[i];
+    for a := low(t^.Actions) to high(t^.Actions) do
+    begin
+      EngineData^.TrigReleaseString(t^.Actions[a].StringIndex);
+      t^.Actions[a].StringIndex := 0;
+      EngineData^.TrigReleaseString(t^.Actions[a].WavStringIndex);
+      t^.Actions[a].WavStringIndex := 0;
+    end;
+  end;
+  DeAllocRam(Triggers^.Data);
+  Triggers^.Data := nil;
+  Triggers^.Size := 0;
+end;
+
+procedure TPluginContext.AddCompiledTriggers;
+var
+  t: PTriggerData;
+  from, i, totalCount: Integer;
+begin
+  if CompiledTriggers.Count = 0 then exit;
+  from := TriggerCount;
+  totalCount := from + CompiledTriggers.Count;
+  if totalCount > 65534 then
+    raise exception.Create('Too many triggers');
+
+  Triggers^.Size := totalCount*sizeof(TTriggerData);
+  Triggers^.Data := ReAllocRam(Triggers^.Data, Triggers^.Size);
+  for i := 0 to CompiledTriggers.Count-1 do
+  begin
+    t := Trigger[from+i];
+    fillchar(t^, sizeof(TTriggerData), 0);
+    CompiledTriggers[i].WriteTriggerData(t^);
+  end;
+end;
+
+function TPluginContext.UseWavFilename(AFilename: string): integer;
+begin
+  if EngineData^.GetWavIndex(AFilename) = -1 then
+    raise exception.Create('Sound is not part of the listed ones for this map');
+  result := EngineData^.TrigAllocateString(AFilename);
+end;
 
 function TPluginContext.GetLocationName(AIndex: integer): string;
 begin
@@ -150,9 +220,16 @@ begin
   FContext := AContext;
 end;
 
+function TPluginMapInfo.RetrieveStoredProgram: string;
+begin
+  result := '';
+  //
+end;
+
 procedure TPluginMapInfo.UpdateTriggers;
 begin
-  //
+  FContext.ClearTriggers;
+  FContext.AddCompiledTriggers;
 end;
 
 function TPluginMapInfo.IsAnywhere(ALocation: string): boolean;
@@ -165,20 +242,19 @@ begin
   result := FContext.GetLocationIndex(ALocation);
 end;
 
-function TPluginMapInfo.MapStringAllocate(AText: string): integer;
+function TPluginMapInfo.TrigStringAllocate(AText: string): integer;
 begin
-  result := FContext.EngineData^.MapStrings^.AllocateString(AText, SectionCodeToLongWord('TRIG'));
+  result := FContext.EngineData^.TrigAllocateString(AText);
+end;
+
+procedure TPluginMapInfo.TrigStringRelease(AIndex: integer);
+begin
+  FContext.EngineData^.TrigReleaseString(AIndex);
 end;
 
 function TPluginMapInfo.MapStringRead(AIndex: integer): string;
 begin
   result := FContext.EngineData^.MapStrings^.GetString(AIndex);
-end;
-
-procedure TPluginMapInfo.MapStringRelease(AIndex: integer);
-begin
-  with FContext.EngineData^.MapStrings^ do
-    ReleaseString(AIndex, SectionCodeToLongWord('TRIG'));
 end;
 
 function TPluginMapInfo.MapStringIndexOf(AText: string): integer;
@@ -189,13 +265,6 @@ end;
 function TPluginMapInfo.SoundFilenameExists(AFilename: string): boolean;
 begin
   result := FContext.GetWavIndex(AFilename)<>-1;
-end;
-
-function TPluginMapInfo.UseSoundFilename(AFilename: string): integer;
-begin
-  if not SoundFilenameExists(AFilename) then
-    raise exception.Create('Sound is not listed');
-  result := MapStringAllocate(AFilename);
 end;
 
 function TPluginMapInfo.LocationExists(AIndex: integer): boolean;

@@ -493,7 +493,7 @@ procedure TCommentInstruction.WriteTriggerData(
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType:= atComment;
-  AData.StringIndex := MapInfo.MapStringAllocate(Text);
+  AData.StringIndex := MapInfo.TrigStringAllocate(Text);
 end;
 
 function TCommentInstruction.Duplicate: TTriggerInstruction;
@@ -703,7 +703,7 @@ procedure TDisplayTextMessageInstruction.WriteTriggerData(
 begin
   AData.ActionType   := atDisplayText;
   AData.AlwaysDisplay:= Always;
-  AData.StringIndex  := MapInfo.MapStringAllocate(Text);
+  AData.StringIndex  := MapInfo.TrigStringAllocate(Text);
 end;
 
 function TDisplayTextMessageInstruction.Duplicate: TTriggerInstruction;
@@ -740,6 +740,7 @@ constructor TCreateUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
   AUnitType: TStarcraftUnit; ALocation: string; AProperties: integer);
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
+  if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
   Player:= APlayer;
   Quantity:= AQuantity;
   UnitType:= AUnitType;
@@ -787,6 +788,7 @@ constructor TSetUnitPropertyInstruction.Create(APlayer: TPlayer;
   AProperty: TSetUnitProperty; AValue: integer);
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
+  if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
   Player := APlayer;
   Quantity := AQuantity;
   UnitType := AUnitType;
@@ -906,6 +908,7 @@ constructor TKillUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
   AUnitType: TStarcraftUnit; ALocation: string; ADeathAnimation: boolean);
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
+  if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
   Player:= APlayer;
   Quantity:= AQuantity;
   UnitType:= AUnitType;
@@ -957,6 +960,7 @@ constructor TGiveUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
   AUnitType: TStarcraftUnit; ALocation: string; ADestPlayer: TPlayer);
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
+  if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
   Player := APlayer;
   Quantity := AQuantity;
   UnitType := AUnitType;
@@ -995,6 +999,7 @@ constructor TTeleportUnitInstruction.Create(APlayer: TPlayer;
   ADestLocation: string);
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
+  if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
   Player:= APlayer;
   Quantity := AQuantity;
   UnitType:= AUnitType;
@@ -1115,7 +1120,9 @@ procedure TPlayWAVInstruction.WriteTriggerData(
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType:= atPlayWAV;
-  AData.WavStringIndex:= MapInfo.UseSoundFilename(Filename);
+  if not MapInfo.SoundFilenameExists(Filename) then
+    raise exception.Create('Sound is not defined in the map');
+  AData.WavStringIndex:= MapInfo.TrigStringAllocate(Filename);
   AData.Duration := DurationMs;
 end;
 
@@ -1202,7 +1209,7 @@ procedure TSetMissionObjectivesInstruction.WriteTriggerData(
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType := atSetMissionObjectives;
-  AData.StringIndex := MapInfo.MapStringAllocate(Text);
+  AData.StringIndex := MapInfo.TrigStringAllocate(Text);
 end;
 
 function TSetMissionObjectivesInstruction.Duplicate: TTriggerInstruction;
@@ -1226,7 +1233,7 @@ procedure TSetNextScenarioInstruction.WriteTriggerData(
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType := atSetNextScenario;
-  AData.StringIndex := MapInfo.MapStringAllocate(Scenario);
+  AData.StringIndex := MapInfo.TrigStringAllocate(Scenario);
 end;
 
 function TSetNextScenarioInstruction.Duplicate: TTriggerInstruction;
@@ -1371,7 +1378,7 @@ begin
     AData.GenericValue := Goal;
   end;
   AData.ResourceType:= Resource;
-  AData.StringIndex := MapInfo.MapStringAllocate(Text);
+  AData.StringIndex := MapInfo.TrigStringAllocate(Text);
 end;
 
 function TShowLeaderboardResourceInstruction.Duplicate: TTriggerInstruction;
@@ -1411,7 +1418,7 @@ begin
     AData.GenericValue := Goal;
   end;
   AData.ScoreType:= Score;
-  AData.StringIndex := MapInfo.MapStringAllocate(Text);
+  AData.StringIndex := MapInfo.TrigStringAllocate(Text);
 end;
 
 function TShowLeaderboardScoreInstruction.Duplicate: TTriggerInstruction;
@@ -1454,7 +1461,7 @@ begin
     AData.GenericValue := Goal;
   end;
   AData.UnitType:= UnitType;
-  AData.StringIndex := MapInfo.MapStringAllocate(Text);
+  AData.StringIndex := MapInfo.TrigStringAllocate(Text);
 end;
 
 function TShowLeaderboardKillCountInstruction.Duplicate: TTriggerInstruction;
@@ -1514,7 +1521,7 @@ begin
     AData.GenericValue := Goal;
   end;
   AData.UnitType:= UnitType;
-  AData.StringIndex := MapInfo.MapStringAllocate(Text);
+  AData.StringIndex := MapInfo.TrigStringAllocate(Text);
 end;
 
 function TShowLeaderboardUnitCountInstruction.Duplicate: TTriggerInstruction;

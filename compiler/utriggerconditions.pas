@@ -533,7 +533,7 @@ end;
 
 function TBringCondition.ToTrigEdit: string;
 begin
-  if IsAnywhere(Location) then
+  if MapInfo.IsAnywhere(Location) then
     Result:= 'Command("' + PlayerToTrigEditStr(Player) + '", ' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]) + ', ' +
          IntegerConditionModeToTrigEditStr[Mode] + ', ' + IntToStr(Value) + ')'
   else
@@ -548,12 +548,12 @@ end;
 
 procedure TBringCondition.WriteTriggerData(var AData: TTriggerConditionData);
 begin
-  if IsAnywhere(Location) then
+  if MapInfo.IsAnywhere(Location) then
     AData.ConditionType:= ctCommand
   else
   begin
     AData.ConditionType:= ctBring;
-    AData.LocationBase0:= LocationIndexOf(Location);
+    AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
   end;
   AData.Player := Player;
   AData.UnitType:= UnitType;
@@ -663,7 +663,7 @@ function TCompareUnitCountCondition.ToTrigEdit: string;
 begin
   Result:= 'Command ';
   if Highest then result += 'the Most' else result += 'the Least';
-  if not IsAnywhere(Location) then result += ' At(' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]) + ', ' +AddTrigEditQuotes(Location)+')'
+  if not MapInfo.IsAnywhere(Location) then result += ' At(' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]) + ', ' +AddTrigEditQuotes(Location)+')'
   else result += '(' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]) + ')';
 end;
 
@@ -675,7 +675,7 @@ end;
 procedure TCompareUnitCountCondition.WriteTriggerData(
   var AData: TTriggerConditionData);
 begin
-  if IsAnywhere(Location) then
+  if MapInfo.IsAnywhere(Location) then
   begin
     if Highest then AData.ConditionType:= ctCommandTheMost
     else AData.ConditionType:= ctCommandTheLeast;
@@ -683,7 +683,7 @@ begin
   begin
     if Highest then AData.ConditionType:= ctCommandTheMostAt
     else AData.ConditionType:= ctCommandTheLeastAt;
-    AData.LocationBase0 := LocationIndexOf(Location);
+    AData.LocationBase0 := MapInfo.LocationIndexOf(Location);
   end;
   AData.UnitType:= UnitType;
 end;

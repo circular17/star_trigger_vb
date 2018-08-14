@@ -49,17 +49,21 @@ begin
     Exit;
   end;
 
-  success := ureadprog.ReadProg('prog.vb', MainThread);
-  for i := 0 to ReadProgErrors.Count-1 do
-    writeln(ReadProgErrors[i]);
+  MapInfo := TDefaultMapInfo.Create;
+  try
+    success := ureadprog.ReadProg('prog.vb', MainThread);
+    for i := 0 to ReadProgErrors.Count-1 do
+      writeln(ReadProgErrors[i]);
 
-  if success then
-  begin
-    if MainThread = plNone then MainThread := plPlayer8;
-    uwritetriggers.WriteTriggers('prog.trigger', MainThread);
-    uwritetriggers.WriteUnitProperties('prog.property');
+    if success then
+    begin
+      if MainThread = plNone then MainThread := plPlayer8;
+      uwritetriggers.WriteTriggers('prog.trigger', MainThread);
+      uwritetriggers.WriteUnitProperties('prog.property');
+    end;
+  finally
+    MapInfo.Free;
   end;
-
 
   // stop program loop
   Terminate;

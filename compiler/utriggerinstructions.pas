@@ -578,7 +578,7 @@ procedure TDisplayTextMessageInstruction.WriteTriggerData(
 begin
   AData.ActionType   := atDisplayText;
   AData.AlwaysDisplay:= Always;
-  AData.StringIndex  := AllocateString(Text);
+  AData.StringIndex  := MapInfo.MapStringAllocate(Text);
 end;
 
 { TWaitInstruction }
@@ -636,7 +636,7 @@ begin
 
   AData.Player:= Player;
   AData.UnitType := UnitType;
-  AData.LocationBase0:= LocationIndexOf(Location);
+  AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
   AData.UnitCount := Quantity;
 end;
 
@@ -698,7 +698,7 @@ begin
   AData.Player:= Player;
   AData.UnitCount := Quantity;
   AData.UnitType := UnitType;
-  AData.LocationBase0:= LocationIndexOf(Location);
+  AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
   AData.GenericValue := Value;
 end;
 
@@ -741,7 +741,7 @@ begin
   end;
   AData.Player := Player;
   AData.UnitType := UnitType;
-  AData.LocationBase0:= LocationIndexOf(Location);
+  AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
   case Value of
   ufvDisable: AData.SwitchValue:= svClear;
   ufvEnable: AData.SwitchValue:= svSet;
@@ -761,13 +761,13 @@ begin
   UnitType:= AUnitType;
   Location:= ALocation;
   DeathAnimation:= ADeathAnimation;
-  If IsAnywhere(Location) then Location := GetAnywhereLocation;
+  If MapInfo.IsAnywhere(Location) then Location := MapInfo.AnywhereLocationName;
 end;
 
 function TKillUnitInstruction.ToTrigEdit: string;
 begin
   if DeathAnimation then result := 'Kill Unit' else result := 'Remove Unit';
-  if not IsAnywhere(Location) or (Quantity <> -1) then
+  if not MapInfo.IsAnywhere(Location) or (Quantity <> -1) then
   begin
     Result += ' At Location';
     result += '("'+ PlayerToTrigEditStr(Player)+'", ' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
@@ -781,11 +781,11 @@ end;
 procedure TKillUnitInstruction.WriteTriggerData(
   var AData: TTriggerInstructionData);
 begin
-  if not IsAnywhere(Location) or (Quantity <> -1) then
+  if not MapInfo.IsAnywhere(Location) or (Quantity <> -1) then
   begin
     if DeathAnimation then AData.ActionType:= atKillUnitAt
     else AData.ActionType:= atRemoveUnitAt;
-    AData.LocationBase0:= LocationIndexOf(Location);
+    AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
     AData.UnitCount := Quantity;
   end else
   begin
@@ -824,7 +824,7 @@ begin
   AData.Player := Player;
   AData.UnitCount := Quantity;
   AData.UnitType := UnitType;
-  AData.LocationBase0 := LocationIndexOf(Location);
+  AData.LocationBase0 := MapInfo.LocationIndexOf(Location);
   AData.DestinationPlayer := DestPlayer;
 end;
 
@@ -856,8 +856,8 @@ begin
   AData.Player := Player;
   AData.UnitCount:= Quantity;
   AData.UnitType := UnitType;
-  AData.LocationBase0 := LocationIndexOf(Location);
-  AData.DestinationLocationBase0 := LocationIndexOf(DestLocation);
+  AData.LocationBase0 := MapInfo.LocationIndexOf(Location);
+  AData.DestinationLocationBase0 := MapInfo.LocationIndexOf(DestLocation);
 end;
 
 { TMoveLocationInstruction }
@@ -883,8 +883,8 @@ begin
   AData.ActionType:= atMoveLocation;
   AData.Player := Player;
   AData.UnitType := UnitType;
-  AData.LocationBase0:= LocationIndexOf(Location);
-  AData.DestinationLocationBase0:= LocationIndexOf(LocationToChange);
+  AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
+  AData.DestinationLocationBase0:= MapInfo.LocationIndexOf(LocationToChange);
 end;
 
 { TOrderUnitInstruction }
@@ -918,8 +918,8 @@ begin
   AData.ActionType:= atOrderUnit;
   AData.Player := Player;
   AData.UnitType := UnitType;
-  AData.LocationBase0 := LocationIndexOf(Location);
-  AData.DestinationLocationBase0:= LocationIndexOf(DestLocation);
+  AData.LocationBase0 := MapInfo.LocationIndexOf(Location);
+  AData.DestinationLocationBase0:= MapInfo.LocationIndexOf(DestLocation);
   AData.UnitOrder := Order;
 end;
 
@@ -940,7 +940,7 @@ procedure TPlayWAVInstruction.WriteTriggerData(
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType:= atPlayWAV;
-  AData.WavStringIndex:= UseWavString(Filename);
+  AData.WavStringIndex:= MapInfo.UseSoundFilename(Filename);
   AData.Duration := DurationMs;
 end;
 
@@ -977,21 +977,21 @@ end;
 function TRunAIScriptInstruction.ToTrigEdit: string;
 begin
   Result := 'Run AI Script';
-  if not IsAnywhere(Location) then Result += ' At Location';
+  if not MapInfo.IsAnywhere(Location) then Result += ' At Location';
   Result += '(' + AddTrigEditQuotes(ScriptCode);
-  if not IsAnywhere(Location) then Result += ', ' + AddTrigEditQuotes(Location);
+  if not MapInfo.IsAnywhere(Location) then Result += ', ' + AddTrigEditQuotes(Location);
   result += ')';
 end;
 
 procedure TRunAIScriptInstruction.WriteTriggerData(
   var AData: TTriggerInstructionData);
 begin
-  if IsAnywhere(Location) then
+  if MapInfo.IsAnywhere(Location) then
     AData.ActionType:= atRunAIScript
   else
   begin
     AData.ActionType := atRunAIScriptAt;
-    AData.LocationBase0:= LocationIndexOf(Location);
+    AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
   end;
   AData.ScriptCode := ScriptCode;
 end;
@@ -1012,7 +1012,7 @@ procedure TSetMissionObjectivesInstruction.WriteTriggerData(
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType := atSetMissionObjectives;
-  AData.StringIndex := AllocateString(Text);
+  AData.StringIndex := MapInfo.MapStringAllocate(Text);
 end;
 
 { TSetNextScenarioInstruction }
@@ -1031,7 +1031,7 @@ procedure TSetNextScenarioInstruction.WriteTriggerData(
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType := atSetNextScenario;
-  AData.StringIndex := AllocateString(Scenario);
+  AData.StringIndex := MapInfo.MapStringAllocate(Scenario);
 end;
 
 { TCenterViewInstruction }
@@ -1050,7 +1050,7 @@ procedure TCenterViewInstruction.WriteTriggerData(
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType := atCenterView;
-  AData.LocationBase0:= LocationIndexOf(Location);
+  AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
 end;
 
 { TMinimapPingInstruction }
@@ -1069,7 +1069,7 @@ procedure TMinimapPingInstruction.WriteTriggerData(
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType:= atMinimapPing;
-  AData.LocationBase0 := LocationIndexOf(Location);
+  AData.LocationBase0 := MapInfo.LocationIndexOf(Location);
 end;
 
 { TLeaderBoardIncludeComputersInstruction }
@@ -1151,7 +1151,7 @@ begin
     AData.GenericValue := Goal;
   end;
   AData.ResourceType:= Resource;
-  AData.StringIndex := AllocateString(Text);
+  AData.StringIndex := MapInfo.MapStringAllocate(Text);
 end;
 
 { TShowLeaderboardScoreInstruction }
@@ -1186,7 +1186,7 @@ begin
     AData.GenericValue := Goal;
   end;
   AData.ScoreType:= Score;
-  AData.StringIndex := AllocateString(Text);
+  AData.StringIndex := MapInfo.MapStringAllocate(Text);
 end;
 
 { TShowLeaderboardKillCountInstruction }
@@ -1224,7 +1224,7 @@ begin
     AData.GenericValue := Goal;
   end;
   AData.UnitType:= UnitType;
-  AData.StringIndex := AllocateString(Text);
+  AData.StringIndex := MapInfo.MapStringAllocate(Text);
 end;
 
 { TShowLeaderboardUnitCountInstruction }
@@ -1245,14 +1245,14 @@ begin
   else
     result := 'Leader Board Control';
 
-  if not IsAnywhere(Location) then result += ' At Location';
+  if not MapInfo.IsAnywhere(Location) then result += ' At Location';
 
   result += '(' + AddTrigEditQuotes(Text) + ', '+ AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]);
 
   if Goal <> -1 then
     result += ', ' + IntToStr(Goal);
 
-  if not IsAnywhere(Location) then result += ', ' + AddTrigEditQuotes(Location);
+  if not MapInfo.IsAnywhere(Location) then result += ', ' + AddTrigEditQuotes(Location);
 
   result += ')';
 end;
@@ -1262,24 +1262,24 @@ procedure TShowLeaderboardUnitCountInstruction.WriteTriggerData(
 begin
   if Goal = -1 then
   begin
-    if IsAnywhere(Location) then AData.ActionType:= atLeaderboardControl else
+    if MapInfo.IsAnywhere(Location) then AData.ActionType:= atLeaderboardControl else
     begin
       AData.ActionType:= atLeaderboardControlAt;
-      AData.LocationBase0 := LocationIndexOf(Location);
+      AData.LocationBase0 := MapInfo.LocationIndexOf(Location);
     end;
   end
   else
   begin
-    if IsAnywhere(Location) then AData.ActionType:= atLeaderboardGoalControl else
+    if MapInfo.IsAnywhere(Location) then AData.ActionType:= atLeaderboardGoalControl else
     begin
       AData.ActionType:= atLeaderboardGoalControlAt;
-      AData.LocationBase0 := LocationIndexOf(Location);
+      AData.LocationBase0 := MapInfo.LocationIndexOf(Location);
     end;
     AData.ActionType:= atLeaderboardGoalControl;
     AData.GenericValue := Goal;
   end;
   AData.UnitType:= UnitType;
-  AData.StringIndex := AllocateString(Text);
+  AData.StringIndex := MapInfo.MapStringAllocate(Text);
 end;
 
 { TEndGameInstruction }

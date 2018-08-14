@@ -5,10 +5,10 @@ unit uscmdrafttypes;
 interface
 
 uses
-  Classes, SysUtils;
+  Classes, SysUtils, umapinfo;
 
 type
-  TMenuSection = array[0..3] of char;
+  TMenuSection = LongWord;
   TRequestedMenuSections = array[0..7] of TMenuSection;
   PRequestedMenuSections = ^TRequestedMenuSections;
 
@@ -17,9 +17,6 @@ type
   TReAllocRamProc = function(Ram: Pointer; Size: DWord): Pointer; stdcall;
 
 const
-  MIN_LOCATION = 0;
-  MAX_LOCATION = 255;
-  ANYWHERE_LOCATION = 63;
   MIN_FORCE = 1;
   MAX_FORCE = 4;
   MIN_UNIT_TYPE = 0;
@@ -35,7 +32,7 @@ type
     NameIndex,Elevation: Word;
     Used: byte;
   end;
-  TLocationNodes = packed array[MIN_LOCATION..MAX_LOCATION] of TLocationNode;
+  TLocationNodes = packed array[LocationMinIndex..LocationMaxIndex] of TLocationNode;
   PLocationNodes = ^TLocationNodes;
 
   TUnitNames = array[MIN_UNIT_TYPE..MAX_UNIT_TYPE] of PChar;
@@ -69,6 +66,8 @@ type
     function GetString(AIndex: LongInt): string;
     function IndexOf(AText: string): integer;
     function GetCapacity: integer;
+    function AllocateString(AText: string; ASection: LongWord; AAlwaysCreate: boolean = false): integer;
+    procedure ReleaseString(AIndex: integer; ASection: LongWord);
   end;
 
   PEngineData = ^TEngineData;
@@ -105,7 +104,20 @@ type
     Data: Pointer;
   end;
 
+function SectionCodeToLongWord(ACode: string): LongWord;
+
 implementation
+
+function SectionCodeToLongWord(ACode: string): LongWord;
+var
+  chars: array[1..4] of char absolute result;
+begin
+  if length(ACode)<>4 then raise exception.Create('Code is supposed to be 4 chars long');
+  chars[4] := ACode[1];
+  chars[3] := ACode[2];
+  chars[2] := ACode[3];
+  chars[1] := ACode[4];
+end;
 
 { TEngineData }
 
@@ -122,7 +134,7 @@ begin
   idxStr := MapStrings^.IndexOf(AName);
   if idxStr > 0 then
   begin
-    for i := MIN_LOCATION to MAX_LOCATION do
+    for i := LocationMinIndex to LocationMaxIndex do
       if MapLocations^[i].NameIndex = idxStr then exit(i);
   end;
   exit(-1);
@@ -155,11 +167,11 @@ end;
 
 function TEngineData.GetWavIndex(AFilename: string): integer;
 var
-  idxStr, i: Integer;
+  i: Integer;
 begin
-  idxStr := MapStrings^.IndexOf(AFilename);
+  //cannot check via string index because it may not be unique
   for i := MIN_WAV to MAX_WAV do
-    if WavFilenames^[i] = idxStr then exit(i);
+    if GetWavFilename(i) = AFilename then exit(i);
   exit(-1);
 end;
 
@@ -206,6 +218,42 @@ begin
     mov eax, [eax + TSCStringList_VirtualCalls.GetTotalStringNum]
     call eax
     mov result, eax
+  end;
+end;
+
+function TSCStringList.AllocateString(AText: string; ASection: LongWord;
+  AAlwaysCreate: boolean): integer;
+begin
+  if AText = '' then exit(0);
+  asm
+    xor eax, eax
+    mov al, AAlwaysCreate
+    push eax
+    mov eax, ASection
+    push eax
+    mov eax, AText
+    push eax
+    mov ecx, self
+    mov eax, [ecx + TSCStringList.VirtualCalls]
+    mov eax, [eax + TSCStringList_VirtualCalls.AddSCMD2StringProc]
+    call eax
+    mov result, eax
+  end;
+  if result >= 0 then inc(result);
+end;
+
+procedure TSCStringList.ReleaseString(AIndex: integer; ASection: LongWord);
+begin
+  if (AIndex <= 0) or (AIndex > 32767) then exit;
+  asm
+    mov eax, ASection
+    push eax
+    mov eax, AIndex
+    push eax
+    mov ecx, self
+    mov eax, [ecx + TSCStringList.VirtualCalls]
+    mov eax, [eax + TSCStringList_VirtualCalls.DereferenceProc]
+    call eax
   end;
 end;
 

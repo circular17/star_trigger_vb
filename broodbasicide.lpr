@@ -8,14 +8,17 @@ uses
   {$ENDIF}{$ENDIF}
   Interfaces, // this includes the LCL widgetset
   Forms,
-  umainform;
+  umainform,
+  umapinfo;
 
 {$R *.res}
 
 begin
   RequireDerivedFormResource:=True;
   Application.Initialize;
+  MapInfo := TDefaultMapInfo.Create;
   Application.CreateForm(TFMain, FMain);
   Application.Run;
+  MapInfo.Free;
 end.
 

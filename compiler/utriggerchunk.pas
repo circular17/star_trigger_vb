@@ -249,6 +249,7 @@ type
     Flags: bitpacked array[0..7] of Boolean;
     Reserved: array[1..3] of byte;
     PlayerFlags: array[0..27] of byte;
+    procedure Clear;
     property AllConditionsMet: boolean read GetAllConditionsMet write SetAllConditionsMet;
     property IgnoreDefeatDrawActions: boolean read GetIgnoreDefeatDrawActions write SetIgnoreDefeatDrawActions;
     property PreserveTrigger: boolean read GetPreserveTrigger write SetPreserveTrigger;
@@ -352,6 +353,11 @@ end;
 procedure TTriggerData.SetWaitSkippingDisabledOnce(AValue: boolean);
 begin
   Flags[6] := AValue;
+end;
+
+procedure TTriggerData.Clear;
+begin
+  fillchar(self, sizeof(self), 0);
 end;
 
 { TTriggerConditionData }

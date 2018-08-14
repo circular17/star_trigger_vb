@@ -58,7 +58,7 @@ var
 
 implementation
 
-uses ureadprog, uparsevb, uvariables, usctypes;
+uses ureadprog, uparsevb, uvariables, usctypes, umapinfo;
 
 {$R *.lfm}
 
@@ -132,9 +132,12 @@ var
   i: Integer;
 begin
   AllCompletion := TStringList.Create;
+
   AddLocation('Anywhere', False);
-  for i := 1 to 99 do
-    AddLocation('Location '+inttostr(i), True);
+  for i := LocationMinIndex to LocationMaxIndex do
+    if (i <> AnywhereLocationIndex) and MapInfo.LocationExists(i) then
+      fMain.AddLocation(MapInfo.LocationName[i], True);
+
   ErrorsToUpdate:= true;
 end;
 

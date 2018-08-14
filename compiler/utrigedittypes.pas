@@ -314,7 +314,7 @@ begin
   plAllies: result := 'Allies';
   plNeutralPlayers: result := 'Neutral players';
   plAllPlayers: result := 'All players';
-  plForce1..plForce4: result := Force[ord(APlayer)-ord(plForce1)+1];
+  plForce1..plForce4: result := MapInfo.ForceName[ord(APlayer)-ord(plForce1)+1];
   plNonAlliedVictoryPlayers: result := 'Non Allied Victory Players';
   else result := 'Unknown';
   end;
@@ -337,7 +337,7 @@ end;
 
 function SwitchToTrigEditCode(ASwitch: integer): string;
 begin
-  result := AddTrigEditQuotes(GetSwitchName(ASwitch));
+  result := AddTrigEditQuotes(MapInfo.SwitchName[ASwitch]);
 end;
 
 end.

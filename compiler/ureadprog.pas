@@ -898,7 +898,7 @@ begin
     intVal := ParseOptionalQuantity;
     unitType := ExpectUnitType(AScope,ALine,AIndex);
     if not TryToken(ALine,AIndex,',') then
-      locStr := GetAnywhereLocation
+      locStr := MapInfo.AnywhereLocationName
     else
       locStr := ExpectString(AScope,ALine,AIndex);
     ExpectToken(ALine,AIndex,')');

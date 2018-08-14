@@ -20,6 +20,9 @@ function GetSwitchName(ASwitch: integer): string;
 function GetAnywhereLocation: string;
 procedure SetAnywhereLocation(AName: string);
 function LocationIndexOf(AName: string): integer;
+function AllocateString(AText: string): integer;
+function UseWavString(AFilename: string): integer;
+function ReadMapString(AIndex: integer): string;
 
 implementation
 
@@ -53,6 +56,21 @@ begin
   for i := low(LocationNames) to high(LocationNames) do
     if LocationNames[i] = AName then exit(i);
   exit(-1);
+end;
+
+function AllocateString(AText: string): integer;
+begin
+  result := 0;
+end;
+
+function UseWavString(AFilename: string): integer;
+begin
+
+end;
+
+function ReadMapString(AIndex: integer): string;
+begin
+
 end;
 
 initialization

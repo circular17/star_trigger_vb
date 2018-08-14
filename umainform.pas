@@ -231,8 +231,6 @@ begin
       if MainThread = plNone then MainThread := plPlayer8;
     end;
   end;
-      {uwritetriggers.WriteTriggers('prog.trigger', MainThread);
-    uwritetriggers.WriteUnitProperties('prog.property');}
 end;
 
 end.

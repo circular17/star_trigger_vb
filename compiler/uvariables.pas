@@ -10,6 +10,7 @@ uses
 const
   MaxBoolArraySize = MaxSwitches;
   MaxIntArraySize = MaxBoolArraySize;
+  MaxUnitProperties = 64;
   GlobalScope = 0;
 
 procedure InitVariables;
@@ -713,6 +714,9 @@ begin
 
   if not AConstant then
     raise Exception.Create('Unit properties must be constant');
+
+  if UnitPropCount >= MaxUnitProperties then
+    raise exception.Create('Too many unit properties (maximum is '+Inttostr(MaxUnitProperties)+')');
 
   if UnitPropCount >= length(UnitPropVars) then
     setlength(UnitPropVars, UnitPropCount*2+4);

@@ -223,7 +223,136 @@ type
     property ScriptCode: string read GetScriptCode write SetStringCode;
   end;
 
+  { TTriggerData }
+
+  TTriggerData = object
+  private
+    function GetAllConditionsMet: boolean;
+    function GetHasPausedGame: boolean;
+    function GetIgnore: boolean;
+    function GetIgnoreDefeatDrawActions: boolean;
+    function GetIgnoreOnceWaitAndOtherActions: boolean;
+    function GetPlayers: TPlayers;
+    function GetPreserveTrigger: boolean;
+    function GetWaitSkippingDisabledOnce: boolean;
+    procedure SetAllConditionsMet(AValue: boolean);
+    procedure SetHasPausedGame(AValue: boolean);
+    procedure SetIgnore(AValue: boolean);
+    procedure SetIgnoreDefeatDrawActions(AValue: boolean);
+    procedure SetIgnoreOnceWaitAndOtherActions(AValue: boolean);
+    procedure SetPlayers(AValue: TPlayers);
+    procedure SetPreserveTrigger(AValue: boolean);
+    procedure SetWaitSkippingDisabledOnce(AValue: boolean);
+  public
+    Conditions: array[0..15] of TTriggerConditionData;
+    Actions: array[0..63] of TTriggerInstructionData;
+    Flags: bitpacked array[0..7] of Boolean;
+    Reserved: array[1..3] of byte;
+    PlayerFlags: array[0..27] of byte;
+    property AllConditionsMet: boolean read GetAllConditionsMet write SetAllConditionsMet;
+    property IgnoreDefeatDrawActions: boolean read GetIgnoreDefeatDrawActions write SetIgnoreDefeatDrawActions;
+    property PreserveTrigger: boolean read GetPreserveTrigger write SetPreserveTrigger;
+    property Ignore: boolean read GetIgnore write SetIgnore;
+    property IgnoreOnceWaitAndOtherActions: boolean read GetIgnoreOnceWaitAndOtherActions write SetIgnoreOnceWaitAndOtherActions;
+    property HasPausedGame: boolean read GetHasPausedGame write SetHasPausedGame;
+    property WaitSkippingDisabledOnce: boolean read GetWaitSkippingDisabledOnce write SetWaitSkippingDisabledOnce;
+    property Players: TPlayers read GetPlayers write SetPlayers;
+  end;
+
 implementation
+
+{ TTriggerData }
+
+function TTriggerData.GetAllConditionsMet: boolean;
+begin
+  result := Flags[0];
+end;
+
+function TTriggerData.GetHasPausedGame: boolean;
+begin
+  result := Flags[5];
+end;
+
+function TTriggerData.GetIgnore: boolean;
+begin
+  result := Flags[3];
+end;
+
+function TTriggerData.GetIgnoreDefeatDrawActions: boolean;
+begin
+  result := Flags[1];
+end;
+
+function TTriggerData.GetIgnoreOnceWaitAndOtherActions: boolean;
+begin
+  result := Flags[4];
+end;
+
+function TTriggerData.GetPlayers: TPlayers;
+var
+  pl: TPlayer;
+begin
+  result := [];
+  for pl := plPlayer1 to high(TPlayer) do
+    if PlayerFlags[ord(pl)-ord(plPlayer1)] = 1 then
+      Include(result, pl);
+end;
+
+function TTriggerData.GetPreserveTrigger: boolean;
+begin
+  result := Flags[2];
+end;
+
+function TTriggerData.GetWaitSkippingDisabledOnce: boolean;
+begin
+  result := Flags[6];
+end;
+
+procedure TTriggerData.SetAllConditionsMet(AValue: boolean);
+begin
+  Flags[0] := AValue;
+end;
+
+procedure TTriggerData.SetHasPausedGame(AValue: boolean);
+begin
+  Flags[5] := AValue;
+end;
+
+procedure TTriggerData.SetIgnore(AValue: boolean);
+begin
+  Flags[3] := AValue;
+end;
+
+procedure TTriggerData.SetIgnoreDefeatDrawActions(AValue: boolean);
+begin
+  Flags[1] := AValue;
+end;
+
+procedure TTriggerData.SetIgnoreOnceWaitAndOtherActions(AValue: boolean);
+begin
+  Flags[4] := AValue;
+end;
+
+procedure TTriggerData.SetPlayers(AValue: TPlayers);
+var
+  pl: TPlayer;
+begin
+  for pl := plPlayer1 to high(TPlayer) do
+    if pl in AValue then
+      PlayerFlags[ord(pl)-ord(plPlayer1)] := 1
+    else
+      PlayerFlags[ord(pl)-ord(plPlayer1)] := 0;
+end;
+
+procedure TTriggerData.SetPreserveTrigger(AValue: boolean);
+begin
+  Flags[2] := AValue;
+end;
+
+procedure TTriggerData.SetWaitSkippingDisabledOnce(AValue: boolean);
+begin
+  Flags[6] := AValue;
+end;
 
 { TTriggerConditionData }
 

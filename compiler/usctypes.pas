@@ -16,6 +16,8 @@ type
                    ssCustomScore);
   TStarcraftResource = (srOre, srGas, srOreAndGas);
   TIntegerConditionMode = (icmAtLeast,icmAtMost,icmExactly);
+  TUnitOrder = (uoMove, uoPatrol, uoAttack);
+  TAllianceStatus = (asEnnemy, asAlly, asAlliedVictory);
 
 const
   BoolToSwitch : array[Boolean] of TSwitchValue = (svClear, svSet);

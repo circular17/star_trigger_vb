@@ -9,7 +9,7 @@ uses
   Classes, SysUtils, CustApp, ureadprog, uwritetriggers, uinstructions,
   utriggercode, uarithmetic, usctypes, uparsevb, uvariables, uexpressions,
   uparseconditions, utriggerinstructions, utriggerconditions, utrigedittypes,
-  umapinfo
+  umapinfo, utriggerchunk
   { you can add units after this };
 
 type

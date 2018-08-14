@@ -5,7 +5,7 @@ unit uplugintypes;
 interface
 
 uses
-  Classes, SysUtils, uscmdrafttypes, umapinfo;
+  Classes, SysUtils, uscmdrafttypes, umapinfo, utriggercode;
 
 const
   PluginMenu = 'BroodBasic program';
@@ -42,8 +42,10 @@ type
     function GetForceName(AIndexBase1: integer): string; override;
     function GetLocationName(AIndex: integer): string; override;
     function GetSwitchName(AIndexBase1: integer): string; override;
+    function GetProgramMapEmbedded: boolean; override;
   public
     constructor Create(const AContext: TPluginContext);
+    procedure UpdateTriggers; override;
     function IsAnywhere(ALocation: string): boolean; override;
     function LocationIndexOf(ALocation:string): integer; override;
     function MapStringAllocate(AText: string): integer; override;
@@ -138,9 +140,19 @@ begin
   if result = '' then result := 'Switch'+inttostr(AIndexBase1);
 end;
 
+function TPluginMapInfo.GetProgramMapEmbedded: boolean;
+begin
+  result := true;
+end;
+
 constructor TPluginMapInfo.Create(const AContext: TPluginContext);
 begin
   FContext := AContext;
+end;
+
+procedure TPluginMapInfo.UpdateTriggers;
+begin
+  //
 end;
 
 function TPluginMapInfo.IsAnywhere(ALocation: string): boolean;

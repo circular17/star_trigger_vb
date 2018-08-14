@@ -12,7 +12,7 @@
       </SearchPaths>
     </CompilerOptions>
     <Version Minor="1"/>
-    <Files Count="10">
+    <Files Count="11">
       <Item1>
         <Filename Value="uarithmetic.pas"/>
         <UnitName Value="uarithmetic"/>
@@ -53,6 +53,10 @@
         <Filename Value="uwritetriggers.pas"/>
         <UnitName Value="uwritetriggers"/>
       </Item10>
+      <Item11>
+        <Filename Value="utrigeditoutput.pas"/>
+        <UnitName Value="utrigeditoutput"/>
+      </Item11>
     </Files>
     <RequiredPkgs Count="1">
       <Item1>

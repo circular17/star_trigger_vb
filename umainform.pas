@@ -13,15 +13,22 @@ type
   { TFMain }
 
   TFMain = class(TForm)
+    Compile: TAction;
+    FileSaveAs: TAction;
+    FileSave: TAction;
+    FileOpen: TAction;
     CancelChanges: TAction;
     Errors: TLabel;
     Label1: TLabel;
     ListBox_Locations: TListBox;
     ListBox_Errors: TListBox;
+    OpenDialog1: TOpenDialog;
     Panel_Locations: TPanel;
     Panel_Utils: TPanel;
     Panel_Code: TPanel;
     Panel_Errors: TPanel;
+    SaveDialog1: TSaveDialog;
+    CompileDialog1: TSaveDialog;
     Splitter1: TSplitter;
     Splitter2: TSplitter;
     SynCompletion1: TSynCompletion;
@@ -29,12 +36,22 @@ type
     SynVBSyn1: TSynVBSyn;
     Timer1: TTimer;
     ToolButton2: TToolButton;
+    ToolButton3: TToolButton;
+    ToolButton4: TToolButton;
+    ToolButton5: TToolButton;
+    ToolButton6: TToolButton;
     ValidateChanges: TAction;
     ActionList1: TActionList;
     ImageList1: TImageList;
     ToolBar1: TToolBar;
     ToolButton1: TToolButton;
     procedure CancelChangesExecute(Sender: TObject);
+    procedure CancelChangesUpdate(Sender: TObject);
+    procedure CompileExecute(Sender: TObject);
+    procedure FileOpenExecute(Sender: TObject);
+    procedure FileSaveAsExecute(Sender: TObject);
+    procedure FileSaveExecute(Sender: TObject);
+    procedure FileSaveUpdate(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure ListBox_ErrorsDblClick(Sender: TObject);
@@ -43,14 +60,23 @@ type
     procedure SynEdit1Change(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
     procedure ValidateChangesExecute(Sender: TObject);
+    procedure ValidateChangesUpdate(Sender: TObject);
   private
+    function GetModified: boolean;
+    procedure SetCurFilename(AValue: string);
+    procedure SetModified(AValue: boolean);
+    procedure UpdateTitleBar;
+    procedure UpdateErrors;
 
   public
     AllCompletion: TStringList;
-    ErrorsToUpdate: boolean;
+    ErrorsToUpdate, HasErrors: boolean;
+    FCurFilename: string;
     procedure ClearLocations;
     procedure UpdateAutoCompleteList;
     procedure AddLocation(AName: string; AIsText: boolean);
+    property CurFilename: string read FCurFilename write SetCurFilename;
+    property Modified: boolean read GetModified write SetModified;
   end;
 
 var
@@ -58,7 +84,8 @@ var
 
 implementation
 
-uses ureadprog, uparsevb, uvariables, usctypes, umapinfo, uwritetriggers;
+uses ureadprog, uparsevb, uvariables, usctypes, umapinfo, uwritetriggers,
+  utrigeditoutput;
 
 {$R *.lfm}
 
@@ -66,6 +93,78 @@ uses ureadprog, uparsevb, uvariables, usctypes, umapinfo, uwritetriggers;
 procedure TFMain.ValidateChangesExecute(Sender: TObject);
 begin
   ModalResult:= mrOK;
+end;
+
+procedure TFMain.ValidateChangesUpdate(Sender: TObject);
+begin
+  ValidateChanges.Visible := MapInfo.ProgramMapEmbedded;
+end;
+
+function TFMain.GetModified: boolean;
+begin
+  result := SynEdit1.Modified;
+end;
+
+procedure TFMain.SetCurFilename(AValue: string);
+begin
+  if FCurFilename=AValue then Exit;
+  FCurFilename:=AValue;
+  UpdateTitleBar;
+end;
+
+procedure TFMain.SetModified(AValue: boolean);
+begin
+  if SynEdit1.Modified <> AValue then
+  begin
+    SynEdit1.Modified := AValue;
+    UpdateTitleBar;
+  end;
+end;
+
+procedure TFMain.UpdateTitleBar;
+var modif: string;
+begin
+  if Modified then modif := '*' else modif := '';
+  if CurFilename = '' then
+    Caption := 'BroodBasic program'+modif
+  else
+    Caption := 'BroodBasic - ' +CurFilename+modif;
+end;
+
+procedure TFMain.UpdateErrors;
+var
+  i: Integer;
+  MainThread: TPlayer;
+  success: Boolean;
+begin
+  ErrorsToUpdate := false;
+
+  //full program for validation
+  success := ureadprog.ReadProg(SynEdit1.Lines, MainThread);
+  if success then
+  begin
+    if MainThread = plNone then MainThread := plPlayer8;
+    try
+      if MapInfo.ProgramMapEmbedded then
+        uwritetriggers.CreateTriggers(MainThread, SynEdit1.Text)
+      else
+        uwritetriggers.CreateTriggers(MainThread, '')
+    except on ex:exception do
+      ReadProgErrors.Add(ex.Message);
+    end;
+  end;
+
+  //update error list
+  ListBox_Errors.Items.BeginUpdate;
+  for i := 0 to ReadProgErrors.Count-1 do
+    if ListBox_Errors.Items.IndexOf(ReadProgErrors[i])=-1 then
+      ListBox_Errors.Items.Add(ReadProgErrors[i]);
+  for i := ListBox_Errors.Items.Count-1 downto 0 do
+    if ReadProgErrors.IndexOf(ListBox_Errors.Items[i])=-1 then
+      ListBox_Errors.Items.Delete(i);
+  ListBox_Errors.Items.EndUpdate;
+
+  HasErrors := ReadProgErrors.Count>0;
 end;
 
 procedure TFMain.ClearLocations;
@@ -127,6 +226,99 @@ begin
   ModalResult := mrCancel;
 end;
 
+procedure TFMain.CancelChangesUpdate(Sender: TObject);
+begin
+  CancelChanges.Visible := MapInfo.ProgramMapEmbedded;
+end;
+
+procedure TFMain.CompileExecute(Sender: TObject);
+begin
+  If ErrorsToUpdate then UpdateErrors;
+  if HasErrors then
+    ShowMessage('There are errors in the program so that triggers cannot be generated')
+  else
+  begin
+    if not MapInfo.ProgramMapEmbedded then
+    begin
+      if CurFilename = '' then
+      begin
+        ShowMessage('Please save your file first');
+        exit;
+      end else
+        FileSave.Execute;
+
+      if CompileDialog1.InitialDir = '' then
+        CompileDialog1.InitialDir:= ExtractFilePath(CurFilename);
+      CompileDialog1.FileName := ChangeFileExt(ExtractFilename(CurFilename),'.trigger');
+      if CompileDialog1.Execute then
+      begin
+        try
+          WriteTrigEditCode(CompileDialog1.FileName);
+          WriteTrigEditUnitProperties(ChangeFileExt(CompileDialog1.FileName,'.properties'));
+          CompileDialog1.InitialDir := ExtractFilePath(CompileDialog1.FileName);
+        except
+          on ex:exception do
+            ShowMessage(ex.Message);
+        end;
+      end;
+    end;
+  end;
+end;
+
+procedure TFMain.FileOpenExecute(Sender: TObject);
+begin
+  OpenDialog1.InitialDir := ExtractFilePath(CurFilename);
+  OpenDialog1.FileName := '';
+  if OpenDialog1.Execute then
+  begin
+    try
+      SynEdit1.Lines.LoadFromFile(OpenDialog1.FileName);
+      CurFilename := OpenDialog1.FileName;
+      Modified := false;
+      ErrorsToUpdate:= true;
+    except
+      on ex: Exception do
+        ShowMessage(ex.Message);
+    end;
+  end;
+end;
+
+procedure TFMain.FileSaveAsExecute(Sender: TObject);
+begin
+  SaveDialog1.InitialDir := ExtractFilePath(CurFilename);
+  SaveDialog1.FileName := ExtractFileName(CurFilename);
+  if SaveDialog1.Execute then
+  begin
+    try
+      SynEdit1.Lines.SaveToFile(SaveDialog1.FileName);
+      CurFilename := SaveDialog1.FileName;
+      Modified := false;
+    except
+      on ex: Exception do
+        ShowMessage(ex.Message);
+    end;
+  end;
+end;
+
+procedure TFMain.FileSaveExecute(Sender: TObject);
+begin
+  If CurFilename = '' then FileSaveAs.Execute else
+    begin
+      try
+        SynEdit1.Lines.SaveToFile(Curfilename);
+        Modified := false;
+      except
+        on ex: Exception do
+          ShowMessage(ex.Message);
+      end;
+    end;
+end;
+
+procedure TFMain.FileSaveUpdate(Sender: TObject);
+begin
+  FileSave.Enabled := (CurFilename <> '') and Modified;
+end;
+
 procedure TFMain.FormCreate(Sender: TObject);
 var
   i: Integer;
@@ -137,6 +329,7 @@ begin
   for i := LocationMinIndex to LocationMaxIndex do
     if (i <> AnywhereLocationIndex) and MapInfo.LocationExists(i) then
       fMain.AddLocation(MapInfo.LocationName[i], True);
+  Modified := false;
 
   ErrorsToUpdate:= true;
 end;
@@ -196,40 +389,11 @@ begin
 end;
 
 procedure TFMain.Timer1Timer(Sender: TObject);
-var
-  MainThread: TPlayer;
-  i: Integer;
-  success: Boolean;
 begin
   if ErrorsToUpdate then
   begin
-    ErrorsToUpdate := false;
-
-    //full program for validation
-    success := ureadprog.ReadProg(SynEdit1.Lines, MainThread);
-    if success then
-    begin
-      try
-        uwritetriggers.CreateTriggers(MainThread);
-      except on ex:exception do
-        ReadProgErrors.Add(ex.Message);
-      end;
-    end;
-
-    //update error list
-    ListBox_Errors.Items.BeginUpdate;
-    for i := 0 to ReadProgErrors.Count-1 do
-      if ListBox_Errors.Items.IndexOf(ReadProgErrors[i])=-1 then
-        ListBox_Errors.Items.Add(ReadProgErrors[i]);
-    for i := ListBox_Errors.Items.Count-1 downto 0 do
-      if ReadProgErrors.IndexOf(ListBox_Errors.Items[i])=-1 then
-        ListBox_Errors.Items.Delete(i);
-    ListBox_Errors.Items.EndUpdate;
-
-    if success then
-    begin
-      if MainThread = plNone then MainThread := plPlayer8;
-    end;
+    UpdateErrors;
+    UpdateTitleBar;
   end;
 end;
 

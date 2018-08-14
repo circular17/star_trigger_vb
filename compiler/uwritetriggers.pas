@@ -7,7 +7,7 @@ interface
 uses
   Classes, SysUtils, fgl, usctypes;
 
-procedure CreateTriggers(AMainThread: TPlayer);
+procedure CreateTriggers(AMainThread: TPlayer; ASourceCode: string = '');
 
 implementation
 
@@ -476,7 +476,16 @@ begin
   proc.Free;
 end;
 
-procedure CreateTriggers(AMainThread: TPlayer);
+procedure WriteTriggerForSourceCode(ASourceCode: string);
+var
+  never: TNeverCondition;
+begin
+  never := TNeverCondition.Create;
+  WriteTrigger([plNeutralPlayers], [never], [TCommentInstruction.Create('BroodBasic source code'), TCommentInstruction.Create(ASourceCode)], -1, false);
+  never.Free;
+end;
+
+procedure CreateTriggers(AMainThread: TPlayer; ASourceCode: string = '');
 var
   i, EndIP, tempInt, j: Integer;
   allProcDone: Boolean;
@@ -511,6 +520,9 @@ begin
         Procedures[i].Expanded := true;
       end;
   until allProcDone;
+
+  if ASourceCode <> '' then
+    WriteTriggerForSourceCode(ASourceCode);
 
   WritePlayerPresenceTopTrigger(AMainThread);
   WriteMessageTriggers(AMainThread);

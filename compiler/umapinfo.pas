@@ -18,11 +18,13 @@ type
 
   TCustomMapInfo = class
   protected
+    function GetProgramMapEmbedded: boolean; virtual; abstract;
     function GetAnywhereLocationName: string; virtual; abstract;
     function GetForceName(AIndexBase1: integer): string; virtual; abstract;
     function GetLocationName(AIndex: integer): string; virtual; abstract;
     function GetSwitchName(AIndexBase1: integer): string; virtual; abstract;
   public
+    procedure UpdateTriggers; virtual; abstract;
     function IsAnywhere(ALocation: string): boolean; virtual; abstract;
     function LocationIndexOf(ALocation:string): integer; virtual; abstract;
     function LocationExists(AIndex: integer): boolean; virtual; abstract;
@@ -36,17 +38,20 @@ type
     property SwitchName[AIndexBase1: integer]: string read GetSwitchName;
     property LocationName[AIndex: integer]: string read GetLocationName;
     property AnywhereLocationName: string read GetAnywhereLocationName;
+    property ProgramMapEmbedded: boolean read GetProgramMapEmbedded;
   end;
 
   { TDefaultMapInfo }
 
   TDefaultMapInfo = class(TCustomMapInfo)
   protected
+    function GetProgramMapEmbedded: boolean; override;
     function GetAnywhereLocationName: string; override;
     function GetForceName(AIndexBase1: integer): string; override;
     function GetLocationName(AIndex: integer): string; override;
     function GetSwitchName(AIndexBase1: integer): string; override;
   public
+    procedure UpdateTriggers; override;
     function IsAnywhere(ALocation: string): boolean; override;
     function LocationExists(AIndex: integer): boolean; override;
     function LocationIndexOf(ALocation:string): integer; override;
@@ -64,6 +69,11 @@ var
 implementation
 
 { TDefaultMapInfo }
+
+function TDefaultMapInfo.GetProgramMapEmbedded: boolean;
+begin
+  result := false;
+end;
 
 function TDefaultMapInfo.GetAnywhereLocationName: string;
 begin
@@ -85,6 +95,11 @@ end;
 function TDefaultMapInfo.GetSwitchName(AIndexBase1: integer): string;
 begin
   result := 'Switch'+inttostr(AIndexBase1);
+end;
+
+procedure TDefaultMapInfo.UpdateTriggers;
+begin
+  raise exception.Create('Not implemented');
 end;
 
 function TDefaultMapInfo.IsAnywhere(ALocation: string): boolean;

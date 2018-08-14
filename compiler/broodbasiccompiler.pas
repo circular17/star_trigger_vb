@@ -10,7 +10,7 @@ interface
 uses
   uarithmetic, uexpressions, uinstructions, uparseconditions, uparsevb, 
   ureadprog, usctypes, utriggercode, uvariables, uwritetriggers, 
-  LazarusPackageIntf;
+  utrigeditoutput, LazarusPackageIntf;
 
 implementation
 

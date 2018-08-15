@@ -223,6 +223,11 @@ type
     property ScriptCode: string read GetScriptCode write SetStringCode;
   end;
 
+const
+  MAX_CONDITIONS = 16;
+  MAX_ACTIONS = 64;
+
+type
   { TTriggerData }
 
   PTriggerData = ^TTriggerData;
@@ -245,8 +250,8 @@ type
     procedure SetPreserveTrigger(AValue: boolean);
     procedure SetWaitSkippingDisabledOnce(AValue: boolean);
   public
-    Conditions: array[0..15] of TTriggerConditionData;
-    Actions: array[0..63] of TTriggerInstructionData;
+    Conditions: array[0..MAX_CONDITIONS-1] of TTriggerConditionData;
+    Actions: array[0..MAX_ACTIONS-1] of TTriggerInstructionData;
     Flags: bitpacked array[0..7] of Boolean;
     Reserved: array[1..3] of byte;
     PlayerFlags: array[0..27] of byte;

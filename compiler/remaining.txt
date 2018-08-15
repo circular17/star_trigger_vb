@@ -12,5 +12,3 @@
 - procedure transmission
 - resursivité
 
-
-set switch names from map

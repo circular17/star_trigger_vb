@@ -14,6 +14,7 @@ type
     function ToTrigEditAndFree: string;
     function ToTrigEdit: string; virtual; abstract;
     procedure WriteTriggerData(var AData: TTriggerConditionData); virtual; abstract;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TAlwaysCondition }
@@ -23,6 +24,7 @@ type
     procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: TStarcraftUnit); override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TNeverCondition }
@@ -32,6 +34,7 @@ type
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TSwitchCondition }
@@ -44,6 +47,7 @@ type
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TBringCondition }
@@ -58,6 +62,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TKillCountCondition }
@@ -71,6 +76,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TOpponentCountCondition }
@@ -83,6 +89,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TElapsedTimeCondition }
@@ -94,6 +101,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TCompareUnitCountCondition }
@@ -106,6 +114,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TCompareKillCountCondition }
@@ -117,6 +126,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TDeathCountCondition }
@@ -130,6 +140,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TResourceCondition }
@@ -143,6 +154,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TScoreCondition }
@@ -156,6 +168,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TCountdownCondition }
@@ -167,6 +180,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TCompareResourceCondition }
@@ -178,6 +192,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
   { TCompareScoreCondition }
@@ -189,6 +204,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
 
 function CreateCompareIntegerCondition(AUnitType: TStarcraftUnit; AHighest: boolean): TCondition;
@@ -268,6 +284,13 @@ begin
     result := '';
 end;
 
+class function TTriggerCondition.LoadFromData(const AData: TTriggerConditionData
+  ): TTriggerCondition;
+begin
+  result := TAlwaysCondition.LoadFromData(AData);
+  if Assigned(result) then exit;
+end;
+
 { TScoreCondition }
 
 constructor TScoreCondition.Create(APlayer: TPlayer; AScore: TStarcraftScore;
@@ -297,6 +320,14 @@ begin
   AData.ScoreType:= Score;
   AData.IntegerComparison := Mode;
   Adata.Quantity := Value;
+end;
+
+class function TScoreCondition.LoadFromData(const AData: TTriggerConditionData): TTriggerCondition;
+begin
+  if AData.ConditionType = ctScore then
+    result := TScoreCondition.Create(AData.Player, AData.ScoreType, AData.IntegerComparison, AData.Quantity)
+  else
+    result := nil;
 end;
 
 { TResourceCondition }
@@ -330,6 +361,15 @@ begin
   Adata.Quantity := Value;
 end;
 
+class function TResourceCondition.LoadFromData(
+  const AData: TTriggerConditionData): TTriggerCondition;
+begin
+  if AData.ConditionType = ctAccumulate then
+    result := TResourceCondition.Create(AData.Player, AData.ResourceType, AData.IntegerComparison, AData.Quantity)
+  else
+    result := nil;
+end;
+
 { TCountdownCondition }
 
 constructor TCountdownCondition.Create(AMode: TIntegerConditionMode;
@@ -354,6 +394,15 @@ begin
   AData.ConditionType:= ctCountdown;
   AData.IntegerComparison:= Mode;
   AData.Quantity:= Value;
+end;
+
+class function TCountdownCondition.LoadFromData(
+  const AData: TTriggerConditionData): TTriggerCondition;
+begin
+  if AData.ConditionType = ctCountdown then
+    result := TCountdownCondition.Create(AData.IntegerComparison, AData.Quantity)
+  else
+    result := nil;
 end;
 
 { TDeathCountCondition }
@@ -386,6 +435,15 @@ begin
   AData.Quantity:= Value;
 end;
 
+class function TDeathCountCondition.LoadFromData(
+  const AData: TTriggerConditionData): TTriggerCondition;
+begin
+  if AData.ConditionType = ctDeathCount then
+    result := TDeathCountCondition.Create(AData.Player, AData.UnitType, AData.IntegerComparison, AData.Quantity)
+  else
+    result := nil;
+end;
+
 { TCompareScoreCondition }
 
 constructor TCompareScoreCondition.Create(AScore: TStarcraftScore;
@@ -412,6 +470,16 @@ begin
   if Highest then AData.ConditionType:= ctHighestScore
   else AData.ConditionType:= ctLowestScore;
   AData.ScoreType:= Score;
+end;
+
+class function TCompareScoreCondition.LoadFromData(
+  const AData: TTriggerConditionData): TTriggerCondition;
+begin
+  case AData.ConditionType of
+  ctHighestScore: result := TCompareScoreCondition.Create(AData.ScoreType, true);
+  ctLowestScore: result := TCompareScoreCondition.Create(AData.ScoreType, false);
+  else result := nil;
+  end;
 end;
 
 { TCompareResourceCondition }
@@ -442,6 +510,16 @@ begin
   AData.ResourceType:= Resource;
 end;
 
+class function TCompareResourceCondition.LoadFromData(
+  const AData: TTriggerConditionData): TTriggerCondition;
+begin
+  case AData.ConditionType of
+  ctMostResources: result := TCompareResourceCondition.Create(AData.ResourceType,true);
+  ctLeastResources: result := TCompareResourceCondition.Create(AData.ResourceType,false);
+  else result := nil;
+  end;
+end;
+
 { TAlwaysCondition }
 
 function TAlwaysCondition.ToTrigEdit: string;
@@ -465,6 +543,14 @@ begin
   AData.ConditionType:= ctAlways;
 end;
 
+class function TAlwaysCondition.LoadFromData(const AData: TTriggerConditionData): TTriggerCondition;
+begin
+  if AData.ConditionType = ctAlways then
+    result := TAlwaysCondition.Create
+  else
+    result := nil;
+end;
+
 { TNeverCondition }
 
 function TNeverCondition.ToTrigEdit: string;
@@ -486,6 +572,14 @@ end;
 procedure TNeverCondition.WriteTriggerData(var AData: TTriggerConditionData);
 begin
   AData.ConditionType:= ctNever;
+end;
+
+class function TNeverCondition.LoadFromData(const AData: TTriggerConditionData): TTriggerCondition;
+begin
+  if AData.ConditionType = ctNever then
+    result := TAlwaysCondition.Create
+  else
+    result := nil;
 end;
 
 { TSwitchCondition }
@@ -517,6 +611,14 @@ begin
   AData.ConditionType:= ctSwitch;
   AData.Switch := Switch;
   AData.ExpectedSwitchValue:= Value;
+end;
+
+class function TSwitchCondition.LoadFromData(const AData: TTriggerConditionData): TTriggerCondition;
+begin
+  if AData.ConditionType = ctSwitch then
+    result := TSwitchCondition.Create(AData.Switch, AData.ExpectedSwitchValue)
+  else
+    result := nil;
 end;
 
 { TBringCondition }
@@ -562,6 +664,22 @@ begin
   AData.Quantity := Value;
 end;
 
+class function TBringCondition.LoadFromData(const AData: TTriggerConditionData): TTriggerCondition;
+var
+  loc: String;
+begin
+  if AData.ConditionType in[ctCommand,ctBring] then
+  begin
+    if AData.ConditionType = ctBring then
+      loc := MapInfo.LocationName[AData.LocationBase0]
+    else
+      loc := MapInfo.AnywhereLocationName;
+
+    result := TBringCondition.Create(AData.Player, AData.UnitType, loc, AData.IntegerComparison, AData.Quantity);
+  end
+  else result := nil;
+end;
+
 { TKillCountCondition }
 
 constructor TKillCountCondition.Create(APlayer: TPlayer; AUnitType: TStarcraftUnit;
@@ -591,6 +709,15 @@ begin
   AData.UnitType:= UnitType;
   AData.IntegerComparison:= Mode;
   AData.Quantity := Value;
+end;
+
+class function TKillCountCondition.LoadFromData(
+  const AData: TTriggerConditionData): TTriggerCondition;
+begin
+  if AData.ConditionType = ctKillCount then
+    result := TKillCountCondition.Create(AData.Player, AData.UnitType, AData.IntegerComparison, AData.Quantity)
+  else
+    result := nil;
 end;
 
 { TOpponentCountCondition }
@@ -623,6 +750,15 @@ begin
   AData.Quantity := Value;
 end;
 
+class function TOpponentCountCondition.LoadFromData(
+  const AData: TTriggerConditionData): TTriggerCondition;
+begin
+  if AData.ConditionType = ctOpponentCount then
+    result := TOpponentCountCondition.Create(AData.Player, AData.IntegerComparison, AData.Quantity)
+  else
+    result := nil;
+end;
+
 { TElapsedTimeCondition }
 
 constructor TElapsedTimeCondition.Create(AMode: TIntegerConditionMode;
@@ -648,6 +784,15 @@ begin
   AData.ConditionType:= ctElapsedTime;
   AData.IntegerComparison:= Mode;
   AData.Quantity := Value;
+end;
+
+class function TElapsedTimeCondition.LoadFromData(
+  const AData: TTriggerConditionData): TTriggerCondition;
+begin
+  if AData.ConditionType = ctElapsedTime then
+    result := TElapsedTimeCondition.Create(AData.IntegerComparison, AData.Quantity)
+  else
+    result := nil;
 end;
 
 { TCompareUnitCountCondition }
@@ -690,6 +835,18 @@ begin
   AData.UnitType:= UnitType;
 end;
 
+class function TCompareUnitCountCondition.LoadFromData(
+  const AData: TTriggerConditionData): TTriggerCondition;
+begin
+  case AData.ConditionType of
+  ctCommandTheMost: result := TCompareUnitCountCondition.Create(AData.UnitType, MapInfo.AnywhereLocationName, true);
+  ctCommandTheLeast: result := TCompareUnitCountCondition.Create(AData.UnitType, MapInfo.AnywhereLocationName, false);
+  ctCommandTheMostAt: result := TCompareUnitCountCondition.Create(AData.UnitType, MapInfo.LocationName[AData.LocationBase0], true);
+  ctCommandTheLeastAt: result := TCompareUnitCountCondition.Create(AData.UnitType, MapInfo.LocationName[AData.LocationBase0], false);
+  else result := nil;
+  end;
+end;
+
 { TCompareKillCountCondition }
 
 constructor TCompareKillCountCondition.Create(AUnitType: TStarcraftUnit;
@@ -717,6 +874,16 @@ begin
   if Highest then AData.ConditionType:= ctMostKills
   else AData.ConditionType:= ctLeastKills;
   AData.UnitType:= UnitType;
+end;
+
+class function TCompareKillCountCondition.LoadFromData(
+  const AData: TTriggerConditionData): TTriggerCondition;
+begin
+  case AData.ConditionType of
+  ctMostKills: result := TCompareKillCountCondition.Create(AData.UnitType, true);
+  ctLeastKills: result := TCompareKillCountCondition.Create(AData.UnitType, false);
+  else result := nil;
+  end;
 end;
 
 initialization

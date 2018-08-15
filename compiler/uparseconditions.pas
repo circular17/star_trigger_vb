@@ -407,25 +407,26 @@ begin
         exit;
       end else
       begin
-       result := TryPlayerConditionFunction(AScope, ALine, AIndex, plCurrentPlayer, boolNot);
-       if result = nil then result := TryArithmeticCondition(AScope, ALine, AIndex, boolNot);
-       if result = nil then
-       begin
-         if AIndex >= ALine.Count then
-           raise exception.Create('Expecting condition but end of line found')
-         else
-           raise exception.Create('Expecting condition but "' + ALine[AIndex] + '" found')
-       end
-       else
-       if not IsUniquePlayer(AThreads) or (AThreads = []) then
-       begin
-         result.Free;
-         if AThreads = [] then
-           raise exception.Create('You need to specify the player to which it applies ("Me" for main thread)')
-         else
-           raise exception.Create('You need to specify the player to which it applies ("Me" for each player)');
-       end;
-       exit;
+        result := TryPlayerConditionFunction(AScope, ALine, AIndex, plCurrentPlayer, boolNot);
+        if (result <> nil) and (not IsUniquePlayer(AThreads) or (AThreads = [])) then
+        begin
+          result.Free;
+          if AThreads = [] then
+            raise exception.Create('You need to specify the player to which it applies ("Me" for main thread)')
+          else
+            raise exception.Create('You need to specify the player to which it applies ("Me" for each player)');
+        end else
+        begin
+          if result = nil then result := TryArithmeticCondition(AScope, ALine, AIndex, boolNot);
+          if result = nil then
+          begin
+            if AIndex >= ALine.Count then
+              raise exception.Create('Expecting condition but end of line found')
+            else
+              raise exception.Create('Expecting condition but "' + ALine[AIndex] + '" found')
+          end;
+        end;
+        exit;
       end;
     end;
 

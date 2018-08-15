@@ -11,6 +11,7 @@ type
   { TInstruction }
 
   TInstruction = class
+    function Duplicate: TInstruction; virtual; abstract;
   end;
 
   { TEmptyInstruction }
@@ -24,6 +25,7 @@ type
 
   TInstructionList = class(TCustomInstructionList)
     procedure FreeAll;
+    function Duplicate: TInstructionList;
   end;
 
 type
@@ -55,6 +57,7 @@ type
     UnitType: TStarcraftUnit;
     Range: integer;
     constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; ARange: integer);
+    function Duplicate: TInstruction; override;
   end;
 
   TIntegerTransfer = (itCopyIntoAccumulator, itAddIntoAccumulator, itCopyAccumulator, itAddAccumulator,
@@ -70,6 +73,7 @@ type
     Shift: integer;
     constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; AAction: TIntegerTransfer; AShift: integer = 0);
     constructor Create(AValue: integer; AAction: TIntegerTransfer);
+    function Duplicate: TInstruction; override;
   end;
 
   { TPrintForAnyPlayerInstruction }
@@ -77,6 +81,7 @@ type
   TPrintForAnyPlayerInstruction = class(TInstruction)
     Msg: integer;
     constructor Create(AMsg: integer);
+    function Duplicate: TInstruction; override;
   end;
 
   { TCallInstruction }
@@ -87,6 +92,7 @@ type
     ReturnType: string;
     constructor Create(AName: string; AParams: array of string; AReturnType: string = 'Void');
     constructor Create(AName: string; AParams: TStringList; AReturnType: string = 'Void');
+    function Duplicate: TInstruction; override;
   end;
 
   { TDropThreadInstruction }
@@ -95,6 +101,7 @@ type
     DropIP, ResumeIP: integer;
     PlayersToDrop, PlayersToResume: TPlayers;
     constructor Create(ADropIP, AResumeIP: integer; APlayersToDrop, APlayersToResume: TPlayers);
+    function Duplicate: TInstruction; override;
   end;
 
   { TWaitForPlayersInstruction }
@@ -103,12 +110,14 @@ type
     Players: TPlayers;
     AwaitPresenceDefined: boolean;
     constructor Create(APlayers: TPlayers; AAwaitPresenceDefined: boolean);
+    function Duplicate: TInstruction; override;
   end;
 
   { TReturnInstruction }
 
   TReturnInstruction = class(TInstruction)
     constructor Create;
+    function Duplicate: TInstruction; override;
   end;
 
   { TDoAsInstruction }
@@ -116,6 +125,7 @@ type
   TDoAsInstruction = class(TInstruction)
     Players: TPlayers;
     constructor Create(APlayers: TPlayers);
+    function Duplicate: TInstruction; override;
   end;
 
   { TEndDoAsInstruction }
@@ -123,12 +133,14 @@ type
   TEndDoAsInstruction = class(TInstruction)
     Players: TPlayers;
     constructor Create(APlayers: TPlayers);
+    function Duplicate: TInstruction; override;
   end;
 
   { TWaitForPresenceDefinedInstruction }
 
   TWaitForPresenceDefinedInstruction = class(TInstruction)
     constructor Create;
+    function Duplicate: TInstruction; override;
   end;
 
   { TIfInstruction }
@@ -138,6 +150,7 @@ type
     destructor Destroy; override;
     constructor Create(ACondition: TCondition);
     constructor Create(AConditions: TConditionList);
+    function Duplicate: TInstruction; override;
   end;
 
   { TFastIfInstruction }
@@ -150,6 +163,7 @@ type
     constructor Create(AConditions: array of TCondition; AInstructions: TInstructionList);
     constructor Create(AConditions: array of TCondition; AInstructions: array of TInstruction);
     destructor Destroy; override;
+    function Duplicate: TInstruction; override;
   end;
 
   { TWaitConditionInstruction }
@@ -160,12 +174,14 @@ type
     destructor Destroy; override;
     constructor Create(AConditions: TConditionList; AIP: Integer);
     constructor Create(ACondition: TCondition; AIP: Integer);
+    function Duplicate: TInstruction; override;
   end;
 
   { TElseInstruction }
 
   TElseInstruction = class(TInstruction)
     constructor Create;
+    function Duplicate: TInstruction; override;
   end;
 
   { TSplitInstruction }
@@ -174,12 +190,14 @@ type
     ResumeIP, EndIP: integer;
     ChangePlayers: TPlayers;
     constructor Create(AResumeIP, AEndIP: integer; AChangePlayers: TPlayers = []);
+    function Duplicate: TInstruction; override;
   end;
 
   { TEndIfInstruction }
 
   TEndIfInstruction = class(TInstruction)
     constructor Create;
+    function Duplicate: TInstruction; override;
   end;
 
   { TChangeIPInstruction }
@@ -188,6 +206,7 @@ type
     IP: integer;
     Preserve: Integer;
     constructor Create(AIP: Integer; APreserve: Integer);
+    function Duplicate: TInstruction; override;
   end;
 
   { TWhileInstruction }
@@ -196,12 +215,14 @@ type
     Conditions: TConditionList;
     destructor Destroy; override;
     constructor Create(AConditions: TConditionList);
+    function Duplicate: TInstruction; override;
   end;
 
   { TEndWhileInstruction }
 
   TEndWhileInstruction = class(TInstruction)
     constructor Create;
+    function Duplicate: TInstruction; override;
   end;
 
   /////////////////////////////////////////////////////////////////////////////////////////////
@@ -265,6 +286,11 @@ begin
   UnitType := AUnitType;
   Range := ARange;
   if Range < 1 then raise exception.Create('Invalid range');
+end;
+
+function TRandomizeIntegerInstruction.Duplicate: TInstruction;
+begin
+  result := TRandomizeIntegerInstruction.Create(Player,UnitType,Range);
 end;
 
 { TAndCondition }
@@ -387,11 +413,21 @@ begin
   Msg := AMsg;
 end;
 
+function TPrintForAnyPlayerInstruction.Duplicate: TInstruction;
+begin
+  result := TPrintForAnyPlayerInstruction.Create(Msg);
+end;
+
 { TWaitForPresenceDefinedInstruction }
 
 constructor TWaitForPresenceDefinedInstruction.Create;
 begin
   //
+end;
+
+function TWaitForPresenceDefinedInstruction.Duplicate: TInstruction;
+begin
+  result := TWaitForPresenceDefinedInstruction.Create;
 end;
 
 { TInstructionList }
@@ -406,6 +442,15 @@ begin
   Free;
 end;
 
+function TInstructionList.Duplicate: TInstructionList;
+var
+  i: Integer;
+begin
+  result := TInstructionList.Create;
+  for i := 0 to Count-1 do
+    result.Add(Items[i]);
+end;
+
 { TWaitForPlayersInstruction }
 
 constructor TWaitForPlayersInstruction.Create(APlayers: TPlayers;
@@ -415,6 +460,11 @@ begin
   AwaitPresenceDefined:= AAwaitPresenceDefined;
 end;
 
+function TWaitForPlayersInstruction.Duplicate: TInstruction;
+begin
+  result := TWaitForPlayersInstruction.Create(Players,AwaitPresenceDefined);
+end;
+
 { TEndDoAsInstruction }
 
 constructor TEndDoAsInstruction.Create(APlayers: TPlayers);
@@ -422,11 +472,21 @@ begin
   Players:= APlayers;
 end;
 
+function TEndDoAsInstruction.Duplicate: TInstruction;
+begin
+  result := TEndDoAsInstruction.Create(Players);
+end;
+
 { TDoAsInstruction }
 
 constructor TDoAsInstruction.Create(APlayers: TPlayers);
 begin
   Players:= APlayers;
+end;
+
+function TDoAsInstruction.Duplicate: TInstruction;
+begin
+  result := TDoAsInstruction.Create(Players);
 end;
 
 { TFastIfInstruction }
@@ -478,6 +538,11 @@ begin
     Instructions[i].Free;
   Instructions.Free;
   inherited Destroy;
+end;
+
+function TFastIfInstruction.Duplicate: TInstruction;
+begin
+  result := TFastIfInstruction.Create(Conditions.Duplicate,Instructions.Duplicate);
 end;
 
 { TNotCondition }
@@ -549,6 +614,11 @@ begin
   ChangePlayers := AChangePlayers;
 end;
 
+function TSplitInstruction.Duplicate: TInstruction;
+begin
+  result := TSplitInstruction.Create(ResumeIP,EndIP,ChangePlayers);
+end;
+
 { TTransferIntegerInstruction }
 
 constructor TTransferIntegerInstruction.Create(APlayer: TPlayer;
@@ -589,6 +659,14 @@ begin
     else raise exception.Create('Case not handled');
     end;
   end;
+end;
+
+function TTransferIntegerInstruction.Duplicate: TInstruction;
+begin
+  if UnitType = suConst then
+    result := TTransferIntegerInstruction.Create(Value,Action)
+  else
+    result := TTransferIntegerInstruction.Create(Player,UnitType,Action,Shift);
 end;
 
 { TConditionList }
@@ -662,12 +740,22 @@ begin
   IP := AIP;
 end;
 
+function TWaitConditionInstruction.Duplicate: TInstruction;
+begin
+  result := TWaitConditionInstruction.Create(Conditions.Duplicate, IP);
+end;
+
 { TChangeIPInstruction }
 
 constructor TChangeIPInstruction.Create(AIP: Integer; APreserve: Integer);
 begin
   IP := AIP;
   Preserve := APreserve;
+end;
+
+function TChangeIPInstruction.Duplicate: TInstruction;
+begin
+  result := TChangeIPInstruction.Create(IP,Preserve);
 end;
 
 { TEndIfInstruction }
@@ -677,11 +765,21 @@ begin
   //nothing
 end;
 
+function TEndIfInstruction.Duplicate: TInstruction;
+begin
+  result := TEndIfInstruction.Create;
+end;
+
 { TElseInstruction }
 
 constructor TElseInstruction.Create;
 begin
   //nothing
+end;
+
+function TElseInstruction.Duplicate: TInstruction;
+begin
+  result := TElseInstruction.Create;
 end;
 
 { TIfInstruction }
@@ -703,6 +801,11 @@ begin
   Conditions := AConditions;
 end;
 
+function TIfInstruction.Duplicate: TInstruction;
+begin
+  result := TIfInstruction.Create(Conditions.Duplicate);
+end;
+
 { TWhileInstruction }
 
 destructor TWhileInstruction.Destroy;
@@ -716,6 +819,11 @@ begin
   Conditions := AConditions;
 end;
 
+function TWhileInstruction.Duplicate: TInstruction;
+begin
+  result := TWhileInstruction.Create(Conditions.Duplicate);
+end;
+
 { TEndWhileInstruction }
 
 constructor TEndWhileInstruction.Create;
@@ -723,11 +831,21 @@ begin
  //nothing
 end;
 
+function TEndWhileInstruction.Duplicate: TInstruction;
+begin
+  result := TEndWhileInstruction.Create;
+end;
+
 { TReturnInstruction }
 
 constructor TReturnInstruction.Create;
 begin
   //nothing
+end;
+
+function TReturnInstruction.Duplicate: TInstruction;
+begin
+  result := TReturnInstruction.Create;
 end;
 
 { TDropThreadInstruction }
@@ -739,6 +857,11 @@ begin
   ResumeIP:= AResumeIP;
   PlayersToDrop:= APlayersToDrop;
   PlayersToResume:= APlayersToResume;
+end;
+
+function TDropThreadInstruction.Duplicate: TInstruction;
+begin
+  result := TDropThreadInstruction.Create(DropIP,ResumeIP,PlayersToDrop,PlayersToResume);
 end;
 
 { TCallInstruction }
@@ -762,7 +885,13 @@ begin
   setlength(Params, AParams.Count);
   for i := 0 to AParams.Count-1 do
     Params[i] := AParams[i];
+  AParams.Free;
   ReturnType:= AReturnType;
+end;
+
+function TCallInstruction.Duplicate: TInstruction;
+begin
+  result := TCallInstruction.Create(Name, Params, ReturnType);
 end;
 
 { TCondition }

@@ -1665,7 +1665,6 @@ begin
         CheckEndOfLine;
 
         AProg.Add(TCallInstruction.Create(name, params));
-        params.Free;
       end else
       if scalar.VarType = svtNone then
       begin

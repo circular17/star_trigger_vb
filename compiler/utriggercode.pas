@@ -118,21 +118,43 @@ procedure WriteTrigger(APlayers: TPlayers;
 var
   t: TTrigger;
   i: Integer;
+  setNext, preserve: TTriggerInstruction;
+  always: TAlwaysCondition;
 begin
   t := TTrigger.Create(APlayers);
+  setNext := nil;
+  preserve := nil;
+  always := nil;
   try
-
+    for i := 0 to high(AConditions) do t.AddCondition(AConditions[i]);
+    for i := 0 to high(AActions) do t.AddAction(AActions[i]);
+    if t.ConditionCount = 0 then
+    begin
+      always := TAlwaysCondition.Create;
+      t.AddCondition(always);
+    end;
+    if ANextIP <> -1 then
+    begin
+      setNext := SetNextIP(ANextIP);
+      t.AddAction(setNext);
+    end;
+    if APreserve then
+    begin
+      preserve := TPreserveTriggerInstruction.Create;
+      t.AddAction(preserve);
+    end;
+    FreeAndNil(setNext);
+    FreeAndNil(preserve);
+    FreeAndNil(always);
   except on ex: exception do
    begin
      t.Free;
+     setNext.Free;
+     preserve.Free;
+     always.Free;
      raise exception.Create('Unable to create trigger. '+ex.Message);
    end;
   end;
-  for i := 0 to high(AConditions) do t.AddCondition(AConditions[i]);
-  for i := 0 to high(AActions) do t.AddAction(AActions[i]);
-  if t.ConditionCount = 0 then t.AddCondition(TAlwaysCondition.Create);
-  if ANextIP <> -1 then t.AddAction(SetNextIP(ANextIP));
-  if APreserve then t.AddAction(TPreserveTriggerInstruction.Create);
 
   CompiledTriggers.Add(t);
 end;
@@ -752,7 +774,7 @@ begin
     if ActionCount >= MAX_ACTIONS then
       raise exception.Create('Too many actions');
   end;
-  FActions.Add(TTriggerInstruction(AInstruction).Duplicate);
+  FActions.Add(TTriggerInstruction(AInstruction).Duplicate as TTriggerInstruction);
 end;
 
 function TTrigger.ToTrigEdit: string;

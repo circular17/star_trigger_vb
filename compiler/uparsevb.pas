@@ -30,10 +30,10 @@ function IsIntegerType(AName: string): boolean;
 function BitCountNeededFor(AValue: integer): integer;
 
 const
-  ImplementedReservedWords: array[1..41] of string =
+  ImplementedReservedWords: array[1..42] of string =
     ('Dim','As','Const','Sub','When','End','If','EndIf', 'Then','Else','Not','And','Or','While','Option','Return',
      'On','Off','Hyper','Boolean','Byte','UInt8','UShort','UInt16','UInt24','String','True','False',
-     'Do','Len','Chr','Asc','Exit','Function','LBound','UBound','Me','Rnd','New','Min','Max');
+     'Do','Len','Chr','Asc','Exit','Function','LBound','UBound','Me','Rnd','New','Min','Max','All');
 
   NotImplementedReservedWords: array[1..19] of string =
      ('For','To','Step','Next','Loop','Until','ElseIf','Select','Case',  //reserved and planned to implement
@@ -250,7 +250,13 @@ begin
   begin
     repeat
       pl := TryParsePlayer(ALine,AIndex);
-      if pl = plNone then raise exception.Create('Expecting player but "' + ALine[AIndex] + '" found');
+      if pl = plNone then
+      begin
+        if AIndex >= ALine.Count then
+          raise exception.Create('Expecting player but end of line found')
+        else
+          raise exception.Create('Expecting player but "' + ALine[AIndex] + '" found');
+      end;
       result += [pl];
 
       if TryToken(ALine, aIndex, '}') then break
@@ -262,7 +268,13 @@ begin
   end else
   begin
     pl := TryParsePlayer(ALine,AIndex);
-    if pl = plNone then raise exception.Create('Expecting player but "' + ALine[AIndex] + '" found');
+    if pl = plNone then
+    begin
+      if AIndex >= ALine.Count then
+        raise exception.Create('Expecting player but end of line found')
+      else
+        raise exception.Create('Expecting player but "' + ALine[AIndex] + '" found');
+    end;
     result := [pl];
   end;
 end;

@@ -9,6 +9,7 @@ object FMain: TFMain
   ClientWidth = 951
   OnCreate = FormCreate
   OnDestroy = FormDestroy
+  OnDropFiles = FormDropFiles
   LCLVersion = '1.8.4.0'
   object ToolBar1: TToolBar
     Left = 0
@@ -67,6 +68,7 @@ object FMain: TFMain
       Top = 0
       Width = 776
       Align = alClient
+      Color = 14206148
       Font.Height = -13
       Font.Name = 'Courier New'
       Font.Pitch = fpFixed
@@ -894,6 +896,9 @@ object FMain: TFMain
   end
   object SynVBSyn1: TSynVBSyn
     Enabled = False
+    CommentAttri.Foreground = clGreen
+    KeyAttri.Foreground = clBlue
+    StringAttri.Foreground = clMaroon
     left = 152
     top = 176
   end

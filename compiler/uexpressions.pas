@@ -203,6 +203,8 @@ var
   u: TStarcraftUnit;
   ident: string;
 begin
+  ExpectToken(ALine,AIndex,'Unit');
+  ExpectToken(ALine,AIndex,'.');
   if not TryIdentifier(ALine, AIndex, ident) then raise exception.Create('Expecting identifier');
   for u := low(TStarcraftUnit) to suFactories do
     if CompareText(StarcraftUnitIdentifier[u],ident)=0 then exit(u);
@@ -368,7 +370,7 @@ begin
   expr := TryExpression(AScope, ALine,AIndex,false,false);
   if expr = nil then
   begin
-     if AIndex > ALine.Count then
+     if AIndex >= ALine.Count then
       raise exception.Create('Integer expected but end of line found') else
       raise exception.Create('Integer expected but "' + ALine[AIndex] + '" found');
     exit(0);

@@ -44,6 +44,7 @@ var
     Value: integer;
     Randomize: boolean;
     AddToAcc,AddFromAcc: boolean;
+    IntArray: integer;
     Scope: integer;
   end;
   IntVarCount: integer;
@@ -234,14 +235,16 @@ begin
           Vars[i-1] := PredefineIntVar(AScope, Name+'('+IntToStr(i)+')', plNone, UnitType, ABitCount);
         IntVars[Vars[i-1]].Value := Values[i-1];
         IntVars[Vars[i-1]].Constant:= Constant;
+        IntVars[Vars[i-1]].IntArray := result;
       end
       else
       begin
         Vars[i-1] := CreateIntVar(AScope, Name+'('+IntToStr(i)+')', Values[i-1], ABitCount, false, Constant);
         IntVars[Vars[i-1]].Predefined := true;
+        IntVars[Vars[i-1]].IntArray := result;
       end;
 
-    PredefineIntVar(AScope, Name+'(Me)', plCurrentPlayer, UnitType, ABitCount);
+    IntVars[PredefineIntVar(AScope, Name+'(Me)', plCurrentPlayer, UnitType, ABitCount)].IntArray := result;
   end;
 end;
 
@@ -274,8 +277,9 @@ begin
     begin
       Values[i-1] := 0;
       Vars[i-1] := PredefineIntVar(AScope, Name+'('+IntToStr(i)+')', IntToPlayer(i), UnitType, ABitCount);
+      IntVars[Vars[i-1]].IntArray := result;
     end;
-    PredefineIntVar(AScope, Name+'(Me)', plCurrentPlayer, UnitType, ABitCount);
+    IntVars[PredefineIntVar(AScope, Name+'(Me)', plCurrentPlayer, UnitType, ABitCount)].IntArray := result;
   end;
 end;
 
@@ -356,6 +360,7 @@ begin
     Value := AValue;
     BitCount:= ABitCount;
     Randomize:= ARandomize;
+    IntArray := -1;
   end;
 end;
 
@@ -384,6 +389,7 @@ begin
     Value := 0;
     BitCount:= ABitCount;
     Randomize:= false;
+    IntArray := -1;
   end;
 end;
 

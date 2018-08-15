@@ -199,7 +199,8 @@ begin
             (ProcedureIndexOf(AName,AParamCount)<>-1) or (UnitPropIndexOf(AScope, AName, False) <> -1) or
             (StringIndexOf(AScope, AName, False)<>-1) or (SoundIndexOf(AScope, AName, False)<>-1) or
             (CompareText('AI',AName) = 0) or (CompareText('Present',AName) = 0) or
-            (CompareText('CountIf',AName)=0) or IsUnitType(AName);
+            (CompareText('CountIf',AName)=0) or IsUnitType(AName) or (CompareText('Alliance',AName) = 0) or
+            (CompareText('Unit',AName) = 0) or (CompareText('Leaderboard',AName) = 0);
 end;
 
 function CreateProcedure(AName: string; AParamCount: integer; AReturnType: string): integer;
@@ -795,7 +796,7 @@ var
   procedure CheckCurrentPlayer;
   begin
     if APlayer <> plCurrentPlayer then
-      raise exception.Create('This action can only be done with the current player "Me"');
+      raise exception.Create('This action can only be done with the current player "Me". Use instruction "Do As" for multithreading');
   end;
 
   function ParseOptionalQuantity: integer;
@@ -850,9 +851,9 @@ begin
       AProg.Add(TCreateUnitInstruction.Create(APlayer, expr.ConstElement, unitType, locStr, propIndex))
     else
     begin
-      tempInt := AllocateTempInt(16);
+      tempInt := AllocateTempInt(8);
       expr.AddToProgram(AProg, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
-      for i := 10 downto 0 do
+      for i := 7 downto 0 do
       begin
         subInstr := TInstructionList.Create;
         subInstr.Add( TCreateUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, propIndex) );
@@ -894,7 +895,7 @@ begin
 
     AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
   end else
-  if TryToken(ALine,AIndex,'Unit') then
+  if TryToken(ALine,AIndex,'Units') then
   begin
     ExpectToken(ALine,AIndex,'(');
     intVal := ParseOptionalQuantity;
@@ -1025,6 +1026,13 @@ begin
       AppendConditionalInstruction(AProg, conds,
          TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufDoodadState, ufvEnable),
          TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufDoodadState, ufvDisable));
+    end else
+    if TryToken(ALine,AIndex,'Burrowed') or
+      TryToken(ALine,AIndex,'Cloaked') or
+      TryToken(ALine,AIndex,'Hallucinated') or
+      TryToken(ALine,AIndex,'Lifted') then
+    begin
+      raise exception.Create('This property cannot be changed after the unit is created');
     end else
     begin
       if TryToken(ALine,AIndex,'Life') then prop := supLife else
@@ -1719,6 +1727,7 @@ begin
 end;
 
 function ReadProg(ALines: TStrings; out AMainThread: TPlayer): boolean;
+const MAX_ERRORS = 3;
 var
   line: TStringList;
   index: integer;
@@ -1822,7 +1831,7 @@ begin
   doPlayers := [];
   LastScope := GlobalScope;
 
-  while not Eof and (errorCount < 3) do
+  while not Eof and (errorCount < MAX_ERRORS) do
   begin
     try
       ReadNextLine;
@@ -2039,25 +2048,28 @@ begin
 
   line.Free;
 
-  if inSub<>-1 then
+  if errorCount < MAX_ERRORS then
   begin
-    ReadProgErrors.Add('Line ' + inttostr( lineNumber) + ': Sub or Function not finished');
-    Inc(errorCount);
-    LastScope:= Procedures[inSub].InnerScope;
-  end;
+    if inSub<>-1 then
+    begin
+      ReadProgErrors.Add('Line ' + inttostr( lineNumber) + ': Sub or Function not finished');
+      Inc(errorCount);
+      LastScope:= Procedures[inSub].InnerScope;
+    end;
 
-  if inEvent<>-1 then
-  begin
-    ReadProgErrors.Add('Line ' + inttostr( lineNumber) + ': event not finished');
-    Inc(errorCount);
-    LastScope:= Events[inEvent].InnerScope;
-  end;
+    if inEvent<>-1 then
+    begin
+      ReadProgErrors.Add('Line ' + inttostr( lineNumber) + ': event not finished');
+      Inc(errorCount);
+      LastScope:= Events[inEvent].InnerScope;
+    end;
 
-  if inSubNew then
-  begin
-    ReadProgErrors.Add('Line ' + inttostr( lineNumber) + ': Sub not finished');
-    Inc(errorCount);
-    LastScope:= SubNewScope;
+    if inSubNew then
+    begin
+      ReadProgErrors.Add('Line ' + inttostr( lineNumber) + ': Sub not finished');
+      Inc(errorCount);
+      LastScope:= SubNewScope;
+    end;
   end;
 
   result := errorCount = 0;

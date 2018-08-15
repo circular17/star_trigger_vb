@@ -54,6 +54,7 @@ type
     procedure FileSaveUpdate(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
+    procedure FormDropFiles(Sender: TObject; const FileNames: array of String);
     procedure ListBox_ErrorsDblClick(Sender: TObject);
     procedure ListBox_LocationsDblClick(Sender: TObject);
     procedure SynCompletion1SearchPosition(var APosition: integer);
@@ -67,6 +68,7 @@ type
     procedure SetModified(AValue: boolean);
     procedure UpdateTitleBar;
     procedure UpdateErrors;
+    procedure TryOpenFile(AFilename: string);
 
   public
     AllCompletion: TStringList;
@@ -167,16 +169,40 @@ begin
   HasErrors := ReadProgErrors.Count>0;
 end;
 
+procedure TFMain.TryOpenFile(AFilename: string);
+begin
+  try
+    SynEdit1.Lines.LoadFromFile(AFilename);
+    CurFilename := AFilename;
+    Modified := false;
+    ErrorsToUpdate:= true;
+  except
+    on ex: Exception do
+      ShowMessage(ex.Message);
+  end;
+end;
+
 procedure TFMain.ClearLocations;
 begin
   ListBox_Locations.Items.Clear;
 end;
 
 procedure TFMain.UpdateAutoCompleteList;
+  procedure AddCompletion(AWords: array of string);
+  var
+    i: Integer;
+  begin
+    for i := 0 to high(AWords) do
+      if AllCompletion.IndexOf(AWords[i])=-1 then
+        AllCompletion.Add(AWords[i]);
+  end;
 var
   programUpToCursor: TStringList;
   i: Integer;
   MainThread, pl: TPlayer;
+  u: TStarcraftUnit;
+  lineUpToCursor: TStringList;
+
 begin
   //partial program for autocompletion
   programUpToCursor:= TStringList.Create;
@@ -186,33 +212,89 @@ begin
   ureadprog.ReadProg(programUpToCursor, MainThread);
   programUpToCursor.Free;
 
+  lineUpToCursor := nil;
+  try
+    if SynEdit1.CaretY <= SynEdit1.Lines.Count then
+      lineUpToCursor := ParseLine(copy(SynEdit1.Lines[SynEdit1.CaretY-1],1,SynEdit1.CaretX-1))
+    else
+      lineUpToCursor := TStringList.Create;;
+  except
+    lineUpToCursor := TStringList.Create;
+  end;
+  if (lineUpToCursor.Count > 0) and IsValidVariableName(lineUpToCursor[lineUpToCursor.Count-1]) then
+    lineUpToCursor.delete(lineUpToCursor.Count-1);
+
   AllCompletion.Clear;
-  for i := 0 to High(ImplementedReservedWords) do
-    AllCompletion.Add(ImplementedReservedWords[i]);
-  for i := 0 to IntVarCount-1 do
-    if (IntVars[i].Scope = GlobalScope) or (IntVars[i].Scope = LastScope) then
-      AllCompletion.Add(IntVars[i].Name);
-  for i := 0 to BoolArrayCount-1 do
-    if (BoolVars[i].Scope = GlobalScope) or (BoolVars[i].Scope = LastScope) then
-      AllCompletion.Add(BoolVars[i].Name);
-  for i := 0 to IntArrayCount-1 do
-    if (IntArrays[i].Scope = GlobalScope) or (IntArrays[i].Scope = LastScope) then
-      AllCompletion.Add(IntArrays[i].Name);
-  for i := 0 to BoolArrayCount-1 do
-    if (BoolArrays[i].Scope = GlobalScope) or (BoolArrays[i].Scope = LastScope) then
-      AllCompletion.Add(BoolArrays[i].Name);
-  for i := 0 to UnitPropCount-1 do
-    if (UnitPropVars[i].Scope = GlobalScope) or (UnitPropVars[i].Scope = LastScope) then
-      AllCompletion.Add(UnitPropVars[i].Name);
-  for i := 0 to SoundCount-1 do
-    if (SoundVars[i].Scope = GlobalScope) or (SoundVars[i].Scope = GlobalScope) then
-      AllCompletion.Add(SoundVars[i].Name);
-  for i := 0 to StringCount-1 do
-    if (StringVars[i].Scope = GlobalScope) or (StringVars[i].Scope = GlobalScope) then
-      AllCompletion.Add(StringVars[i].Name);
-  for pl := low(TPlayer) to high(TPlayer) do
-    if PlayerIdentifiers[pl]<>'' then
-      AllCompletion.Add(PlayerIdentifiers[pl]);
+
+  if (lineUpToCursor.Count >= 2) and (lineUpToCursor[lineUpToCursor.Count-1] = '.') and
+     (comparetext(lineUpToCursor[lineUpToCursor.Count-2],'Alliance') = 0) then
+    AddCompletion(['Ennemy','Ally','AlliedVictory']) else
+  if (lineUpToCursor.Count >= 2) and (lineUpToCursor[lineUpToCursor.Count-1] = '.') and
+     (comparetext(lineUpToCursor[lineUpToCursor.Count-2],'Leaderboard') = 0) then
+     AddCompletion(['Computers','ToggleComputers','Show']) else
+  if (lineUpToCursor.Count >= 2) and (lineUpToCursor[lineUpToCursor.Count-1] = '.') and
+     (comparetext(lineUpToCursor[lineUpToCursor.Count-2],'Unit') = 0) then
+  begin
+    for u := low(TStarcraftUnit) to suFactories do
+      AllCompletion.Add(StarcraftUnitIdentifier[u]);
+  end else
+  if (lineUpToCursor.Count >= 2) and (lineUpToCursor[lineUpToCursor.Count-1] = '.') and
+     (comparetext(lineUpToCursor[lineUpToCursor.Count-2],'AI') = 0) then
+  begin
+    for i := low(AIScripts) to high(AIScripts) do
+      AllCompletion.Add(AIScripts[i].Identifier);
+  end else
+  begin
+    for i := 0 to IntVarCount-1 do
+      if (IntVars[i].IntArray = -1) and ((IntVars[i].Scope = GlobalScope) or (IntVars[i].Scope = LastScope)) then
+        AllCompletion.Add(IntVars[i].Name);
+    for i := 0 to BoolVarCount-1 do
+      if (BoolVars[i].BoolArray = -1) and ((BoolVars[i].Scope = GlobalScope) or (BoolVars[i].Scope = LastScope)) then
+        AllCompletion.Add(BoolVars[i].Name);
+    for i := 0 to IntArrayCount-1 do
+      if (IntArrays[i].Scope = GlobalScope) or (IntArrays[i].Scope = LastScope) then
+        AllCompletion.Add(IntArrays[i].Name);
+    for i := 0 to BoolArrayCount-1 do
+      if (BoolArrays[i].Scope = GlobalScope) or (BoolArrays[i].Scope = LastScope) then
+        AllCompletion.Add(BoolArrays[i].Name);
+
+    if (lineUpToCursor.Count > 0) and (lineUpToCursor[lineUpToCursor.Count-1] = '.') then
+    begin
+      AddCompletion(['Life','Shield','Energy','Resource','HangarCount','Burrowed',
+           'Cloaked','Hallucinated','Invincible','Lifted', 'Filename','Duration',
+           'Properties','Location','Teleport','AttractLocation','MoveOrder','PatrolOrder','AttackOrder','Kill',
+           'Remove','Give','ToggleInvincibility','ToggleDoodadState','Invincible','DoodadState','Alliance']);
+    end
+    else
+    begin
+      if lineUpToCursor.Count > 0 then
+      begin
+        AddCompletion(['AI','Present','CountIf','UnitProperties','Sound']);
+        for i := 0 to UnitPropCount-1 do
+          if (UnitPropVars[i].Scope = GlobalScope) or (UnitPropVars[i].Scope = LastScope) then
+            AllCompletion.Add(UnitPropVars[i].Name);
+        for i := 0 to SoundCount-1 do
+          if (SoundVars[i].Scope = GlobalScope) or (SoundVars[i].Scope = LastScope) then
+            AllCompletion.Add(SoundVars[i].Name);
+        for i := 0 to StringCount-1 do
+          if (StringVars[i].Scope = GlobalScope) or (StringVars[i].Scope = LastScope) then
+            AllCompletion.Add(StringVars[i].Name);
+      end;
+
+      for pl := low(TPlayer) to high(TPlayer) do
+        if PlayerIdentifiers[pl]<>'' then
+          AllCompletion.Add(PlayerIdentifiers[pl]);
+
+      for i := low(ImplementedReservedWords) to High(ImplementedReservedWords) do
+        AllCompletion.Add(ImplementedReservedWords[i]);
+    end;
+
+    AddCompletion(['CountdownPaused','GamePaused','NextScenario','Wait']);
+    AddCompletion(['CreateUnit','KillUnit','RemoveUnit','GiveUnit','Units']);
+    AddCompletion(['CenterView','MinimapPing','Print','TalkingPortrait','MissionObjectives','Leaderboard']);
+  end;
+
+  lineUpToCursor.Free;
 end;
 
 procedure TFMain.AddLocation(AName: string; AIsText: boolean);
@@ -242,7 +324,7 @@ begin
     begin
       if CurFilename = '' then
       begin
-        ShowMessage('Please save your file first');
+        ShowMessage('Please save your source code first');
         exit;
       end else
         FileSave.Execute;
@@ -278,18 +360,7 @@ procedure TFMain.FileOpenExecute(Sender: TObject);
 begin
   OpenDialog1.InitialDir := ExtractFilePath(CurFilename);
   OpenDialog1.FileName := '';
-  if OpenDialog1.Execute then
-  begin
-    try
-      SynEdit1.Lines.LoadFromFile(OpenDialog1.FileName);
-      CurFilename := OpenDialog1.FileName;
-      Modified := false;
-      ErrorsToUpdate:= true;
-    except
-      on ex: Exception do
-        ShowMessage(ex.Message);
-    end;
-  end;
+  if OpenDialog1.Execute then TryOpenFile(OpenDialog1.FileName);
 end;
 
 procedure TFMain.FileSaveAsExecute(Sender: TObject);
@@ -354,6 +425,11 @@ begin
   AllCompletion.Free;
 end;
 
+procedure TFMain.FormDropFiles(Sender: TObject; const FileNames: array of String);
+begin
+  TryOpenFile(Filenames[0]);
+end;
+
 procedure TFMain.ListBox_ErrorsDblClick(Sender: TObject);
 var lineNumber,errPos: integer;
   err: String;
@@ -389,11 +465,15 @@ var
 begin
   UpdateAutocompleteList;
 
-  cur := SynCompletion1.CurrentString;
+  cur := LowerCase(SynCompletion1.CurrentString);
   SynCompletion1.ItemList.Clear;
+
+  if length(cur) > 0 then cur[1] := upcase(cur[1]);
   for i := 0 to AllCompletion.Count-1 do
-    if CompareText(cur, copy(AllCompletion[i],1,length(cur)))= 0 then
+    if (CompareText(cur, copy(AllCompletion[i],1,length(cur)))= 0) or
+      (pos(cur, AllCompletion[i])<>0) then
       SynCompletion1.ItemList.Add(AllCompletion[i]);
+
   if AllCompletion.Count >0 then APosition:= 0
     else APosition:= -1;
 end;

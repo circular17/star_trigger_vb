@@ -13,70 +13,66 @@ object FMain: TFMain
   LCLVersion = '1.8.4.0'
   object ToolBar1: TToolBar
     Left = 0
-    Height = 26
+    Height = 38
     Top = 0
     Width = 951
+    HelpType = htKeyword
+    HelpKeyword = '0'
+    AutoSize = True
+    ButtonHeight = 36
+    ButtonWidth = 23
     Caption = 'ToolBar1'
     Images = ImageList1
     ParentShowHint = False
-    ShowHint = True
+    ShowCaptions = True
     TabOrder = 0
-    object ToolButton1: TToolButton
-      Left = 93
-      Top = 2
-      Action = ValidateChanges
-    end
-    object ToolButton2: TToolButton
-      Left = 116
-      Top = 2
-      Action = CancelChanges
-    end
     object ToolButton3: TToolButton
       Left = 1
       Top = 2
       Action = FileOpen
     end
     object ToolButton4: TToolButton
-      Left = 24
+      Left = 66
       Top = 2
       Action = FileSave
+      Caption = 'Save file'
     end
     object ToolButton5: TToolButton
-      Left = 47
+      Left = 119
       Top = 2
       Action = FileSaveAs
     end
     object ToolButton6: TToolButton
-      Left = 70
+      Left = 196
       Top = 2
       Action = Compile
     end
   end
   object Panel_Code: TPanel
     Left = 0
-    Height = 423
-    Top = 26
+    Height = 411
+    Top = 38
     Width = 776
     Align = alClient
     BevelOuter = bvNone
-    ClientHeight = 423
+    ClientHeight = 411
     ClientWidth = 776
     TabOrder = 1
     inline SynEdit1: TSynEdit
       Left = 0
-      Height = 328
+      Height = 316
       Top = 0
       Width = 776
       Align = alClient
       Color = 14206148
-      Font.Height = -13
+      Font.Height = -15
       Font.Name = 'Courier New'
       Font.Pitch = fpFixed
       Font.Quality = fqCleartype
       ParentColor = False
       ParentFont = False
       TabOrder = 0
-      Gutter.Width = 57
+      Gutter.Width = 59
       Gutter.MouseActions = <>
       RightGutter.Width = 0
       RightGutter.MouseActions = <>
@@ -536,7 +532,7 @@ object FMain: TFMain
           MouseActions = <>
         end
         object SynGutterLineNumber1: TSynGutterLineNumber
-          Width = 17
+          Width = 19
           MouseActions = <>
           MarkupInfo.Background = clBtnFace
           MarkupInfo.Foreground = clNone
@@ -571,7 +567,7 @@ object FMain: TFMain
       Cursor = crVSplit
       Left = 0
       Height = 5
-      Top = 328
+      Top = 316
       Width = 776
       Align = alBottom
       ResizeAnchor = akBottom
@@ -579,7 +575,7 @@ object FMain: TFMain
     object Panel_Errors: TPanel
       Left = 0
       Height = 90
-      Top = 333
+      Top = 321
       Width = 776
       Align = alBottom
       BevelOuter = bvNone
@@ -609,30 +605,30 @@ object FMain: TFMain
   end
   object Splitter2: TSplitter
     Left = 776
-    Height = 423
-    Top = 26
+    Height = 411
+    Top = 38
     Width = 5
     Align = alRight
     ResizeAnchor = akRight
   end
   object Panel_Utils: TPanel
     Left = 781
-    Height = 423
-    Top = 26
+    Height = 411
+    Top = 38
     Width = 170
     Align = alRight
     BevelOuter = bvNone
-    ClientHeight = 423
+    ClientHeight = 411
     ClientWidth = 170
     TabOrder = 3
     object Panel_Locations: TPanel
       Left = 0
-      Height = 423
+      Height = 411
       Top = 0
       Width = 170
       Align = alClient
       BevelOuter = bvNone
-      ClientHeight = 423
+      ClientHeight = 411
       ClientWidth = 170
       TabOrder = 0
       object Label1: TLabel
@@ -646,7 +642,7 @@ object FMain: TFMain
       end
       object ListBox_Locations: TListBox
         Left = 0
-        Height = 410
+        Height = 398
         Top = 13
         Width = 170
         Align = alClient
@@ -859,18 +855,6 @@ object FMain: TFMain
     Images = ImageList1
     left = 152
     top = 88
-    object ValidateChanges: TAction
-      Caption = 'Keep changes in map'
-      ImageIndex = 1
-      OnExecute = ValidateChangesExecute
-      OnUpdate = ValidateChangesUpdate
-    end
-    object CancelChanges: TAction
-      Caption = 'Cancel changes to map'
-      ImageIndex = 0
-      OnExecute = CancelChangesExecute
-      OnUpdate = CancelChangesUpdate
-    end
     object FileOpen: TAction
       Caption = 'Open file...'
       ImageIndex = 2

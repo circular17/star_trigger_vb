@@ -5,7 +5,8 @@ unit uplugintypes;
 interface
 
 uses
-  Classes, SysUtils, uscmdrafttypes, umapinfo, utriggercode, utriggerchunk;
+  Classes, SysUtils, fgl, uscmdrafttypes, umapinfo, utriggercode, utriggerchunk, usctypes,
+  utriggerconditions, utriggerinstructions;
 
 const
   PluginMenu = 'BroodBasic program';
@@ -29,6 +30,8 @@ type
     ReAllocRam: TReAllocRamProc;
     procedure ClearTriggers;
     procedure AddCompiledTriggers;
+    function RetrieveStoredTriggers: TTriggerList;
+    function RetrieveStoredProgram: string;
     function UseWavFilename(AFilename: string): integer;
     function GetLocationName(AIndex: integer): string;
     function GetLocationIndex(AName: string): integer;
@@ -59,7 +62,6 @@ type
     function RetrieveStoredProgram: string; override;
     procedure UpdateTriggers; override;
     function StrictLocations: boolean; override;
-    function IsAnywhere(ALocation: string): boolean; override;
     function LocationIndexOf(ALocation:string): integer; override;
     function TrigStringAllocate(AText: string): integer; override;
     procedure TrigStringRelease(AIndex: integer); override;
@@ -123,6 +125,54 @@ begin
     fillchar(t^, sizeof(TTriggerData), 0);
     CompiledTriggers[i].WriteTriggerData(t^);
   end;
+end;
+
+function TPluginContext.RetrieveStoredTriggers: TTriggerList;
+var
+  loadedTriggers: TTriggerList;
+  t: TTrigger;
+  i: Integer;
+begin
+  loadedTriggers := TTriggerList.Create;
+  try
+    for i := 0 to TriggerCount-1 do
+    begin
+      t := TTrigger.Create;
+      t.ReadTriggerData(Trigger[i]^);
+      loadedTriggers.Add(t);
+    end;
+    result := loadedTriggers;
+  except
+    on ex: exception do
+    begin
+      loadedTriggers.Free;
+      raise exception.Create('Unable to retrieve triggers. '+ex.Message);
+    end;
+  end;
+end;
+
+function TPluginContext.RetrieveStoredProgram: string;
+var trigs: TTriggerList;
+  i: Integer;
+begin
+  trigs:= RetrieveStoredTriggers;
+ { for i := 0 to trigs.Count-1 do
+    if (trigs[i].Players = [plNeutralPlayers]) and
+      (trigs[i].ConditionCount = 1) and
+      (trigs[i].Condition[0] is TNeverCondition) and
+      (trigs[i].ActionCount = 2) and
+      (trigs[i].Action[0] is TCommentInstruction) and
+      (trigs[i].Action[1] is TCommentInstruction) and
+      (TCommentInstruction(trigs[i].Action[0]).Text = 'BroodBasic source code') then
+    begin
+      result := TCommentInstruction(Trigs[i].Action[1]).Text;
+      trigs.Free;
+      exit;
+    end;    }
+  result := '';
+  for i := 0 to trigs.Count-1 do
+    result += trigs[i].ToBasic+LineEnding+LineEnding;
+  trigs.Free;
 end;
 
 function TPluginContext.UseWavFilename(AFilename: string): integer;
@@ -223,8 +273,7 @@ end;
 
 function TPluginMapInfo.RetrieveStoredProgram: string;
 begin
-  result := '';
-  //
+  result := FContext.RetrieveStoredProgram;
 end;
 
 procedure TPluginMapInfo.UpdateTriggers;
@@ -236,11 +285,6 @@ end;
 function TPluginMapInfo.StrictLocations: boolean;
 begin
   result := true;
-end;
-
-function TPluginMapInfo.IsAnywhere(ALocation: string): boolean;
-begin
-  result := CompareText(ALocation, AnywhereLocationName)=0;
 end;
 
 function TPluginMapInfo.LocationIndexOf(ALocation: string): integer;

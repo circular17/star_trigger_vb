@@ -27,7 +27,7 @@ type
     function StrictLocations: boolean; virtual; abstract;
     function RetrieveStoredProgram: string; virtual; abstract;
     procedure UpdateTriggers; virtual; abstract;
-    function IsAnywhere(ALocation: string): boolean; virtual; abstract;
+    function IsAnywhere(ALocation: string): boolean;
     function LocationIndexOf(ALocation:string): integer; virtual; abstract;
     function LocationExists(AIndex: integer): boolean; virtual; abstract;
     function MapStringRead(AIndex: integer): string; virtual; abstract;
@@ -55,7 +55,6 @@ type
     function StrictLocations: boolean; override;
     function RetrieveStoredProgram: string; override;
     procedure UpdateTriggers; override;
-    function IsAnywhere(ALocation: string): boolean; override;
     function LocationExists(AIndex: integer): boolean; override;
     function LocationIndexOf(ALocation:string): integer; override;
     function TrigStringAllocate({%H-}AText: string): integer; override;
@@ -69,6 +68,13 @@ var
   MapInfo: TCustomMapInfo;
 
 implementation
+
+{ TCustomMapInfo }
+
+function TCustomMapInfo.IsAnywhere(ALocation: string): boolean;
+begin
+  result := (CompareText(ALocation, AnywhereLocationName)=0) or (ALocation = '');
+end;
 
 { TDefaultMapInfo }
 
@@ -113,11 +119,6 @@ end;
 procedure TDefaultMapInfo.UpdateTriggers;
 begin
   raise exception.Create('Not implemented');
-end;
-
-function TDefaultMapInfo.IsAnywhere(ALocation: string): boolean;
-begin
-  result := CompareText(ALocation, GetAnywhereLocationName)=0;
 end;
 
 function TDefaultMapInfo.LocationExists(AIndex: integer): boolean;

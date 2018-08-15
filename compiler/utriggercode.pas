@@ -19,7 +19,9 @@ type
 
   TTrigger = class
   private
+    function GetAction(AIndex: integer): TTriggerInstruction;
     function GetActionCount: integer;
+    function GetCondition(AIndex: integer): TTriggerCondition;
     function GetConditionCount: integer;
     procedure SetPreserve(AValue: boolean);
   protected
@@ -28,16 +30,23 @@ type
     FActions: TTriggerInstructionList;
     FPreserve: boolean;
   public
+    constructor Create;
     constructor Create(APlayers: TPlayers);
     destructor Destroy; override;
+    procedure Clear;
     procedure AddCondition(ACondition: TCondition);
     procedure AddAction(AInstruction: TInstruction);
     function ToTrigEdit: string;
     procedure WriteTriggerData(var AData: TTriggerData);
+    procedure ReadTriggerData(const AData: TTriggerData);
+    function ToBasic: string;
 
     property ConditionCount: integer read GetConditionCount;
     property ActionCount: integer read GetActionCount;
     property Preserve: boolean read FPreserve write SetPreserve;
+    property Players: TPlayers read FPlayers write FPlayers;
+    property Condition[AIndex: integer]: TTriggerCondition read GetCondition;
+    property Action[AIndex: integer]: TTriggerInstruction read GetAction;
   end;
   TTriggerList = specialize TFPGObjectList<TTrigger>;
 
@@ -651,9 +660,19 @@ end;
 
 { TTrigger }
 
+function TTrigger.GetAction(AIndex: integer): TTriggerInstruction;
+begin
+  result := FActions[AIndex];
+end;
+
 function TTrigger.GetActionCount: integer;
 begin
   result := FActions.Count;
+end;
+
+function TTrigger.GetCondition(AIndex: integer): TTriggerCondition;
+begin
+  result := FConditions[AIndex];
 end;
 
 function TTrigger.GetConditionCount: integer;
@@ -674,6 +693,13 @@ begin
   FActions := TTriggerInstructionList.Create;
 end;
 
+constructor TTrigger.Create;
+begin
+  FPlayers := [];
+  FConditions := TTriggerConditionList.Create;
+  FActions := TTriggerInstructionList.Create;
+end;
+
 destructor TTrigger.Destroy;
 begin
   FConditions.Free;
@@ -681,22 +707,51 @@ begin
   inherited Destroy;
 end;
 
+procedure TTrigger.Clear;
+begin
+  FPlayers := [];
+  FConditions.Clear;
+  FActions.Clear;
+  FPreserve:= false;
+end;
+
 procedure TTrigger.AddCondition(ACondition: TCondition);
 begin
   if not (ACondition is TTriggerCondition) then
     raise exception.Create('Expecting trigger condition');
-  if ConditionCount > 16 then
+  if ConditionCount >= MAX_CONDITIONS then
     raise exception.Create('Too many conditions');
   FConditions.Add(TTriggerCondition(ACondition.Duplicate));
 end;
 
 procedure TTrigger.AddAction(AInstruction: TInstruction);
+var
+  i: Integer;
 begin
   if AInstruction is TEmptyInstruction then exit;
   if not (AInstruction is TTriggerInstruction) then
     raise exception.Create('Expecting trigger instruction');
-  if ActionCount > 64 then
-    raise exception.Create('Too many actions');
+  if ActionCount >= MAX_ACTIONS then
+  begin
+    //if too many actions, try to store the preserve trigger as a trigger flag
+    if AInstruction is TPreserveTriggerInstruction then
+    begin
+      Preserve := true;
+      exit;
+    end else
+    begin
+      for i := 0 to ActionCount-1 do
+        if FActions[i] is TPreserveTriggerInstruction then
+        begin
+          FActions.Delete(i);
+          Preserve:= true;
+          break;
+        end;
+    end;
+
+    if ActionCount >= MAX_ACTIONS then
+      raise exception.Create('Too many actions');
+  end;
   FActions.Add(TTriggerInstruction(AInstruction).Duplicate);
 end;
 
@@ -733,6 +788,58 @@ begin
   for i := 0 to FActions.Count-1 do
     FActions[i].WriteTriggerData(AData.Actions[i]);
   AData.Players := FPlayers;
+  AData.PreserveTrigger := Preserve;
+end;
+
+procedure TTrigger.ReadTriggerData(const AData: TTriggerData);
+var
+  i: Integer;
+  cond: TTriggerCondition;
+  act: TTriggerInstruction;
+begin
+  Clear;
+  FPlayers := AData.Players;
+  for i := 0 to MAX_CONDITIONS-1 do
+  begin
+    cond := TTriggerCondition.LoadFromData(AData.Conditions[i]);
+    if cond <> nil then AddCondition(cond);
+  end;
+  for i := 0 to MAX_ACTIONS-1 do
+  begin
+    act := TTriggerInstruction.LoadFromData(AData.Actions[i]);
+    if act <> nil then AddAction(act);
+  end;
+end;
+
+function TTrigger.ToBasic: string;
+var
+  nb, i: integer;
+  pl: TPlayer;
+begin
+  result := '';
+  nb := 0;
+  for pl := low(TPlayer) to high(TPlayer) do
+    if (pl in Players) and (PlayerIdentifiers[pl]<>'') then
+    begin
+      if nb > 0 then result += ', ';
+      result += PlayerIdentifiers[pl];
+      inc(nb);
+    end;
+  if nb = 1 then result := 'As ' + result + LineEnding
+  else if nb > 1 then result := 'As {' + result + '}' + LineEnding;
+
+  result += 'When ';
+  for i := 0 to ConditionCount-1 do
+  begin
+    if i > 0 then result += ' And ';
+    result += Condition[i].ToTrigEdit;
+  end;
+  result += LineEnding;
+
+  for i := 0 to ActionCount-1 do
+    result += '    '+Action[i].ToTrigEdit+LineEnding;
+
+  result += 'End When';
 end;
 
 initialization

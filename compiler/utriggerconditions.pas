@@ -24,7 +24,7 @@ type
     procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: TStarcraftUnit); override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
   { TNeverCondition }
@@ -34,7 +34,7 @@ type
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
   { TSwitchCondition }
@@ -47,7 +47,7 @@ type
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
   { TBringCondition }
@@ -62,7 +62,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
   { TKillCountCondition }
@@ -76,7 +76,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
   { TOpponentCountCondition }
@@ -89,7 +89,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
   { TElapsedTimeCondition }
@@ -101,7 +101,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
   { TCompareUnitCountCondition }
@@ -114,7 +114,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
   { TCompareKillCountCondition }
@@ -126,7 +126,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
   { TDeathCountCondition }
@@ -140,7 +140,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
   { TResourceCondition }
@@ -154,7 +154,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
   { TScoreCondition }
@@ -168,7 +168,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
   { TCountdownCondition }
@@ -180,7 +180,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
   { TCompareResourceCondition }
@@ -192,7 +192,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
   { TCompareScoreCondition }
@@ -204,7 +204,7 @@ type
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
-    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
+    class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
   end;
 
 function CreateCompareIntegerCondition(AUnitType: TStarcraftUnit; AHighest: boolean): TCondition;

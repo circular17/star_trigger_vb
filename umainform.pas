@@ -17,7 +17,6 @@ type
     FileSaveAs: TAction;
     FileSave: TAction;
     FileOpen: TAction;
-    CancelChanges: TAction;
     Errors: TLabel;
     Label1: TLabel;
     ListBox_Locations: TListBox;
@@ -35,18 +34,13 @@ type
     SynEdit1: TSynEdit;
     SynVBSyn1: TSynVBSyn;
     Timer1: TTimer;
-    ToolButton2: TToolButton;
     ToolButton3: TToolButton;
     ToolButton4: TToolButton;
     ToolButton5: TToolButton;
     ToolButton6: TToolButton;
-    ValidateChanges: TAction;
     ActionList1: TActionList;
     ImageList1: TImageList;
     ToolBar1: TToolBar;
-    ToolButton1: TToolButton;
-    procedure CancelChangesExecute(Sender: TObject);
-    procedure CancelChangesUpdate(Sender: TObject);
     procedure CompileExecute(Sender: TObject);
     procedure FileOpenExecute(Sender: TObject);
     procedure FileSaveAsExecute(Sender: TObject);
@@ -60,8 +54,6 @@ type
     procedure SynCompletion1SearchPosition(var APosition: integer);
     procedure SynEdit1Change(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
-    procedure ValidateChangesExecute(Sender: TObject);
-    procedure ValidateChangesUpdate(Sender: TObject);
   private
     function GetModified: boolean;
     procedure SetCurFilename(AValue: string);
@@ -92,16 +84,6 @@ uses ureadprog, uparsevb, uvariables, usctypes, umapinfo, uwritetriggers,
 {$R *.lfm}
 
 { TFMain }
-procedure TFMain.ValidateChangesExecute(Sender: TObject);
-begin
-  ModalResult:= mrOK;
-end;
-
-procedure TFMain.ValidateChangesUpdate(Sender: TObject);
-begin
-  ValidateChanges.Visible := MapInfo.ProgramMapEmbedded;
-end;
-
 function TFMain.GetModified: boolean;
 begin
   result := SynEdit1.Modified;
@@ -174,6 +156,7 @@ begin
   try
     SynEdit1.Lines.LoadFromFile(AFilename);
     CurFilename := AFilename;
+    OpenDialog1.InitialDir := ExtractFilePath(AFilename);
     Modified := false;
     ErrorsToUpdate:= true;
   except
@@ -303,16 +286,6 @@ begin
   ListBox_Locations.Items.Add(AName);
 end;
 
-procedure TFMain.CancelChangesExecute(Sender: TObject);
-begin
-  ModalResult := mrCancel;
-end;
-
-procedure TFMain.CancelChangesUpdate(Sender: TObject);
-begin
-  CancelChanges.Visible := MapInfo.ProgramMapEmbedded;
-end;
-
 procedure TFMain.CompileExecute(Sender: TObject);
 begin
   If ErrorsToUpdate then UpdateErrors;
@@ -346,8 +319,10 @@ begin
     end else
     begin
       try
+        if CurFilename <> '' then FileSave.Execute;
         MapInfo.UpdateTriggers;
-        ShowMessage('Triggers have been updated');
+        if CurFilename = '' then Modified:= false; //stored in map
+        ShowMessage('Triggers have been updated. The source code has been stored in the map so that it will be retrieved next time you open this editor.');
       except
         on ex:Exception do
           ShowMessage(ex.Message);
@@ -358,20 +333,20 @@ end;
 
 procedure TFMain.FileOpenExecute(Sender: TObject);
 begin
-  OpenDialog1.InitialDir := ExtractFilePath(CurFilename);
   OpenDialog1.FileName := '';
   if OpenDialog1.Execute then TryOpenFile(OpenDialog1.FileName);
 end;
 
 procedure TFMain.FileSaveAsExecute(Sender: TObject);
 begin
-  SaveDialog1.InitialDir := ExtractFilePath(CurFilename);
+  if CurFilename <> '' then SaveDialog1.InitialDir := ExtractFilePath(CurFilename);
   SaveDialog1.FileName := ExtractFileName(CurFilename);
   if SaveDialog1.Execute then
   begin
     try
       SynEdit1.Lines.SaveToFile(SaveDialog1.FileName);
       CurFilename := SaveDialog1.FileName;
+      SaveDialog1.InitialDir := ExtractFilePath(CurFilename);
       Modified := false;
     except
       on ex: Exception do

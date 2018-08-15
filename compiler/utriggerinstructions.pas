@@ -15,6 +15,7 @@ type
     function ToTrigEdit: string; virtual; abstract;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); virtual; abstract;
     function Duplicate: TTriggerInstruction; virtual; abstract;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TPreserveTriggerInstruction }
@@ -24,6 +25,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TSetSwitchInstruction }
@@ -35,6 +37,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TSetDeathInstruction }
@@ -48,6 +51,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TSetResourceInstruction }
@@ -61,6 +65,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TSetScoreInstruction }
@@ -74,6 +79,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TSetCountdownInstruction }
@@ -85,6 +91,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TDisplayTextMessageInstruction }
@@ -96,6 +103,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TWaitInstruction }
@@ -106,6 +114,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TCreateUnitInstruction }
@@ -120,6 +129,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   TSetUnitProperty = (supLife, supShield, supEnergy, supResource, supHangarCount);
@@ -137,6 +147,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   TSetUnitFlag = (sufInvincible, sufDoodadState);
@@ -154,6 +165,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TKillUnitInstruction }
@@ -168,6 +180,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TGiveUnitInstruction }
@@ -181,6 +194,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TTeleportUnitInstruction }
@@ -195,6 +209,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TMoveLocationInstruction }
@@ -208,6 +223,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TOrderUnitInstruction }
@@ -222,6 +238,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TPlayWAVInstruction }
@@ -233,6 +250,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TTalkingPortraitInstruction }
@@ -244,16 +262,18 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TRunAIScriptInstruction }
 
   TRunAIScriptInstruction = class(TTriggerInstruction)
     ScriptCode, Location: string;
-    constructor Create(AScriptCode, ALocation: string);
+    constructor Create(AScriptCode: string; ALocation: string = '');
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TCommentInstruction }
@@ -264,6 +284,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TSetMissionObjectivesInstruction }
@@ -274,6 +295,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TSetNextScenarioInstruction }
@@ -284,6 +306,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TCenterViewInstruction }
@@ -294,6 +317,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TMinimapPingInstruction }
@@ -304,6 +328,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TLeaderBoardIncludeComputersInstruction }
@@ -314,6 +339,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TShowLeaderboardOreAndGasIconInstruction }
@@ -324,6 +350,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TShowLeaderboardResourceInstruction }
@@ -336,6 +363,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TShowLeaderboardScoreInstruction }
@@ -348,6 +376,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TShowLeaderboardKillCountInstruction }
@@ -360,6 +389,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TShowLeaderboardUnitCountInstruction }
@@ -373,6 +403,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   TEndGameMode = (egDefeat, egDraw, egVictory);
@@ -385,6 +416,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TUnitSpeechInstruction }
@@ -395,6 +427,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TPauseGameInstruction }
@@ -405,6 +438,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TPauseCountdownInstruction }
@@ -415,6 +449,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
   { TSetAllianceStatus }
@@ -426,6 +461,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
   end;
 
 implementation
@@ -501,6 +537,15 @@ begin
   result := TCommentInstruction.Create(Text);
 end;
 
+class function TCommentInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atComment then
+    result := TCommentInstruction.Create(MapInfo.MapStringRead(AData.StringIndex))
+  else
+    result := nil;
+end;
+
 { TPreserveTriggerInstruction }
 
 constructor TPreserveTriggerInstruction.Create;
@@ -524,6 +569,15 @@ begin
   result := TPreserveTriggerInstruction.Create;
 end;
 
+class function TPreserveTriggerInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atPreserveTrigger then
+    result := TPreserveTriggerInstruction.Create
+  else
+    result := nil;
+end;
+
 { TTriggerInstruction }
 
 function TTriggerInstruction.ToTrigEditAndFree: string;
@@ -534,6 +588,80 @@ begin
     Free;
   end else
     result := '';
+end;
+
+class function TTriggerInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  result := TPreserveTriggerInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TSetSwitchInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TSetDeathInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TSetResourceInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TSetScoreInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TSetCountdownInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TDisplayTextMessageInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TWaitInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TCreateUnitInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TSetUnitPropertyInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TSetUnitFlagInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TKillUnitInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TGiveUnitInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TTeleportUnitInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TMoveLocationInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TOrderUnitInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TPlayWAVInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TTalkingPortraitInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TRunAIScriptInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TCommentInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TSetMissionObjectivesInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TSetNextScenarioInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TCenterViewInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TMinimapPingInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TLeaderBoardIncludeComputersInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TShowLeaderboardOreAndGasIconInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TShowLeaderboardResourceInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TShowLeaderboardScoreInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TShowLeaderboardKillCountInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TShowLeaderboardUnitCountInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TEndGameInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TUnitSpeechInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TPauseGameInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TPauseCountdownInstruction.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TSetAllianceStatus.LoadFromData(AData);
 end;
 
 { TSetSwitchInstruction }
@@ -561,6 +689,15 @@ end;
 function TSetSwitchInstruction.Duplicate: TTriggerInstruction;
 begin
   result := TSetSwitchInstruction.Create(Switch,Value);
+end;
+
+class function TSetSwitchInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atSetSwitch then
+    result := TSetSwitchInstruction.Create(AData.Switch,AData.SwitchValue)
+  else
+    result := nil;
 end;
 
 { TSetDeathInstruction }
@@ -594,6 +731,15 @@ begin
   result := TSetDeathInstruction.Create(Player,UnitType,Mode,Value);
 end;
 
+class function TSetDeathInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atSetDeathCount then
+    result := TSetDeathInstruction.Create(AData.Player,AData.UnitType,AData.IntegerOperation,AData.GenericValue)
+  else
+    result := nil;
+end;
+
 { TSetResourceInstruction }
 
 constructor TSetResourceInstruction.Create(APlayer: TPlayer; AResource: TStarcraftResource;
@@ -623,6 +769,15 @@ end;
 function TSetResourceInstruction.Duplicate: TTriggerInstruction;
 begin
   result := TSetResourceInstruction.Create(Player,Resource,Mode,Value);
+end;
+
+class function TSetResourceInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atSetResource then
+    result := TSetResourceInstruction.Create(AData.Player,AData.ResourceType,AData.IntegerOperation,AData.GenericValue)
+  else
+    result := nil;
 end;
 
 { TSetScoreInstruction }
@@ -656,6 +811,15 @@ begin
   result := TSetScoreInstruction.Create(Player,Score,Mode,Value);
 end;
 
+class function TSetScoreInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atSetScore then
+    result := TSetScoreInstruction.Create(AData.Player,AData.ScoreType,AData.IntegerOperation,AData.GenericValue)
+  else
+    result := nil;
+end;
+
 { TSetCountdownInstruction }
 
 constructor TSetCountdownInstruction.Create(AMode: TSetIntegerMode;
@@ -681,6 +845,15 @@ end;
 function TSetCountdownInstruction.Duplicate: TTriggerInstruction;
 begin
   result:= TSetCountdownInstruction.Create(Mode,Value);
+end;
+
+class function TSetCountdownInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atSetCountdown then
+    result := TSetCountdownInstruction.Create(AData.IntegerOperation,AData.GenericValue)
+  else
+    result := nil;
 end;
 
 { TDisplayTextMessageInstruction }
@@ -711,6 +884,15 @@ begin
   result := TDisplayTextMessageInstruction.Create(Always,Text);
 end;
 
+class function TDisplayTextMessageInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atDisplayText then
+    result := TDisplayTextMessageInstruction.Create(AData.AlwaysDisplay, MapInfo.MapStringRead(AData.StringIndex))
+  else
+    result := nil;
+end;
+
 { TWaitInstruction }
 
 constructor TWaitInstruction.Create(ADelayMs: integer);
@@ -732,6 +914,15 @@ end;
 function TWaitInstruction.Duplicate: TTriggerInstruction;
 begin
   result := TWaitInstruction.Create(DelayMs);
+end;
+
+class function TWaitInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atWait then
+    result := TWaitInstruction.Create(AData.Duration)
+  else
+    result := nil;
 end;
 
 { TCreateUnitInstruction }
@@ -780,6 +971,25 @@ end;
 function TCreateUnitInstruction.Duplicate: TTriggerInstruction;
 begin
   result := TCreateUnitInstruction.Create(Player,Quantity,UnitType,Location,Properties);
+end;
+
+class function TCreateUnitInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+var
+  prop: Integer;
+begin
+  if AData.ActionType in[atCreateUnit,atCreateUnitWithProp] then
+  begin
+    if AData.ActionType = atCreateUnit then
+      prop := -1
+    else
+      prop := AData.UnitProperties;
+
+    result := TCreateUnitInstruction.Create(AData.Player,AData.UnitCount,
+         AData.UnitType, MapInfo.LocationName[AData.LocationBase0], prop)
+  end
+  else
+    result := nil;
 end;
 
 { TSetUnitPropertyInstruction }
@@ -851,6 +1061,22 @@ begin
   result := TSetUnitPropertyInstruction.Create(Player,Quantity,UnitTYpe,Location,UnitProperty,Value);
 end;
 
+class function TSetUnitPropertyInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+var prop: TSetUnitProperty;
+begin
+  case AData.ActionType of
+  atSetUnitLife: prop := supLife;
+  atSetUnitShield: prop := supShield;
+  atSetUnitEnergy: prop := supEnergy;
+  atSetUnitResourceAmount: prop := supResource;
+  atSetUnitHangarCount: prop := supHangarCount;
+  else exit(nil);
+  end;
+  result := TSetUnitPropertyInstruction.Create(AData.Player, AData.UnitCount,
+      AData.UnitType, MapInfo.LocationName[AData.LocationBase0], prop, AData.GenericValue);
+end;
+
 { TSetUnitFlagInstruction }
 
 constructor TSetUnitFlagInstruction.Create(APlayer: TPlayer;
@@ -903,6 +1129,26 @@ end;
 function TSetUnitFlagInstruction.Duplicate: TTriggerInstruction;
 begin
   result:= TSetUnitFlagInstruction.Create(Player,UnitType,Location,Flag,Value);
+end;
+
+class function TSetUnitFlagInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+var
+  f: TSetUnitFlag;
+  v: TUnitFlagValue;
+begin
+  case AData.ActionType of
+  atSetUnitInvincibility: f := sufInvincible;
+  atSetDoodadState: f := sufDoodadState;
+  else exit(nil);
+  end;
+  case AData.SwitchValue of
+  svClear: v := ufvDisable;
+  svSet: v := ufvEnable;
+  else v := ufvToggle;
+  end;
+  result := TSetUnitFlagInstruction.Create(AData.Player,AData.UnitType,
+         MapInfo.LocationName[AData.LocationBase0], f, v);
 end;
 
 { TKillUnitInstruction }
@@ -958,6 +1204,31 @@ begin
   result := TKillUnitInstruction.Create(Player,Quantity,UnitType,Location,DeathAnimation);
 end;
 
+class function TKillUnitInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+var
+  loc: String;
+  anim: Boolean;
+  qty: Integer;
+begin
+  if AData.ActionType in[atKillUnit,atKillUnitAt,atRemoveUnit,atRemoveUnitAt] then
+  begin
+    if AData.ActionType in [atKillUnitAt,atRemoveUnitAt] then
+    begin
+      loc := MapInfo.LocationName[AData.LocationBase0];
+      qty := AData.UnitCount;
+    end
+    else
+    begin
+      loc := MapInfo.AnywhereLocationName;
+      qty := -1;
+    end;
+    anim := (AData.ActionType in [atKillUnit,atKillUnitAt]);
+    result := TKillUnitInstruction.Create(AData.Player,qty,AData.UnitType,loc,anim);
+  end else
+    result := nil;
+end;
+
 { TGiveUnitInstruction }
 
 constructor TGiveUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
@@ -995,6 +1266,16 @@ end;
 function TGiveUnitInstruction.Duplicate: TTriggerInstruction;
 begin
   result := TGiveUnitInstruction.Create(Player,Quantity,UnitType,Location,DestPlayer);
+end;
+
+class function TGiveUnitInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atGiveUnit then
+    result := TGiveUnitInstruction.Create(AData.Player,AData.UnitCount,AData.UnitType,
+           MapInfo.LocationName[AData.LocationBase0], AData.DestinationPlayer)
+  else
+    result := nil;
 end;
 
 { TTeleportUnitInstruction }
@@ -1037,6 +1318,17 @@ begin
   result := TTeleportUnitInstruction.Create(Player,Quantity,UnitTYpe,Location,DestLocation);
 end;
 
+class function TTeleportUnitInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atTeleportUnit then
+    result := TTeleportUnitInstruction.Create(AData.Player,AData.UnitCount,AData.UnitType,
+            MapInfo.LocationName[AData.LocationBase0],
+            MapInfo.LocationName[AData.DestinationLocationBase0])
+  else
+    result := nil;
+end;
+
 { TMoveLocationInstruction }
 
 constructor TMoveLocationInstruction.Create(APlayer: TPlayer;
@@ -1069,6 +1361,17 @@ end;
 function TMoveLocationInstruction.Duplicate: TTriggerInstruction;
 begin
   result := TMoveLocationInstruction.Create(Player,UnitType,Location,LocationToChange);
+end;
+
+class function TMoveLocationInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atMoveLocation then
+    result := TMoveLocationInstruction.Create(AData.Player,AData.UnitType,
+            MapInfo.LocationName[AData.LocationBase0],
+            MapInfo.LocationName[AData.DestinationLocationBase0])
+  else
+    result := nil;
 end;
 
 { TOrderUnitInstruction }
@@ -1114,6 +1417,18 @@ begin
   result := TOrderUnitInstruction.Create(Player,UnitType,Location,DestLocation,Order);
 end;
 
+class function TOrderUnitInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atOrderUnit then
+    result := TOrderUnitInstruction.Create(AData.Player,AData.UnitType,
+            MapInfo.LocationName[AData.LocationBase0],
+            MapInfo.LocationName[AData.DestinationLocationBase0],
+            AData.UnitOrder)
+  else
+    result := nil;
+end;
+
 { TPlayWAVInstruction }
 
 constructor TPlayWAVInstruction.Create(AFilename: string; ADurationMs: integer);
@@ -1140,6 +1455,15 @@ end;
 function TPlayWAVInstruction.Duplicate: TTriggerInstruction;
 begin
   result := TPlayWAVInstruction.Create(Filename,DurationMs);
+end;
+
+class function TPlayWAVInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atPlayWAV then
+    result := TPlayWAVInstruction.Create(MapInfo.LocationName[AData.WavStringIndex], AData.Duration)
+  else
+    result := nil;
 end;
 
 { TTalkingPortraitInstruction }
@@ -1169,10 +1493,20 @@ begin
   result := TTalkingPortraitInstruction.Create(UnitType,DurationMs);
 end;
 
+class function TTalkingPortraitInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atTalkingPortrait then
+    result := TTalkingPortraitInstruction.Create(AData.UnitType,AData.Duration)
+  else
+    result := nil;
+end;
+
 { TRunAIScriptInstruction }
 
 constructor TRunAIScriptInstruction.Create(AScriptCode, ALocation: string);
 begin
+  if MapInfo.IsAnywhere(ALocation) then ALocation:= MapInfo.AnywhereLocationName;
   if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
   ScriptCode:= AScriptCode;
   Location:= ALocation;
@@ -1205,6 +1539,19 @@ begin
   result := TRunAIScriptInstruction.Create(ScriptCode,Location);
 end;
 
+class function TRunAIScriptInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atRunAIScript then
+    result := TRunAIScriptInstruction.Create(AData.ScriptCode)
+  else
+  if AData.ActionType = atRunAIScriptAt then
+    result := TRunAIScriptInstruction.Create(AData.ScriptCode,
+      MapInfo.LocationName[AData.LocationBase0])
+  else
+    result := nil;
+end;
+
 { TSetMissionObjectivesInstruction }
 
 constructor TSetMissionObjectivesInstruction.Create(AText: string);
@@ -1229,6 +1576,15 @@ begin
   result := TSetMissionObjectivesInstruction.Create(Text);
 end;
 
+class function TSetMissionObjectivesInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atSetMissionObjectives then
+    result := TSetMissionObjectivesInstruction.Create(MapInfo.MapStringRead(AData.StringIndex))
+  else
+    result := nil;
+end;
+
 { TSetNextScenarioInstruction }
 
 constructor TSetNextScenarioInstruction.Create(AScenario: string);
@@ -1251,6 +1607,15 @@ end;
 function TSetNextScenarioInstruction.Duplicate: TTriggerInstruction;
 begin
   result := TSetNextScenarioInstruction.Create(Scenario);
+end;
+
+class function TSetNextScenarioInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atSetNextScenario then
+    result := TSetNextScenarioInstruction.Create(MapInfo.MapStringRead(AData.StringIndex))
+  else
+    result := nil;
 end;
 
 { TCenterViewInstruction }
@@ -1278,6 +1643,15 @@ begin
   result := TCenterViewInstruction.Create(Location);
 end;
 
+class function TCenterViewInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atCenterView then
+    result := TCenterViewInstruction.Create(MapInfo.LocationName[AData.LocationBase0])
+  else
+    result := nil;
+end;
+
 { TMinimapPingInstruction }
 
 constructor TMinimapPingInstruction.Create(ALocation: string);
@@ -1301,6 +1675,15 @@ end;
 function TMinimapPingInstruction.Duplicate: TTriggerInstruction;
 begin
   result := TMinimapPingInstruction.Create(Location);
+end;
+
+class function TMinimapPingInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atMinimapPing then
+    result := TMinimapPingInstruction.Create(MapInfo.LocationName[AData.LocationBase0])
+  else
+    result := nil;
 end;
 
 { TLeaderBoardIncludeComputersInstruction }
@@ -1336,6 +1719,20 @@ begin
   result := TLeaderBoardIncludeComputersInstruction.Create(Value);
 end;
 
+class function TLeaderBoardIncludeComputersInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atLeaderboardIncludeComputers then
+  begin
+    case AData.SwitchValue of
+    svClear: result := TLeaderBoardIncludeComputersInstruction.Create(ufvDisable);
+    svSet: result := TLeaderBoardIncludeComputersInstruction.Create(ufvEnable);
+    else result := TLeaderBoardIncludeComputersInstruction.Create(ufvToggle);
+    end;
+  end else
+    exit(nil);
+end;
+
 { TShowLeaderboardOreAndGasIconInstruction }
 
 constructor TShowLeaderboardOreAndGasIconInstruction.Create(AAmount: integer);
@@ -1358,6 +1755,15 @@ end;
 function TShowLeaderboardOreAndGasIconInstruction.Duplicate: TTriggerInstruction;
 begin
   result:= TShowLeaderboardOreAndGasIconInstruction.Create(Amount);
+end;
+
+class function TShowLeaderboardOreAndGasIconInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atLeaderboardGreed then
+    result := TShowLeaderboardOreAndGasIconInstruction.Create(AData.GenericValue)
+  else
+    result := nil;
 end;
 
 { TShowLeaderboardResourceInstruction }
@@ -1400,6 +1806,17 @@ begin
   result := TShowLeaderboardResourceInstruction.Create(Text,Resource,Goal);
 end;
 
+class function TShowLeaderboardResourceInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atLeaderboardResources then
+    result := TShowLeaderboardResourceInstruction.Create(MapInfo.MapStringRead(AData.StringIndex), AData.ResourceType)
+  else if AData.ActionType = atLeaderboardGoalResources then
+      result := TShowLeaderboardResourceInstruction.Create(MapInfo.MapStringRead(AData.StringIndex), AData.ResourceType, AData.GenericValue)
+  else
+    result := nil;
+end;
+
 { TShowLeaderboardScoreInstruction }
 
 constructor TShowLeaderboardScoreInstruction.Create(AText: string;
@@ -1438,6 +1855,17 @@ end;
 function TShowLeaderboardScoreInstruction.Duplicate: TTriggerInstruction;
 begin
   result := TShowLeaderboardScoreInstruction.Create(Text,Score,Goal);
+end;
+
+class function TShowLeaderboardScoreInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atLeaderboardScore then
+    result := TShowLeaderboardScoreInstruction.Create(MapInfo.MapStringRead(AData.StringIndex), AData.ScoreType)
+  else if AData.ActionType = atLeaderboardGoalScore then
+      result := TShowLeaderboardScoreInstruction.Create(MapInfo.MapStringRead(AData.StringIndex), AData.ScoreType, AData.GenericValue)
+  else
+    result := nil;
 end;
 
 { TShowLeaderboardKillCountInstruction }
@@ -1481,6 +1909,17 @@ end;
 function TShowLeaderboardKillCountInstruction.Duplicate: TTriggerInstruction;
 begin
   result := TShowLeaderboardKillCountInstruction.Create(Text,UnitType,Goal);
+end;
+
+class function TShowLeaderboardKillCountInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atLeaderboardKills then
+    result := TShowLeaderboardKillCountInstruction.Create(MapInfo.MapStringRead(AData.StringIndex), AData.UnitType)
+  else if AData.ActionType = atLeaderboardGoalKills then
+      result := TShowLeaderboardKillCountInstruction.Create(MapInfo.MapStringRead(AData.StringIndex), AData.UnitType, AData.GenericValue)
+  else
+    result := nil;
 end;
 
 { TShowLeaderboardUnitCountInstruction }
@@ -1544,6 +1983,27 @@ begin
   result := TShowLeaderboardUnitCountInstruction.Create(Text,UnitType,Location,Goal);
 end;
 
+class function TShowLeaderboardUnitCountInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+var
+  loc: String;
+  anim: Boolean;
+  g: Integer;
+begin
+  if AData.ActionType in[atLeaderboardControl,atLeaderboardControlAt,atLeaderboardGoalControl,atLeaderboardGoalControlAt] then
+  begin
+    if AData.ActionType in [atLeaderboardControlAt,atLeaderboardGoalControlAt] then
+      loc := MapInfo.LocationName[AData.LocationBase0]
+    else loc := MapInfo.AnywhereLocationName;
+    if AData.ActionType in [atLeaderboardGoalControl,atLeaderboardGoalControlAt] then
+      g := AData.GenericValue
+    else g := -1;
+    result := TShowLeaderboardUnitCountInstruction.Create(MapInfo.MapStringRead(AData.StringIndex),
+      AData.UnitType, loc, g);
+  end else
+    result := nil;
+end;
+
 { TEndGameInstruction }
 
 constructor TEndGameInstruction.Create(AMode: TEndGameMode);
@@ -1578,6 +2038,17 @@ begin
   result := TEndGameInstruction.Create(Mode);
 end;
 
+class function TEndGameInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  case AData.ActionType of
+  atDefeat: result := TEndGameInstruction.Create(egDefeat);
+  atDraw: result := TEndGameInstruction.Create(egDraw);
+  atVictory: result := TEndGameInstruction.Create(egVictory);
+  else exit(nil);
+  end;
+end;
+
 { TUnitSpeechInstruction }
 
 constructor TUnitSpeechInstruction.Create(AActive: Boolean);
@@ -1603,6 +2074,16 @@ end;
 function TUnitSpeechInstruction.Duplicate: TTriggerInstruction;
 begin
   result := TUnitSpeechInstruction.Create(Active);
+end;
+
+class function TUnitSpeechInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  case AData.ActionType of
+  atUnmuteUnitSpeeh: result := TUnitSpeechInstruction.Create(true);
+  atMuteUnitSpeech: result := TUnitSpeechInstruction.Create(false);
+  else result := nil;
+  end;
 end;
 
 { TPauseGameInstruction }
@@ -1632,6 +2113,16 @@ begin
   result := TPauseGameInstruction.Create(Paused);
 end;
 
+class function TPauseGameInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  case AData.ActionType of
+  atPauseGame: result := TPauseGameInstruction.Create(true);
+  atUnpauseGame: result := TPauseGameInstruction.Create(false);
+  else result := nil;
+  end;
+end;
+
 { TPauseCountdownInstruction }
 
 constructor TPauseCountdownInstruction.Create(APaused: Boolean);
@@ -1659,6 +2150,16 @@ begin
   result := TPauseCountdownInstruction.Create(Paused);
 end;
 
+class function TPauseCountdownInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  case AData.ActionType of
+  atPauseCountdown: result := TPauseCountdownInstruction.Create(true);
+  atUnpauseCountdown: result := TPauseCountdownInstruction.Create(false);
+  else result := nil;
+  end;
+end;
+
 { TSetAllianceStatus }
 
 constructor TSetAllianceStatus.Create(APlayer: TPlayer; AStatus: TAllianceStatus);
@@ -1681,12 +2182,22 @@ end;
 procedure TSetAllianceStatus.WriteTriggerData(var AData: TTriggerInstructionData);
 begin
   AData.ActionType:= atSetAlliance;
+  AData.Player := Player;
   AData.Alliance:= Status;
 end;
 
 function TSetAllianceStatus.Duplicate: TTriggerInstruction;
 begin
   result := TSetAllianceStatus.Create(Player,Status);
+end;
+
+class function TSetAllianceStatus.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  if AData.ActionType = atSetAlliance then
+    result := TSetAllianceStatus.Create(AData.Player, AData.Alliance)
+  else
+    result := nil;
 end;
 
 initialization

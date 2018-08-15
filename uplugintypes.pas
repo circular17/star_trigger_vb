@@ -156,7 +156,7 @@ var trigs: TTriggerList;
   i: Integer;
 begin
   trigs:= RetrieveStoredTriggers;
- { for i := 0 to trigs.Count-1 do
+  for i := 0 to trigs.Count-1 do
     if (trigs[i].Players = [plNeutralPlayers]) and
       (trigs[i].ConditionCount = 1) and
       (trigs[i].Condition[0] is TNeverCondition) and
@@ -168,7 +168,8 @@ begin
       result := TCommentInstruction(Trigs[i].Action[1]).Text;
       trigs.Free;
       exit;
-    end;    }
+    end;
+
   result := '';
   for i := 0 to trigs.Count-1 do
     result += trigs[i].ToBasic+LineEnding+LineEnding;

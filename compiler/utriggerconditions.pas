@@ -604,7 +604,7 @@ end;
 class function TNeverCondition.LoadFromData(const AData: TTriggerConditionData): TTriggerCondition;
 begin
   if AData.ConditionType = ctNever then
-    result := TAlwaysCondition.Create
+    result := TNeverCondition.Create
   else
     result := nil;
 end;

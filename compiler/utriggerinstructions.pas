@@ -25,7 +25,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TSetSwitchInstruction }
@@ -37,7 +37,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TSetDeathInstruction }
@@ -51,7 +51,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TSetResourceInstruction }
@@ -65,7 +65,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TSetScoreInstruction }
@@ -79,7 +79,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TSetCountdownInstruction }
@@ -91,7 +91,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TDisplayTextMessageInstruction }
@@ -103,7 +103,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TWaitInstruction }
@@ -114,7 +114,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TCreateUnitInstruction }
@@ -129,7 +129,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   TSetUnitProperty = (supLife, supShield, supEnergy, supResource, supHangarCount);
@@ -147,7 +147,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   TSetUnitFlag = (sufInvincible, sufDoodadState);
@@ -165,7 +165,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TKillUnitInstruction }
@@ -180,7 +180,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TGiveUnitInstruction }
@@ -194,7 +194,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TTeleportUnitInstruction }
@@ -209,7 +209,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TMoveLocationInstruction }
@@ -223,7 +223,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TOrderUnitInstruction }
@@ -238,7 +238,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TPlayWAVInstruction }
@@ -250,7 +250,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TTalkingPortraitInstruction }
@@ -262,7 +262,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TRunAIScriptInstruction }
@@ -273,7 +273,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TCommentInstruction }
@@ -284,7 +284,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TSetMissionObjectivesInstruction }
@@ -295,7 +295,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TSetNextScenarioInstruction }
@@ -306,7 +306,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TCenterViewInstruction }
@@ -317,7 +317,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TMinimapPingInstruction }
@@ -328,7 +328,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TLeaderBoardIncludeComputersInstruction }
@@ -339,7 +339,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TShowLeaderboardOreAndGasIconInstruction }
@@ -350,7 +350,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TShowLeaderboardResourceInstruction }
@@ -363,7 +363,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TShowLeaderboardScoreInstruction }
@@ -376,7 +376,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TShowLeaderboardKillCountInstruction }
@@ -389,7 +389,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TShowLeaderboardUnitCountInstruction }
@@ -403,7 +403,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   TEndGameMode = (egDefeat, egDraw, egVictory);
@@ -416,7 +416,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TUnitSpeechInstruction }
@@ -427,7 +427,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TPauseGameInstruction }
@@ -438,7 +438,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TPauseCountdownInstruction }
@@ -449,7 +449,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TSetAllianceStatus }
@@ -461,7 +461,7 @@ type
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TTriggerInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
 implementation
@@ -1987,7 +1987,6 @@ class function TShowLeaderboardUnitCountInstruction.LoadFromData(
   const AData: TTriggerInstructionData): TTriggerInstruction;
 var
   loc: String;
-  anim: Boolean;
   g: Integer;
 begin
   if AData.ActionType in[atLeaderboardControl,atLeaderboardControlAt,atLeaderboardGoalControl,atLeaderboardGoalControlAt] then

@@ -184,7 +184,7 @@ type
     procedure SetPlayer(AValue: TPlayer);
     procedure SetResourceType(AValue: TStarcraftResource);
     procedure SetScoreType(AValue: TStarcraftScore);
-    procedure SetStringCode(AValue: string);
+    procedure SetScriptCode(AValue: string);
     procedure SetSwitch(AValue: integer);
     procedure SetSwitchValue(AValue: TSwitchValue);
     procedure SetUnitCount(AValue: integer);
@@ -220,7 +220,7 @@ type
     property UnitTypeUsed: boolean read GetUnitTypeUsed write SetUnitTypeUsed;
     property UnitCount: integer read GetUnitCount write SetUnitCount;
     property UnitProperties: integer read GetUnitProperties write SetUnitProperties;
-    property ScriptCode: string read GetScriptCode write SetStringCode;
+    property ScriptCode: string read GetScriptCode write SetScriptCode;
   end;
 
 const
@@ -598,7 +598,7 @@ function TTriggerInstructionData.GetScriptCode: string;
 var
   chars: array[1..4] of char absolute GenericValue;
 begin
-  result := chars[4]+chars[3]+chars[2]+chars[1];
+  result := chars[1]+chars[2]+chars[3]+chars[4];
 end;
 
 function TTriggerInstructionData.GetSwitch: integer;
@@ -717,15 +717,15 @@ begin
   VariableOrAlliance:= ord(AValue);
 end;
 
-procedure TTriggerInstructionData.SetStringCode(AValue: string);
+procedure TTriggerInstructionData.SetScriptCode(AValue: string);
 var
   chars: array[1..4] of char absolute GenericValue;
 begin
   if length(AValue) <> 4 then raise exception.Create('Code must be 4 chars long');
-  chars[4] := AValue[1];
-  chars[3] := AValue[2];
-  chars[2] := AValue[3];
-  chars[1] := AValue[4];
+  chars[1] := AValue[1];
+  chars[2] := AValue[2];
+  chars[3] := AValue[3];
+  chars[4] := AValue[4];
 end;
 
 procedure TTriggerInstructionData.SetSwitch(AValue: integer);

@@ -46,6 +46,7 @@ type
     procedure FileSaveAsExecute(Sender: TObject);
     procedure FileSaveExecute(Sender: TObject);
     procedure FileSaveUpdate(Sender: TObject);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: boolean);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormDropFiles(Sender: TObject; const FileNames: array of String);
@@ -323,6 +324,7 @@ begin
         MapInfo.UpdateTriggers;
         if CurFilename = '' then Modified:= false; //stored in map
         ShowMessage('Triggers have been updated. The source code has been stored in the map so that it will be retrieved next time you open this editor.');
+        Close;
       except
         on ex:Exception do
           ShowMessage(ex.Message);
@@ -372,6 +374,15 @@ end;
 procedure TFMain.FileSaveUpdate(Sender: TObject);
 begin
   FileSave.Enabled := (CurFilename <> '') and Modified;
+end;
+
+procedure TFMain.FormCloseQuery(Sender: TObject; var CanClose: boolean);
+begin
+  if Modified then
+  begin
+    if MessageDlg('Closing','There are unsaved modifications. Would you like to close anyway?', mtConfirmation, mbYesNo, 0)<>mrYes then
+      CanClose := false;
+  end;
 end;
 
 procedure TFMain.FormCreate(Sender: TObject);

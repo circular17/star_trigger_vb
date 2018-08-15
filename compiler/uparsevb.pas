@@ -133,7 +133,10 @@ begin
     inc(p);
   end;
   if inStr then
+  begin
+    FreeAndNil(result);
     raise Exception.Create('String over end of line');
+  end;
   if not inSpace then
   begin
     token := copy(ALine,start,length(ALine)-start+1);

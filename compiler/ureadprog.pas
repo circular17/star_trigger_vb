@@ -825,45 +825,48 @@ begin
       expr.Free;
       raise exception.Create('Quantity must be at least 1');
     end;
-    ExpectToken(ALine,AIndex,',');
-    unitType := ExpectUnitType(AScope,ALine,AIndex);
-    ExpectToken(ALine,AIndex,',');
-    locStr := ExpectString(AScope,ALine,AIndex);
-    if TryToken(ALine,AIndex,',') then
-    begin
-      propIndex := TryUnitPropVar(AScope,ALine,AIndex);
-      if propIndex = -1 then
-        raise exception.Create('Unit properties expected');
-    end else
-      propIndex := -1;
-    ExpectToken(ALine,AIndex,')');
-
-    if propIndex = -1 then
-    begin
-      if TryToken(ALine,AIndex,'With') then
+    try
+      ExpectToken(ALine,AIndex,',');
+      unitType := ExpectUnitType(AScope,ALine,AIndex);
+      ExpectToken(ALine,AIndex,',');
+      locStr := ExpectString(AScope,ALine,AIndex);
+      if TryToken(ALine,AIndex,',') then
       begin
         propIndex := TryUnitPropVar(AScope,ALine,AIndex);
         if propIndex = -1 then
           raise exception.Create('Unit properties expected');
-      end;
-    end;
+      end else
+        propIndex := -1;
+      ExpectToken(ALine,AIndex,')');
 
-    if expr.IsConstant then
-      AProg.Add(TCreateUnitInstruction.Create(APlayer, expr.ConstElement, unitType, locStr, propIndex))
-    else
-    begin
-      tempInt := AllocateTempInt(8);
-      expr.AddToProgram(AProg, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
-      for i := 7 downto 0 do
+      if propIndex = -1 then
       begin
-        subInstr := TInstructionList.Create;
-        subInstr.Add( TCreateUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, propIndex) );
-        subInstr.Add( CreateSetIntegerInstruction(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
-        AProg.Add( TFastIfInstruction.Create( [CreateIntegerCondition( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i)], subInstr) );
+        if TryToken(ALine,AIndex,'With') then
+        begin
+          propIndex := TryUnitPropVar(AScope,ALine,AIndex);
+          if propIndex = -1 then
+            raise exception.Create('Unit properties expected');
+        end;
       end;
-      ReleaseTempInt(tempInt);
-    end;
 
+      if expr.IsConstant then
+        AProg.Add(TCreateUnitInstruction.Create(APlayer, expr.ConstElement, unitType, locStr, propIndex))
+      else
+      begin
+        tempInt := AllocateTempInt(8);
+        expr.AddToProgram(AProg, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
+        for i := 7 downto 0 do
+        begin
+          subInstr := TInstructionList.Create;
+          subInstr.Add( TCreateUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, propIndex) );
+          subInstr.Add( CreateSetIntegerInstruction(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
+          AProg.Add( TFastIfInstruction.Create( [CreateIntegerCondition( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i)], subInstr) );
+        end;
+        ReleaseTempInt(tempInt);
+      end;
+    finally
+      expr.Free;
+    end;
   end else
   if TryToken(ALine,AIndex,'KillUnit') or TryToken(ALine,AIndex,'RemoveUnit') then
   begin

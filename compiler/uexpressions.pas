@@ -863,103 +863,111 @@ var
 
 begin
   result := TExpression.Create;
-  idx := AIndex;
-  neg := false;
-  if TryToken(ALine,idx,'+') then neg := false
-  else if TryToken(ALine,idx,'-') then neg := true;
-  repeat
-    node := ParseSimpleNode;
-    if node = nil then
-    begin
-      if ARaiseException then
-        raise exception.Create('Expression expected');
-      FreeAndNil(result);
-      exit;
-    end;
-    result.Elements.Add(node);
-
-    while TryToken(ALine,idx,'*') do
-    begin
-      if TryToken(ALine,idx,'(') then
+  try
+    idx := AIndex;
+    neg := false;
+    if TryToken(ALine,idx,'+') then neg := false
+    else if TryToken(ALine,idx,'-') then neg := true;
+    repeat
+      node := ParseSimpleNode;
+      if node = nil then
       begin
-        subExpr := TryExpression(AScope, ALine,idx,ARaiseException,AAcceptCalls);
-        ExpectToken(ALine,idx,')');
-        if subExpr.IsConstant then
-        begin
-          MultiplyByConst(subExpr.ConstElement);
-          subExpr.Free;
-        end else
-          MultiplyByExpr(subExpr);
-      end else
-      begin
-        neg := false;
-        if TryToken(ALine,idx,'+') then neg := false
-        else if TryToken(ALine,idx,'-') then neg := true;
+        if ARaiseException then
+          raise exception.Create('Expression expected');
+        FreeAndNil(result);
+        exit;
+      end;
+      result.Elements.Add(node);
 
-        node := ParseSimpleNode;
-        if node = nil then
+      while TryToken(ALine,idx,'*') do
+      begin
+        if TryToken(ALine,idx,'(') then
         begin
-          result.Free;
-          raise exception.Create('Expecting second term of multiplication');
-        end;
-        if node is TConstantNode then
-        begin
-          if TConstantNode(node).Negative then
-            MultiplyByConst(-TConstantNode(node).Value)
-          else
-            MultiplyByConst(TConstantNode(node).Value);
-          node.Free;
-        end else
-        begin
-          if node is TSubExpression then
+          subExpr := TryExpression(AScope, ALine,idx,ARaiseException,AAcceptCalls);
+          ExpectToken(ALine,idx,')');
+          if subExpr.IsConstant then
           begin
-            MultiplyByExpr(TSubExpression(node).Expr);
-            TSubExpression(node).Expr := nil;
+            MultiplyByConst(subExpr.ConstElement);
+            subExpr.Free;
+          end else
+            MultiplyByExpr(subExpr);
+        end else
+        begin
+          neg := false;
+          if TryToken(ALine,idx,'+') then neg := false
+          else if TryToken(ALine,idx,'-') then neg := true;
+
+          node := ParseSimpleNode;
+          if node = nil then
+          begin
+            result.Free;
+            raise exception.Create('Expecting second term of multiplication');
+          end;
+          if node is TConstantNode then
+          begin
+            if TConstantNode(node).Negative then
+              MultiplyByConst(-TConstantNode(node).Value)
+            else
+              MultiplyByConst(TConstantNode(node).Value);
             node.Free;
           end else
-            MultiplyByExpr(TExpression.Create(node));
+          begin
+            if node is TSubExpression then
+            begin
+              MultiplyByExpr(TSubExpression(node).Expr);
+              TSubExpression(node).Expr := nil;
+              node.Free;
+            end else
+              MultiplyByExpr(TExpression.Create(node));
+          end;
         end;
       end;
-    end;
 
-    if TryToken(ALine,idx,'+') then neg := false
-    else if TryToken(ALine,idx,'-') then neg := true
-    else break;
-  until false;
+      if TryToken(ALine,idx,'+') then neg := false
+      else if TryToken(ALine,idx,'-') then neg := true
+      else break;
+    until false;
 
-  for i := result.Elements.Count-1 downto 0 do
-    if result.Elements[i] is TSubExpression then
-    begin
-      with TSubExpression(result.Elements[i]) do
+    for i := result.Elements.Count-1 downto 0 do
+      if result.Elements[i] is TSubExpression then
       begin
-        if Negative then
+        with TSubExpression(result.Elements[i]) do
         begin
-          Expr.NegateAll;
-          Negative := false;
+          if Negative then
+          begin
+            Expr.NegateAll;
+            Negative := false;
+          end;
+          for j := 0 to Expr.Elements.Count-1 do
+            result.Elements.Add(Expr.Elements[j]);
+          Expr.Elements.Clear;
+          result.ConstElement += Expr.ConstElement;
         end;
-        for j := 0 to Expr.Elements.Count-1 do
-          result.Elements.Add(Expr.Elements[j]);
-        Expr.Elements.Clear;
-        result.ConstElement += Expr.ConstElement;
+        result.Elements[i].Free;
+        result.Elements.Delete(i);
       end;
-      result.Elements[i].Free;
-      result.Elements.Delete(i);
-    end;
 
-  for i := result.Elements.Count-1 downto 0 do
-    if result.Elements[i] is TConstantNode then
+    for i := result.Elements.Count-1 downto 0 do
+      if result.Elements[i] is TConstantNode then
+      begin
+        if TConstantNode(result.Elements[i]).Negative then
+          result.ConstElement -= TConstantNode(result.Elements[i]).Value
+        else
+          result.ConstElement += TConstantNode(result.Elements[i]).Value;
+        result.Elements[i].Free;
+        result.Elements.Delete(i);
+      end;
+
+    AIndex := idx;
+
+    result.PutClearAccFirst;
+  except
+    on ex:exception do
     begin
-      if TConstantNode(result.Elements[i]).Negative then
-        result.ConstElement -= TConstantNode(result.Elements[i]).Value
-      else
-        result.ConstElement += TConstantNode(result.Elements[i]).Value;
-      result.Elements[i].Free;
-      result.Elements.Delete(i);
+      FreeAndNil(result);
+      raise exception.Create(ex.Message);
     end;
-
-  AIndex := idx;
-
-  result.PutClearAccFirst;
+  end;
 end;
 
 function ExpectString(AScope: integer; ALine: TStringList; var AIndex: integer): string;

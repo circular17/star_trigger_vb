@@ -1453,6 +1453,13 @@ begin
     ExpectToken(ALine,index,'Then');
     CheckEndOfLine;
   end else
+  if TryToken(ALine,index,'ElseIf') then
+  begin
+    conds := ExpectConditions(AScope,ALine,index,AThreads);
+    AProg.Add(TElseIfInstruction.Create(conds));
+    ExpectToken(ALine,index,'Then');
+    CheckEndOfLine;
+  end else
   if TryToken(ALine,index,'Else') then
   begin
     CheckEndOfLine;

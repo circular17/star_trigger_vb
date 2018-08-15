@@ -32,7 +32,7 @@ begin
     end;
   for i := 0 to IntVarCount-1 do
     if not IntVars[i].Predefined and not IntVars[i].Constant then
-      writeln(t, '// ', IntVars[i].Name, ' stored in "', IntVars[i].UnitType, '" of "', PlayerToTrigEditStr(IntVars[i].Player),'" //');
+      writeln(t, '// ', IntVars[i].Name, ' stored in "', StarcraftUnitTrigEditNames[IntVars[i].UnitType], '" of "', PlayerToTrigEditStr(IntVars[i].Player),'" //');
   for i := 0 to BoolArrayCount-1 do
     if not BoolArrays[i].Constant then
       writeln(t, '// ', BoolArrays[i].Name, '(1 to '+inttostr(BoolArrays[i].Size)+') stored in ' +

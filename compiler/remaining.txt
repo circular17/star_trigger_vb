@@ -2,9 +2,8 @@
 - templates (string array)
 - simple do - loop until
 - simple for step next
-- elseif, select case
+- select case
 - indexation par variable
-- memory leaks
 
 - variable in any death count
 - xor booleen

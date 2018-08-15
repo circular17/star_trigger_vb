@@ -278,7 +278,24 @@ begin
       for j := i+1 to AProg.Count-1 do
       begin
         if AProg[j] is TIfInstruction then inc(nesting) else
-        if (AProg[j] is TElseInstruction) and (nesting = 1) then elseIndex:= j else
+        if (AProg[j] is TElseInstruction) and (nesting = 1) then
+        begin
+          if elseIndex <> -1 then
+          begin
+            err := 'Only one Else is allowed for one If statement';
+            break;
+          end;
+          elseIndex:= j;
+        end else
+        if (AProg[j] is TElseIfInstruction) and (nesting = 1) then
+        begin
+          if elseIndex = -1 then elseIndex := j
+          else if AProg[elseIndex] is TElseInstruction then
+          begin
+            err := 'ElseIf is not allowed after an Else instruction';
+            break;
+          end;
+        end else
         if AProg[j] is TEndIfInstruction then
         begin
           dec(nesting);
@@ -297,6 +314,12 @@ begin
                 thenPart.Add(AProg[k].Duplicate);
               for k := elseIndex+1 to j-1 do
                 elsePart.Add(AProg[k].Duplicate);
+
+              if AProg[elseIndex] is TElseIfInstruction then
+              begin
+                elsePart.Insert(0, TIfInstruction.Create(TElseIfInstruction(AProg[elseIndex]).Conditions.Duplicate));
+                elsePart.Add(TEndIfInstruction.Create);
+              end;
             end;
 
             ifInstr := TIfInstruction(AProg[i]);
@@ -332,6 +355,7 @@ begin
           end;
         end;
       end;
+      if err<>'' then break;
       if nesting <> 0 then
       begin
         err := 'The number of End If do not match the number of If';

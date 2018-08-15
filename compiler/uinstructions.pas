@@ -153,6 +153,16 @@ type
     function Duplicate: TInstruction; override;
   end;
 
+  { TElseIfInstruction }
+
+  TElseIfInstruction = class(TInstruction)
+    Conditions: TConditionList;
+    destructor Destroy; override;
+    constructor Create(ACondition: TCondition);
+    constructor Create(AConditions: TConditionList);
+    function Duplicate: TInstruction; override;
+  end;
+
   { TFastIfInstruction }
 
   TFastIfInstruction = class(TInstruction)
@@ -276,6 +286,30 @@ var
   CreateIntegerCondition: TCreateIntegerConditionProc;
 
 implementation
+
+{ TElseIfInstruction }
+
+destructor TElseIfInstruction.Destroy;
+begin
+  Conditions.FreeAll;
+  inherited Destroy;
+end;
+
+constructor TElseIfInstruction.Create(ACondition: TCondition);
+begin
+  Conditions := TConditionList.Create;
+  Conditions.Add(ACondition);
+end;
+
+constructor TElseIfInstruction.Create(AConditions: TConditionList);
+begin
+  Conditions := AConditions;
+end;
+
+function TElseIfInstruction.Duplicate: TInstruction;
+begin
+  Result:=TElseIfInstruction.Create(Conditions.Duplicate);
+end;
 
 { TRandomizeIntegerInstruction }
 

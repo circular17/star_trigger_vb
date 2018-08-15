@@ -58,6 +58,7 @@ type
     constructor Create(const AContext: TPluginContext);
     function RetrieveStoredProgram: string; override;
     procedure UpdateTriggers; override;
+    function StrictLocations: boolean; override;
     function IsAnywhere(ALocation: string): boolean; override;
     function LocationIndexOf(ALocation:string): integer; override;
     function TrigStringAllocate(AText: string): integer; override;
@@ -230,6 +231,11 @@ procedure TPluginMapInfo.UpdateTriggers;
 begin
   FContext.ClearTriggers;
   FContext.AddCompiledTriggers;
+end;
+
+function TPluginMapInfo.StrictLocations: boolean;
+begin
+  result := true;
 end;
 
 function TPluginMapInfo.IsAnywhere(ALocation: string): boolean;

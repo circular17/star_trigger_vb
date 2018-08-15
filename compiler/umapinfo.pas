@@ -24,6 +24,7 @@ type
     function GetLocationName(AIndex: integer): string; virtual; abstract;
     function GetSwitchName(AIndexBase1: integer): string; virtual; abstract;
   public
+    function StrictLocations: boolean; virtual; abstract;
     function RetrieveStoredProgram: string; virtual; abstract;
     procedure UpdateTriggers; virtual; abstract;
     function IsAnywhere(ALocation: string): boolean; virtual; abstract;
@@ -51,13 +52,14 @@ type
     function GetLocationName(AIndex: integer): string; override;
     function GetSwitchName(AIndexBase1: integer): string; override;
   public
+    function StrictLocations: boolean; override;
     function RetrieveStoredProgram: string; override;
     procedure UpdateTriggers; override;
     function IsAnywhere(ALocation: string): boolean; override;
     function LocationExists(AIndex: integer): boolean; override;
     function LocationIndexOf(ALocation:string): integer; override;
-    function TrigStringAllocate(AText: string): integer; override;
-    procedure TrigStringRelease(AIndex: integer); override;
+    function TrigStringAllocate({%H-}AText: string): integer; override;
+    procedure TrigStringRelease({%H-}AIndex: integer); override;
     function MapStringRead({%H-}AIndex: integer): string; override;
     function MapStringIndexOf({%H-}AText: string): integer; override;
     function SoundFilenameExists({%H-}AFilename: string): boolean; override;
@@ -97,6 +99,11 @@ begin
   result := 'Switch'+inttostr(AIndexBase1);
 end;
 
+function TDefaultMapInfo.StrictLocations: boolean;
+begin
+  result := false;
+end;
+
 function TDefaultMapInfo.RetrieveStoredProgram: string;
 begin
   result := '';
@@ -129,6 +136,7 @@ end;
 
 function TDefaultMapInfo.TrigStringAllocate(AText: string): integer;
 begin
+  result := 0;
   raise exception.Create('Not implemented');
 end;
 

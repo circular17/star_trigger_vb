@@ -741,6 +741,7 @@ constructor TCreateUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
   Player:= APlayer;
   Quantity:= AQuantity;
   UnitType:= AUnitType;
@@ -789,6 +790,7 @@ constructor TSetUnitPropertyInstruction.Create(APlayer: TPlayer;
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
   Player := APlayer;
   Quantity := AQuantity;
   UnitType := AUnitType;
@@ -855,6 +857,7 @@ constructor TSetUnitFlagInstruction.Create(APlayer: TPlayer;
   AUnitType: TStarcraftUnit; ALocation: string; AFlag: TSetUnitFlag;
   AValue: TUnitFlagValue);
 begin
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
   Player := APlayer;
   UnitType := AUnitType;
   Location := ALocation;
@@ -909,6 +912,7 @@ constructor TKillUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
   Player:= APlayer;
   Quantity:= AQuantity;
   UnitType:= AUnitType;
@@ -961,6 +965,7 @@ constructor TGiveUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
   Player := APlayer;
   Quantity := AQuantity;
   UnitType := AUnitType;
@@ -1000,6 +1005,8 @@ constructor TTeleportUnitInstruction.Create(APlayer: TPlayer;
 begin
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ADestLocation)=-1) then raise exception.Create('Location not found');
   Player:= APlayer;
   Quantity := AQuantity;
   UnitType:= AUnitType;
@@ -1035,6 +1042,8 @@ end;
 constructor TMoveLocationInstruction.Create(APlayer: TPlayer;
   AUnitType: TStarcraftUnit; ALocation: string; ALocationToChange: string);
 begin
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocationToChange)=-1) then raise exception.Create('Location not found');
   Player:= APlayer;
   UnitType:= AUnitType;
   Location:= ALocation;
@@ -1068,6 +1077,8 @@ constructor TOrderUnitInstruction.Create(APlayer: TPlayer;
   AUnitType: TStarcraftUnit; ALocation: string; ADestLocation: string;
   AOrder: TUnitOrder);
 begin
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ADestLocation)=-1) then raise exception.Create('Location not found');
   Player:= APlayer;
   UnitType:= AUnitType;
   Location:= ALocation;
@@ -1162,6 +1173,7 @@ end;
 
 constructor TRunAIScriptInstruction.Create(AScriptCode, ALocation: string);
 begin
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
   ScriptCode:= AScriptCode;
   Location:= ALocation;
 end;
@@ -1245,6 +1257,7 @@ end;
 
 constructor TCenterViewInstruction.Create(ALocation: string);
 begin
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
   Location:= ALocation;
 end;
 
@@ -1269,6 +1282,7 @@ end;
 
 constructor TMinimapPingInstruction.Create(ALocation: string);
 begin
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
   Location:= ALocation;
 end;
 
@@ -1474,6 +1488,7 @@ end;
 constructor TShowLeaderboardUnitCountInstruction.Create(AText: string;
   AUnitType: TStarcraftUnit; ALocation: string; AGoal: integer);
 begin
+  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
   Text:= AText;
   UnitType := AUnitType;
   Goal := AGoal;

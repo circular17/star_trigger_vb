@@ -312,7 +312,11 @@ begin
   firstExpr := TryExpression(AScope, ALine,AIndex,false);
   if firstExpr = nil then exit(nil);
   op := TryConditionOperator(ALine,AIndex);
-  if op = coNone then exit(nil);
+  if op = coNone then
+  begin
+    firstExpr.Free;
+    exit(nil);
+  end;
   secondExpr := TryExpression(AScope, ALine,AIndex,True);
   if ANot then
   begin
@@ -349,6 +353,7 @@ begin
       mergeCompValue := 1;
       ANot := (op = coNotEqual);
     end;
+  else raise exception.Create('Case not handled');
   end;
 
   firstExpr.Free;
@@ -565,7 +570,7 @@ begin
     until false;
   except on ex:exception do
     begin
-      result.Free;
+      result.FreeAll;
       raise exception.Create(ex.Message);
     end;
   end;

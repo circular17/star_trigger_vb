@@ -186,6 +186,7 @@ type
     Expression: TExpression;
     CompareMode: TIntegerConditionMode;
     CompareValue: integer;
+    destructor Destroy; override;
     constructor Create(AExpression: TExpression; ACompareMode: TIntegerConditionMode; ACompareValue: integer);
     function IsArithmetic: Boolean; override;
     function GetBitCount: integer;
@@ -1179,6 +1180,12 @@ begin
 end;
 
 { TArithmeticCondition }
+
+destructor TArithmeticCondition.Destroy;
+begin
+  Expression.Free;
+  inherited Destroy;
+end;
 
 constructor TArithmeticCondition.Create(AExpression: TExpression;
   ACompareMode: TIntegerConditionMode; ACompareValue: integer);

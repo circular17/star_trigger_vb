@@ -241,6 +241,7 @@ var
     WriteProg([plAllPlayers], [condSub], proc, -1,-1,true);
     EmptyProc;
 
+    condSwitch.Free;
     condSub.Free;
   end;
 

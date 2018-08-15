@@ -289,6 +289,33 @@ class function TTriggerCondition.LoadFromData(const AData: TTriggerConditionData
 begin
   result := TAlwaysCondition.LoadFromData(AData);
   if Assigned(result) then exit;
+  result := TNeverCondition.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TSwitchCondition.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TBringCondition.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TKillCountCondition.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TOpponentCountCondition.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TElapsedTimeCondition.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TCompareUnitCountCondition.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TCompareKillCountCondition.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TDeathCountCondition.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TResourceCondition.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TScoreCondition.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TCountdownCondition.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TCompareResourceCondition.LoadFromData(AData);
+  if Assigned(result) then exit;
+  result := TCompareScoreCondition.LoadFromData(AData);
 end;
 
 { TScoreCondition }

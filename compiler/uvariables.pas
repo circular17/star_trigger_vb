@@ -163,6 +163,7 @@ var
   i: Integer;
 begin
   BoolVarCount:= 0;
+  BoolArrayCount := 0;
   IntVarCount:= 0;
   IntArrayCount:= 0;
   StringCount := 0;

@@ -52,7 +52,7 @@ type
     procedure FormDropFiles(Sender: TObject; const FileNames: array of String);
     procedure ListBox_ErrorsDblClick(Sender: TObject);
     procedure ListBox_LocationsDblClick(Sender: TObject);
-    procedure SynCompletion1SearchPosition(var APosition: integer);
+    procedure SynCompletion1Execute(Sender: TObject);
     procedure SynEdit1Change(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
   private
@@ -185,7 +185,8 @@ var
   i: Integer;
   MainThread, pl: TPlayer;
   u: TStarcraftUnit;
-  lineUpToCursor: TStringList;
+  prevLine, lineUpToCursor: TStringList;
+  isBeginLine: boolean;
 
 begin
   //partial program for autocompletion
@@ -197,16 +198,23 @@ begin
   programUpToCursor.Free;
 
   lineUpToCursor := nil;
+  prevLine := nil;
   try
     if SynEdit1.CaretY <= SynEdit1.Lines.Count then
       lineUpToCursor := ParseLine(copy(SynEdit1.Lines[SynEdit1.CaretY-1],1,SynEdit1.CaretX-1))
     else
-      lineUpToCursor := TStringList.Create;;
+      lineUpToCursor := TStringList.Create;
+    if (SynEdit1.CaretY-1 >= 0) and (SynEdit1.CaretY-1 <= SynEdit1.Lines.Count) then
+      prevLine := ParseLine(SynEdit1.Lines[SynEdit1.CaretY-2])
+    else
+      prevLine := TStringList.Create;
   except
-    lineUpToCursor := TStringList.Create;
+    if lineUpToCursor = nil then lineUpToCursor := TStringList.Create;
+    if prevLine = nil then prevLine := TStringList.Create;
   end;
   if (lineUpToCursor.Count > 0) and IsValidVariableName(lineUpToCursor[lineUpToCursor.Count-1]) then
     lineUpToCursor.delete(lineUpToCursor.Count-1);
+  isBeginLine:= (lineUpToCursor.Count = 0) and not ((prevLine.Count > 0) and IsTokenOverEndOfLine(prevLine[prevLine.Count-1]));
 
   AllCompletion.Clear;
 
@@ -230,16 +238,20 @@ begin
   end else
   begin
     for i := 0 to IntVarCount-1 do
-      if (IntVars[i].IntArray = -1) and ((IntVars[i].Scope = GlobalScope) or (IntVars[i].Scope = LastScope)) then
+      if (IntVars[i].IntArray = -1) and ((IntVars[i].Scope = GlobalScope) or (IntVars[i].Scope = LastScope))
+        and not (IntVars[i].Constant and isBeginLine) then
         AllCompletion.Add(IntVars[i].Name);
     for i := 0 to BoolVarCount-1 do
-      if (BoolVars[i].BoolArray = -1) and ((BoolVars[i].Scope = GlobalScope) or (BoolVars[i].Scope = LastScope)) then
+      if (BoolVars[i].BoolArray = -1) and ((BoolVars[i].Scope = GlobalScope) or (BoolVars[i].Scope = LastScope))
+        and not (BoolVars[i].Constant and isBeginLine) then
         AllCompletion.Add(BoolVars[i].Name);
     for i := 0 to IntArrayCount-1 do
-      if (IntArrays[i].Scope = GlobalScope) or (IntArrays[i].Scope = LastScope) then
+      if ((IntArrays[i].Scope = GlobalScope) or (IntArrays[i].Scope = LastScope))
+        and not (IntArrays[i].Constant and isBeginLine) then
         AllCompletion.Add(IntArrays[i].Name);
     for i := 0 to BoolArrayCount-1 do
-      if (BoolArrays[i].Scope = GlobalScope) or (BoolArrays[i].Scope = LastScope) then
+      if ((BoolArrays[i].Scope = GlobalScope) or (BoolArrays[i].Scope = LastScope))
+        and not (BoolArrays[i].Constant and isBeginLine) then
         AllCompletion.Add(BoolArrays[i].Name);
 
     if (lineUpToCursor.Count > 0) and (lineUpToCursor[lineUpToCursor.Count-1] = '.') then
@@ -251,7 +263,7 @@ begin
     end
     else
     begin
-      if lineUpToCursor.Count > 0 then
+      if not isBeginLine then
       begin
         AddCompletion(['AI','Present','CountIf','UnitProperties','Sound']);
         for i := 0 to UnitPropCount-1 do
@@ -263,6 +275,8 @@ begin
         for i := 0 to StringCount-1 do
           if (StringVars[i].Scope = GlobalScope) or (StringVars[i].Scope = LastScope) then
             AllCompletion.Add(StringVars[i].Name);
+        if (lineUpToCursor.Count > 0) and (lineUpToCursor[lineUpToCursor.Count-1] = '=') then
+          AddCompletion(['Alliance']);
       end;
 
       for pl := low(TPlayer) to high(TPlayer) do
@@ -279,6 +293,7 @@ begin
   end;
 
   lineUpToCursor.Free;
+  AllCompletion.Sort;
 end;
 
 procedure TFMain.AddLocation(AName: string; AIsText: boolean);
@@ -444,7 +459,7 @@ begin
   end;
 end;
 
-procedure TFMain.SynCompletion1SearchPosition(var APosition: integer);
+procedure TFMain.SynCompletion1Execute(Sender: TObject);
 var
   i: Integer;
   cur: String;
@@ -459,9 +474,6 @@ begin
     if (CompareText(cur, copy(AllCompletion[i],1,length(cur)))= 0) or
       (pos(cur, AllCompletion[i])<>0) then
       SynCompletion1.ItemList.Add(AllCompletion[i]);
-
-  if AllCompletion.Count >0 then APosition:= 0
-    else APosition:= -1;
 end;
 
 procedure TFMain.SynEdit1Change(Sender: TObject);

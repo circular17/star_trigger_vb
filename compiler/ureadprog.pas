@@ -9,6 +9,7 @@ uses
 
 function ReadProg(AFilename: string; out AMainThread: TPlayer): boolean;
 function ReadProg(ALines: TStrings; out AMainThread: TPlayer): boolean;
+function IsTokenOverEndOfLine(ALastToken:string): boolean;
 
 type
   TIntegerList = specialize TFPGList<Integer>;
@@ -1726,6 +1727,13 @@ begin
   EventCount:= 0;
 end;
 
+function IsTokenOverEndOfLine(ALastToken:string): boolean;
+begin
+  result := (ALastToken = '&') or (ALastToken = '+') or (ALastToken = '-') or (ALastToken = '*') or (ALastToken = '\')
+         or (ALastToken = '=') or (ALastToken = ',')
+         or (CompareText(ALastToken,'Or')=0) or (CompareText(ALastToken,'And')=0) or (CompareText(ALastToken,'Xor')=0);
+end;
+
 function ReadProg(ALines: TStrings; out AMainThread: TPlayer): boolean;
 const MAX_ERRORS = 3;
 var
@@ -1755,9 +1763,7 @@ var
     while not EOF and (line.Count > 0) do
     begin
       lastToken := line[line.Count-1];
-      if (lastToken = '&') or (lastToken = '+') or (lastToken = '-') or (lastToken = '*') or (lastToken = '\')
-       or (lastToken = '=') or (lastToken = ',')
-       or (CompareText(lastToken,'Or')=0) or (CompareText(lastToken,'And')=0) or (CompareText(lastToken,'Xor')=0) then
+      if IsTokenOverEndOfLine(lastToken) then
       begin
         s := ReadOneLine;
         extraLine := ParseLine(s);

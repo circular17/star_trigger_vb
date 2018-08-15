@@ -893,9 +893,9 @@ object FMain: TFMain
     top = 264
   end
   object SynCompletion1: TSynCompletion
+    OnExecute = SynCompletion1Execute
     Position = -1
     LinesInWindow = 6
-    OnSearchPosition = SynCompletion1SearchPosition
     SelectedColor = clHighlight
     CaseSensitive = False
     Width = 262

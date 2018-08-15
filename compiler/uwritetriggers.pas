@@ -469,7 +469,7 @@ begin
     proc.Add(TSetSwitchInstruction.Create(BoolVars[GetPlayerPresenceDefinedVar].Switch, svSet)); //will be until next cycle
     WriteProg([AMainThread], [], proc, -1, -1, true);
   end;
-  proc.Free;
+  proc.FreeAll;
 end;
 
 procedure WriteTriggerForSourceCode(ASourceCode: string);

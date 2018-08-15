@@ -353,6 +353,7 @@ begin
 
       condValue.Free;
     end;
+    condVar.Free;
   end;
   condSub.Free;
 

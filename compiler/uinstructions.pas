@@ -448,7 +448,7 @@ var
 begin
   result := TInstructionList.Create;
   for i := 0 to Count-1 do
-    result.Add(Items[i]);
+    result.Add(Items[i].Duplicate);
 end;
 
 { TWaitForPlayersInstruction }
@@ -715,7 +715,7 @@ var
 begin
   result := TConditionList.Create;
   for i := 0 to Count-1 do
-    result.Add(Items[i]);
+    result.Add(Items[i].Duplicate);
 end;
 
 { TWaitConditionInstruction }

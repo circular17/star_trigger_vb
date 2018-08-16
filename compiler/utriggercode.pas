@@ -866,7 +866,7 @@ begin
   for i := 0 to ConditionCount-1 do
   begin
     if i > 0 then result += ' And ';
-    result += Condition[i].ToTrigEdit;
+    result += Condition[i].ToBasic;
   end;
   result += LineEnding;
 

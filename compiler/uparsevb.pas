@@ -18,8 +18,13 @@ var
 
 const
   NotConditionOperator : array[TConditionOperator] of TConditionOperator = (coNone, coNotEqual, coLowerThanOrEqual, coGreaterThanOrEqual, coLowerThan, coGreaterThan, coEqual);
+  IntConditionModeToBasic : array[TIntegerConditionMode] of string = ('>=','<=','=');
+  StarcraftResourceToBasic : array[TStarcraftResource] of string = ('Minerals','Gas','MineralsAndGas');
+  StarcraftScoreToBasic: array[TStarcraftScore] of string = ('TotalScore','UnitScore','BuildingScore','UnitAndBuildingScore',
+                         'KillScore','RazingScore','KillAndRazingScore','CustomScore');
 
 function RemoveQuotes(AQuotedText: string): string;
+function StrToBasic(AText: string): string;
 procedure CheckReservedWord(AText: string);
 function IsReservedWord(AText: string): boolean;
 function ParseLine(ALine: string): TStringList;
@@ -48,14 +53,71 @@ const
 
 implementation
 
-uses uarithmetic;
-
 function RemoveQuotes(AQuotedText: string): string;
 begin
   if (length(AQuotedText)<2) or (AQuotedText[1]<>'"') or (AQuotedText[length(AQuotedText)]<>'"') then
     raise exception.Create('Quotes not found');
 
   result := StringReplace(copy(AQuotedText,2,length(AQuotedText)-2), '""', '"', [rfReplaceAll]);
+end;
+
+function StrToBasic(AText: string): string;
+var
+  prev, i: Integer;
+
+  procedure AddPrevious(AUpTo: integer);
+  begin
+    if (prev <> -1) and (AUpTo > prev) then
+    begin
+      if result <> '' then result += ' & ';
+      result += '"' + StringReplace(copy(AText,prev,AUpTo-prev),'"','""',[rfReplaceAll]) + '"';
+      prev := -1;
+    end;
+  end;
+
+begin
+  result := '';
+  prev := -1;
+  i := 1;
+  while i <= length(AText) do
+  begin
+    if AText[i]=#13 then
+    begin
+      AddPrevious(i);
+      if result <> '' then result += ' & ';
+      if (i < length(AText)) and (AText[i+1] = #10) then
+      begin
+        inc(i,2);
+        result += 'vbCrLf';
+      end else
+      begin
+        inc(i);
+        result += 'vbCr';
+      end;
+      continue;
+    end else
+    if AText[i] = #10 then
+    begin
+      AddPrevious(i);
+      if result <> '' then result += ' & ';
+      inc(i);
+      result += 'vbLf';
+      continue;
+    end else
+    if AText[i] in[#0..#31] then
+    begin
+      AddPrevious(i);
+      if result <> '' then result += ' & ';
+      inc(i);
+      result += 'Chr('+inttostr(ord(AText[i]))+')';
+      continue;
+    end else
+    begin
+      if prev = -1 then prev := i;
+      inc(i);
+    end;
+  end;
+  AddPrevious(length(AText)+1);
 end;
 
 procedure CheckReservedWord(AText: string);
@@ -226,9 +288,6 @@ begin
       if errPos > 0 then
         raise exception.Create('Expecting integer value');
       inc(AIndex);
-
-      if not IsPowerOf2(result) then
-        raise exception.Create('Expecting power of 2');
 
       if result < 2 then
         raise Exception.Create('Value must be greated or equal to 2');

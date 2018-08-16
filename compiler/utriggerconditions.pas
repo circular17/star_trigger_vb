@@ -13,6 +13,7 @@ type
   TTriggerCondition = class(TCondition)
     function ToTrigEditAndFree: string;
     function ToTrigEdit: string; virtual; abstract;
+    function ToBasic: string; virtual; abstract;
     procedure WriteTriggerData(var AData: TTriggerConditionData); virtual; abstract;
     class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; virtual;
   end;
@@ -21,6 +22,7 @@ type
 
   TAlwaysCondition = class(TTriggerCondition)
     function ToTrigEdit: string; override;
+    function ToBasic: string; override;
     procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: TStarcraftUnit); override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
@@ -31,6 +33,7 @@ type
 
   TNeverCondition = class(TTriggerCondition)
     function ToTrigEdit: string; override;
+    function ToBasic: string; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
@@ -43,6 +46,7 @@ type
     Switch: integer;
     Value: boolean;
     constructor Create(ASwitch: integer; AValue: boolean);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
     function Duplicate: TTriggerCondition; override;
@@ -59,6 +63,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; ALocation: string; AMode: TIntegerConditionMode; AValue: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
@@ -73,6 +78,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; AMode: TIntegerConditionMode; AValue: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
@@ -86,6 +92,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AMode: TIntegerConditionMode; AValue: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
@@ -98,6 +105,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(AMode: TIntegerConditionMode; AValue: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
@@ -111,6 +119,7 @@ type
     Location: string;
     Highest: boolean;
     constructor Create(AUnitType: TStarcraftUnit; ALocation: string; AHighest: boolean);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
@@ -123,6 +132,7 @@ type
     UnitType: TStarcraftUnit;
     Highest: boolean;
     constructor Create(AUnitType: TStarcraftUnit; AHighest: boolean);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
@@ -137,6 +147,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; AMode: TIntegerConditionMode; AValue: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
@@ -151,6 +162,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AResource: TStarcraftResource; AMode: TIntegerConditionMode; AValue: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
@@ -165,6 +177,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AScore: TStarcraftScore; AMode: TIntegerConditionMode; AValue: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
@@ -177,6 +190,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(AMode: TIntegerConditionMode; AValue: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
@@ -189,6 +203,7 @@ type
     Resource: TStarcraftResource;
     Highest: boolean;
     constructor Create(AResource: TStarcraftResource; AHighest: boolean);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
@@ -201,6 +216,7 @@ type
     Score: TStarcraftScore;
     Highest: boolean;
     constructor Create(AScore: TStarcraftScore; AHighest: boolean);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
@@ -211,7 +227,7 @@ function CreateCompareIntegerCondition(AUnitType: TStarcraftUnit; AHighest: bool
 
 implementation
 
-uses utriggerinstructions, utrigedittypes, umapinfo;
+uses utriggerinstructions, utrigedittypes, umapinfo, uparsevb;
 
 function CreateIntegerConditionImplementation(APlayer: TPlayer; AUnitType: TStarcraftUnit;
   AMode: TIntegerConditionMode; AValue: integer): TCondition;
@@ -329,6 +345,11 @@ begin
   Value := AValue;
 end;
 
+function TScoreCondition.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.'+StarcraftScoreToBasic[Score]+' '+IntConditionModeToBasic[Mode]+' ' +inttostr(Value);
+end;
+
 function TScoreCondition.ToTrigEdit: string;
 begin
   result := 'Score("' + PlayerToTrigEditStr(Player) + '", ' + StarcraftScoreToStr(Score) + ', ' +
@@ -366,6 +387,11 @@ begin
   Resource := AResource;
   Mode := AMode;
   Value := AValue;
+end;
+
+function TResourceCondition.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.'+StarcraftResourceToBasic[Resource]+' '+IntConditionModeToBasic[Mode]+' ' +inttostr(Value);
 end;
 
 function TResourceCondition.ToTrigEdit: string;
@@ -406,6 +432,11 @@ begin
   Value := AValue;
 end;
 
+function TCountdownCondition.ToBasic: string;
+begin
+  result := 'Countdown '+IntConditionModeToBasic[Mode]+' ' +inttostr(Value);
+end;
+
 function TCountdownCondition.ToTrigEdit: string;
 begin
   result := 'Countdown Timer(' + IntegerConditionModeToTrigEditStr[Mode] + ', ' + IntToStr(Value) + ')'
@@ -443,6 +474,12 @@ begin
   Value := AValue;
 end;
 
+function TDeathCountCondition.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.DeathCount(Unit.'+StarcraftUnitIdentifier[UnitType];
+  result += ') '+IntConditionModeToBasic[Mode]+' ' +inttostr(Value);
+end;
+
 function TDeathCountCondition.ToTrigEdit: string;
 begin
   Result:= 'Deaths("' + PlayerToTrigEditStr(Player) + '", ' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]) + ', ' + IntegerConditionModeToTrigEditStr[Mode] + ', ' + IntToStr(Value) + ')';
@@ -478,6 +515,12 @@ constructor TCompareScoreCondition.Create(AScore: TStarcraftScore;
 begin
   Score := AScore;
   Highest:= AHighest;
+end;
+
+function TCompareScoreCondition.ToBasic: string;
+begin
+  result := 'Me.' + StarcraftScoreToBasic[Score]+' = ';
+  if Highest then result += 'Max' else result += 'Min';
 end;
 
 function TCompareScoreCondition.ToTrigEdit: string;
@@ -518,6 +561,12 @@ begin
   Highest:= AHighest;
 end;
 
+function TCompareResourceCondition.ToBasic: string;
+begin
+  result := 'Me.' + StarcraftResourceToBasic[Resource]+' = ';
+  if Highest then result += 'Max' else result += 'Min';
+end;
+
 function TCompareResourceCondition.ToTrigEdit: string;
 begin
   if Highest then result := 'Most' else result := 'Least';
@@ -554,6 +603,11 @@ begin
   Result:= 'Always()';
 end;
 
+function TAlwaysCondition.ToBasic: string;
+begin
+  result := 'True';
+end;
+
 procedure TAlwaysCondition.AddToProgAsAndVar(AProg: TInstructionList;
   APlayer: TPlayer; AUnitType: TStarcraftUnit);
 begin
@@ -583,6 +637,11 @@ end;
 function TNeverCondition.ToTrigEdit: string;
 begin
   Result:= 'Never()';
+end;
+
+function TNeverCondition.ToBasic: string;
+begin
+  result := 'False';
 end;
 
 procedure TNeverCondition.AddToProgAsAndVar(AProg: TInstructionList;
@@ -615,6 +674,12 @@ constructor TSwitchCondition.Create(ASwitch: integer; AValue: boolean);
 begin
   Switch := ASwitch;
   Value := AValue;
+end;
+
+function TSwitchCondition.ToBasic: string;
+begin
+  result := 'Switch('+inttostr(Switch)+')';
+  if not Value then result := 'Not '+result;
 end;
 
 function TSwitchCondition.ToTrigEdit: string;
@@ -659,6 +724,13 @@ begin
   Mode := AMode;
   Value := AValue;
   Location:= ALocation;
+end;
+
+function TBringCondition.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.UnitCount(Unit.'+StarcraftUnitIdentifier[UnitType];
+  if not MapInfo.IsAnywhere(Location) then result += ', ' + StrToBasic(Location);
+  result += ') '+IntConditionModeToBasic[Mode]+' ' +inttostr(Value);
 end;
 
 function TBringCondition.ToTrigEdit: string;
@@ -718,6 +790,12 @@ begin
   Value := AValue;
 end;
 
+function TKillCountCondition.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.KillCount(Unit.'+StarcraftUnitIdentifier[UnitType];
+  result += ') '+IntConditionModeToBasic[Mode]+' ' +inttostr(Value);
+end;
+
 function TKillCountCondition.ToTrigEdit: string;
 begin
   Result:= 'Kill("' + PlayerToTrigEditStr(Player) + '", ' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]) + ', ' +
@@ -755,6 +833,11 @@ begin
   Player := APlayer;
   Mode := AMode;
   Value := AValue;
+end;
+
+function TOpponentCountCondition.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.OpponentCount '+IntConditionModeToBasic[Mode]+' ' +inttostr(Value);
 end;
 
 function TOpponentCountCondition.ToTrigEdit: string;
@@ -795,6 +878,11 @@ begin
   Value := AValue;
 end;
 
+function TElapsedTimeCondition.ToBasic: string;
+begin
+  result := 'ElapsedTime '+IntConditionModeToBasic[Mode]+' ' +inttostr(Value);
+end;
+
 function TElapsedTimeCondition.ToTrigEdit: string;
 begin
   Result:= 'Elapsed Time(' + IntegerConditionModeToTrigEditStr[Mode] + ', ' + IntToStr(Value) + ')';
@@ -831,6 +919,14 @@ begin
   UnitType := AUnitType;
   Location:= ALocation;
   Highest:= AHighest;
+end;
+
+function TCompareUnitCountCondition.ToBasic: string;
+begin
+  result := 'Me.UnitCount(Unit.'+StarcraftUnitIdentifier[UnitType];
+  if not MapInfo.IsAnywhere(Location) then result += ', ' + StrToBasic(Location);
+  result += ') = ';
+  if Highest then result += 'Max' else result += 'Min';
 end;
 
 function TCompareUnitCountCondition.ToTrigEdit: string;
@@ -881,6 +977,12 @@ constructor TCompareKillCountCondition.Create(AUnitType: TStarcraftUnit;
 begin
   UnitType := AUnitType;
   Highest:= AHighest;
+end;
+
+function TCompareKillCountCondition.ToBasic: string;
+begin
+  result := 'Me.KillCount(Unit.'+StarcraftUnitIdentifier[UnitType] + ') = ';
+  if Highest then result += 'Max' else result += 'Min';
 end;
 
 function TCompareKillCountCondition.ToTrigEdit: string;

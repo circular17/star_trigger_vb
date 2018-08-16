@@ -14,15 +14,34 @@ function IsTokenOverEndOfLine(ALastToken:string): boolean;
 type
   TIntegerList = specialize TFPGList<Integer>;
 
+  { TCodeLine }
+
+  TCodeLine = class
+    LineNumber: integer;
+    Tokens: TStringList;
+    constructor Create(ATokens: TStringList; ALineNumber: integer);
+    destructor Destroy; override;
+  end;
+  TCustomCodeLineList = specialize TFPGList<TCodeLine>;
+
+  { TCodeLineList }
+
+  TCodeLineList = class(TCustomCodeLineList)
+    procedure FreeAll;
+  end;
+
 const
   SubNewScope = 1;
 
 var
   MainProg: TInstructionList;
+  MainCode: TCodeLineList;
+
   Procedures: array of record
     Name: string;
     ParamCount: integer;
     Instructions: TInstructionList;
+    Code: TCodeLineList;
     StartIP: integer;
     ReturnType: string;
     ReturnBitCount: integer;
@@ -43,21 +62,26 @@ var
     Players: TPlayers;
     Conditions: TConditionList;
     Instructions: TInstructionList;
+    Code: TCodeLineList;
     Preserve: boolean;
     InnerScope: integer;
   end;
   EventCount: integer;
 
-  ReadProgErrors: TStringList;
+  ReadProgErrors, ReadProgWarnings: TStringList;
   LastScope: integer;
 
 function CreateEvent(APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
+procedure AddError(ALine: integer; AText: string);
+procedure AddWarning(ALine: integer; AText: string);
 
 var HyperTriggers: boolean;
 
 implementation
 
 uses uparsevb, uvariables, uexpressions, uparseconditions, utriggerinstructions, utriggerconditions, umapinfo;
+
+const MAX_ERRORS = 3;
 
 function TryUnitProperties(AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
 var idx, intVal: integer;
@@ -221,6 +245,7 @@ begin
     ParamCount:= AParamCount;
     Instructions := TInstructionList.Create;
     Instructions.Add(TCommentInstruction.Create('Sub '+AName));
+    Code := TCodeLineList.Create;
     StartIP := -1;
     ReturnType := AReturnType;
     ReturnBitCount:= GetBitCountOfType(AReturnType);
@@ -278,9 +303,20 @@ begin
     Conditions := AConditions;
     Instructions := TInstructionList.Create;
     Instructions.Add(TCommentInstruction.Create('When'));
+    Code := TCodeLineList.Create;
     Preserve := APreserve;
     InnerScope := -1-result;
   end;
+end;
+
+procedure AddError(ALine: integer; AText: string);
+begin
+  ReadProgErrors.Add('Line '+Inttostr(ALine)+': [Error] ' + AText);
+end;
+
+procedure AddWarning(ALine: integer; AText: string);
+begin
+  ReadProgWarnings.Add('Line '+Inttostr(ALine)+': [Warning] ' + AText);
 end;
 
 function ParseIntArray(AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfInteger;
@@ -667,7 +703,7 @@ begin
         if TryIntegerConstant(AScope,ALine,index,intVal) then
         begin
           bitCount := BitCountNeededFor(intVal);
-          if not Constant then ReadProgErrors.Add('Line ' + inttostr( ALineNumber) + ': assuming ' + inttostr( bitCount) + ' bit value for "' + varName + '". Please specify integer type (Byte, UInt16, UInt24)');
+          if not Constant then AddWarning(ALineNumber,'Assuming ' + inttostr( bitCount) + ' bit value for "' + varName + '". Please specify integer type (Byte, UInt16, UInt24)');
           SetupIntVar(CreateIntVar(AScope,varName, intVal, bitCount, false, Constant));
         end
         else if TryToken(ALine,index,'Rnd') then
@@ -1724,6 +1760,7 @@ begin
     begin
       Instructions.FreeAll;
       Calls.Free;
+      Code.FreeAll;
     end;
   ProcedureCount:= 0;
 
@@ -1732,6 +1769,7 @@ begin
     begin
       Instructions.FreeAll;
       Conditions.FreeAll;
+      Code.FreeAll;
     end;
   EventCount:= 0;
 end;
@@ -1743,22 +1781,164 @@ begin
          or (CompareText(ALastToken,'Or')=0) or (CompareText(ALastToken,'And')=0) or (CompareText(ALastToken,'Xor')=0);
 end;
 
+procedure ParseCode(AMainThread: TPlayer; inSubNew: boolean; inSub, inEvent: integer);
+var
+  code: TCodeLineList;
+  i, lineNumber: Integer;
+  line: TStringList;
+  index, j: integer;
+  doPlayers: TPlayers;
+  inDoAs: Boolean;
+
+  procedure CheckEndOfLine;
+  begin
+    if index <> line.Count then
+      raise exception.Create('Expecting end of line');
+  end;
+
+  procedure DoParseInstruction;
+  begin
+    if inSub <> -1 then
+      ParseInstruction(Procedures[inSub].InnerScope, line, Procedures[inSub].Instructions,[plAllPlayers], AMainThread, inSub,false)
+    else if inEvent <> -1 then
+    begin
+      if inDoAs then
+        ParseInstruction(Events[inEvent].InnerScope, line, Events[inEvent].Instructions, doPlayers, AMainThread, -1, false)
+      else
+        ParseInstruction(Events[inEvent].InnerScope, line, Events[inEvent].Instructions, Events[inEvent].Players, AMainThread, -1, false);
+    end else
+    begin
+      if inDoAs then
+        ParseInstruction(SubNewScope, line, MainProg, doPlayers, AMainThread, -1, true)
+      else if AMainThread = plNone then
+        ParseInstruction(SubNewScope, line, MainProg, [], AMainThread, -1, true)
+      else
+        ParseInstruction(SubNewScope, line, MainProg, [AMainThread], AMainThread, -1, true);
+    end
+  end;
+
+begin
+  if inSubNew then code := MainCode
+  else if inSub <> -1 then code := Procedures[inSub].Code
+  else if inEvent <> -1 then code := Events[inSub].Code
+  else raise exception.Create('Not in a code block');
+
+  inDoAs := false;
+  doPlayers := [];
+
+  for i := 0 to code.Count-1 do
+  begin
+    lineNumber := code[i].LineNumber;
+    line := code[i].tokens;
+    index := 0;
+
+    try
+      if TryToken(line,index,'Dim') or TryToken(line,index,'Const') then
+      begin
+        if inEvent <> -1 then
+          ProcessDim(Events[inEvent].InnerScope,lineNumber, line, Events[inEvent].Instructions, true)
+        else if inSub <> -1 then
+          ProcessDim(Procedures[inSub].InnerScope,lineNumber,line, Procedures[inSub].Instructions, true)
+        else
+          ProcessDim(SubNewScope, lineNumber,line, MainProg, false)
+      end
+      else if (inEvent <> -1) and TryToken(line,index, 'Return') then
+      begin
+        if not Events[inEvent].Preserve then
+          raise exception.Create('If you use Stop in an event, you cannot use Return in the same event');
+        CheckEndOfLine;
+        Events[inEvent].Instructions.Add(TReturnInstruction.Create);
+      end
+      else if TryToken(line,index, 'Stop') then
+      begin
+        if inEvent <> -1 then
+        begin
+          if Events[inEvent].Preserve then
+          begin
+            Events[inEvent].Preserve := false;
+            for j := 0 to Events[inEvent].Instructions.Count-1 do
+              if Events[inEvent].Instructions[j] is TReturnInstruction then
+                raise exception.Create('If you use Stop in an event, you cannot use Return in the same event');
+          end;
+          CheckEndOfLine;
+          Events[inEvent].Instructions.Add(TReturnInstruction.Create);
+        end else
+          raise exception.Create('Stop instruction only allowed in event');
+      end
+      else if TryToken(line,index,'Do') then
+      begin
+        if TryToken(line,index,'As') then
+        begin
+          if inDoAs then raise exception.Create('Nested multi-thread instruction not allowed');
+
+          doPlayers := ExpectPlayers(line,index);
+          if (plAllPlayers in doPlayers) or ([plForce1,plForce2,plForce3,plForce4] <= doPlayers) then
+            doPlayers := [plPlayer1,plPlayer2,plPlayer3,plPlayer4,
+                      plPlayer5,plPlayer6,plPlayer7,plPlayer8];
+
+          if inEvent<>-1 then
+          begin
+            if (Events[inEvent].Players <> []) and (Events[inEvent].Players <> [AMainThread]) then
+              raise exception.Create('Multi-thread instruction only allowed in main thread');
+            Events[inEvent].Instructions.Add(TDoAsInstruction.Create(doPlayers));
+          end else
+          if inSubNew then
+          begin
+            MainProg.Add(TDoAsInstruction.Create(doPlayers));
+          end
+          else
+            raise exception.Create('Multi-thread instructions must be in the Sub New or in an event of the main thread');
+
+          CheckEndOfLine;
+
+          inDoAs := true;
+        end else
+          DoParseInstruction;
+      end else
+      if TryToken(line,index,'End') then
+      begin
+        if TryToken(line,index,'Do') then
+        begin
+          if inDoAs then
+          begin
+            inDoAs := false;
+            if inSubNew then
+              MainProg.Add(TEndDoAsInstruction.Create(doPlayers) )
+            else
+            if (inEvent<>-1) then
+              Events[inEvent].Instructions.Add(TEndDoAsInstruction.Create(doPlayers) );
+          end
+          else raise exception.Create('Unexpected end of block');
+        end else
+          DoParseInstruction;
+      end else
+        DoParseInstruction;
+
+    except
+      on ex:Exception do
+        if ReadProgErrors.Count < MAX_ERRORS then
+          AddError(lineNumber, ex.Message);
+    end;
+  end;
+
+  if inDoAs then raise exception.Create('Multi-thread instruction not finished');
+end;
+
 function ReadProg(ALines: TStrings; out AMainThread: TPlayer): boolean;
-const MAX_ERRORS = 3;
 var
   line: TStringList;
   index: integer;
-  lineNumber: integer;
+  fileLineNumber, lineNumber: integer;
 
   function ReadOneLine: string;
   begin
-    result := ALines[lineNumber];
-    inc(lineNumber);
+    result := ALines[fileLineNumber];
+    inc(fileLineNumber);
   end;
 
   function EOF: boolean;
   begin
-    result := lineNumber >= ALines.Count;
+    result := fileLineNumber >= ALines.Count;
   end;
 
   procedure ReadNextLine;
@@ -1766,6 +1946,7 @@ var
     extraLine: TStringList;
   begin
     s := ReadOneLine;
+    lineNumber := fileLineNumber;
     if Assigned(line) then FreeAndNil(line);
     line := ParseLine(s);
     index := 0;
@@ -1784,7 +1965,7 @@ var
         else
         begin
           extraline.Free;
-          dec(lineNumber);
+          dec(fileLineNumber);
           break;
         end;
       end else break;
@@ -1798,14 +1979,13 @@ var
   end;
 
 var
-  errorCount: integer;
   inSub, inEvent, i: integer;
-  inSubNew, subNewDeclared, done, inDoAs: boolean;
-  doPlayers: TPlayers;
+  inSubNew, subNewDeclared, done: boolean;
   players: TPlayers;
   pl: TPlayer;
 begin
   ReadProgErrors.Clear;
+  ReadProgWarnings.Clear;
   ClearProceduresAndEvents;
   AMainThread := plNone;
 
@@ -1814,6 +1994,8 @@ begin
   MainProg.FreeAll;
   MainProg := TInstructionList.Create;
   MainProg.Add(TCommentInstruction.Create('Sub New'));
+  MainCode.FreeAll;
+  MainCode := TCodeLineList.Create;
 
   PredefineIntArray(GlobalScope,'Ore',suResourceOre,24);
   PredefineIntArray(GlobalScope,'Minerals',suResourceOre,24);
@@ -1834,19 +2016,17 @@ begin
   ProcessDim(GlobalScope,0,'Const vbTab = Chr(9)',MainProg, False);
   ProcessDim(GlobalScope,0,'Const vbCrLf = vbCr & vbLf',MainProg, False);
 
-  lineNumber:= 0;
+  fileLineNumber:= 0;
+  lineNumber := 0;
   line := nil;
 
-  errorCount := 0;
   inSub := -1;
   inEvent := -1;
   inSubNew := false;
   subNewDeclared := false;
-  inDoAs := false;
-  doPlayers := [];
   LastScope := GlobalScope;
 
-  while not Eof and (errorCount < MAX_ERRORS) do
+  while not Eof and (ReadProgErrors.Count < MAX_ERRORS) do
   begin
     try
       ReadNextLine;
@@ -1854,12 +2034,9 @@ begin
 
       if TryToken(line,index,'Dim') or TryToken(line,index,'Const') then
       begin
-        if inEvent <> -1 then
-          ProcessDim(Events[inEvent].InnerScope,lineNumber, line, Events[inEvent].Instructions, true)
-        else if inSub <> -1 then
-          ProcessDim(Procedures[inSub].InnerScope,lineNumber,line, Procedures[inSub].Instructions, true)
-        else if inSubNew then
-          ProcessDim(SubNewScope, lineNumber,line, MainProg, false)
+        if inEvent <> -1 then Events[inEvent].Code.Add(TCodeLine.Create(line, lineNumber))
+        else if inSub <> -1 then Procedures[inSub].Code.Add(TCodeLine.Create(line, lineNumber))
+        else if inSubNew then MainCode.Add(TCodeLine.Create(line, lineNumber))
         else
           ProcessDim(GlobalScope, lineNumber,line, MainProg, false);
       end
@@ -1874,29 +2051,6 @@ begin
           inSubNew:= true;
           subNewDeclared := true;
         end;
-      end
-      else if (inEvent <> -1) and TryToken(line,index, 'Return') then
-      begin
-        if not Events[inEvent].Preserve then
-          raise exception.Create('If you use Stop in an event, you cannot use Return in the same event');
-        CheckEndOfLine;
-        Events[inEvent].Instructions.Add(TReturnInstruction.Create);
-      end
-      else if TryToken(line,index, 'Stop') then
-      begin
-        if inEvent <> -1 then
-        begin
-          if Events[inEvent].Preserve then
-          begin
-            Events[inEvent].Preserve := false;
-            for i := 0 to Events[inEvent].Instructions.Count-1 do
-              if Events[inEvent].Instructions[i] is TReturnInstruction then
-                raise exception.Create('If you use Stop in an event, you cannot use Return in the same event');
-          end;
-          CheckEndOfLine;
-          Events[inEvent].Instructions.Add(TReturnInstruction.Create);
-        end else
-          raise exception.Create('Stop instruction only allowed in event');
       end
       else if (inSub = -1) and (inEvent = -1) and not inSubNew and TryToken(line,index,'As') then
       begin
@@ -1940,18 +2094,27 @@ begin
         begin
           if TryToken(line,index,'Sub') then
           begin
-            if inDoAs then raise exception.Create('Multi-thread instruction not finished');
-
-            if inSubNew then inSubNew := false
+            if inSubNew then
+            begin
+              try
+                ParseCode(AMainThread, inSubNew, inSub, inEvent);
+              finally
+                inSubNew := false;
+              end;
+            end
             else
             begin
               if inSub= -1 then
                 raise Exception.create('Not in a procedure');
               if Procedures[inSub].ReturnType <> 'Void' then raise exception.Create('Expecting "End Function"');
+              try
+                ParseCode(AMainThread, inSubNew, inSub, inEvent);
+              finally
+                inSub := -1;
+              end;
               with Procedures[inSub].Instructions do
                 if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
                   Add(TReturnInstruction.Create);
-              inSub := -1;
             end;
             CheckEndOfLine;
             done := true;
@@ -1961,92 +2124,41 @@ begin
             if inSub= -1 then
               raise Exception.create('Not in a function');
             if Procedures[inSub].ReturnType = 'Void' then raise exception.Create('Expecting "End Sub" instead');
+            try
+              ParseCode(AMainThread, inSubNew, inSub, inEvent);
+            finally
+              inSub := -1;
+            end;
             with Procedures[inSub].Instructions do
               if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
                 Add(TReturnInstruction.Create);
-            inSub := -1;
             CheckEndOfLine;
             done := true;
           end
           else if TryToken(line,index,'When') then
           begin
-            if inDoAs then raise exception.Create('Multi-thread instruction not finished');
-
             if inEvent= -1 then
               raise Exception.create('Not in an event');
+            try
+              ParseCode(AMainThread, inSubNew, inSub, inEvent);
+            finally
+              inEvent := -1;
+            end;
             with Events[inEvent] do
               while (Instructions.Count > 0) and (Instructions[Instructions.Count-1] is TReturnInstruction) do
               begin
                 Instructions[Instructions.Count-1].Free;
                 Instructions.Delete(Instructions.Count-1);
               end;
-            inEvent := -1;
             CheckEndOfLine;
             done := true;
-          end
-          else if TryToken(line,index,'Do') then
-          begin
-            if inDoAs then
-            begin
-              inDoAs := false;
-              if inSubNew then
-                MainProg.Add(TEndDoAsInstruction.Create(doPlayers) )
-              else
-              if (inEvent<>-1) then
-                Events[inEvent].Instructions.Add(TEndDoAsInstruction.Create(doPlayers) );
-            end
-            else raise exception.Create('Unexpected end of block');
-            done := true;
           end;
-        end else
-        if TryToken(line,index,'Do') and TryToken(line,index,'As') then
-        begin
-          if inDoAs then raise exception.Create('Nested multi-thread instruction not allowed');
-
-          doPlayers := ExpectPlayers(line,index);
-          if (plAllPlayers in doPlayers) or ([plForce1,plForce2,plForce3,plForce4] <= doPlayers) then
-            doPlayers := [plPlayer1,plPlayer2,plPlayer3,plPlayer4,
-                      plPlayer5,plPlayer6,plPlayer7,plPlayer8];
-
-          if inEvent<>-1 then
-          begin
-            if (Events[inEvent].Players <> []) and (Events[inEvent].Players <> [AMainThread]) then
-              raise exception.Create('Multi-thread instruction only allowed in main thread');
-            Events[inEvent].Instructions.Add(TDoAsInstruction.Create(doPlayers));
-          end else
-          if inSubNew then
-          begin
-            MainProg.Add(TDoAsInstruction.Create(doPlayers));
-          end
-          else
-            raise exception.Create('Multi-thread instructions must be in the Sub New or in an event of the main thread');
-
-          CheckEndOfLine;
-
-          inDoAs := true;
-          done := true;
         end;
-
         if not done then
         begin
-          if inSub<>-1 then
-            ParseInstruction(Procedures[inSub].InnerScope, line, Procedures[inSub].Instructions,[plAllPlayers], AMainThread, inSub,false)
-          else if inEvent<>-1 then
-          begin
-            if inDoAs then
-              ParseInstruction(Events[inEvent].InnerScope, line, Events[inEvent].Instructions, doPlayers, AMainThread, -1, false)
-            else
-              ParseInstruction(Events[inEvent].InnerScope, line, Events[inEvent].Instructions, Events[inEvent].Players, AMainThread, -1, false);
-          end
-          else if inSubNew then
-          begin
-            if inDoAs then
-              ParseInstruction(SubNewScope, line, MainProg, doPlayers, AMainThread, -1, true)
-            else if AMainThread = plNone then
-              ParseInstruction(SubNewScope, line, MainProg, [], AMainThread, -1, true)
-            else
-              ParseInstruction(SubNewScope, line, MainProg, [AMainThread], AMainThread, -1, true);
-          end
+          if inSub<>-1 then Procedures[inSub].Code.Add(TCodeLine.Create(line,lineNumber))
+          else if inEvent<>-1 then Events[inEvent].Code.Add(TCodeLine.Create(line,lineNumber))
+          else if inSubNew then MainCode.Add(TCodeLine.Create(line,lineNumber))
           else
             if not ParseOption(line) then
               raise exception.Create('Unexpected instruction. Please put initialization code into Sub New.');
@@ -2054,48 +2166,71 @@ begin
       end;
     except
       on ex:Exception do
-      begin
-        ReadProgErrors.Add('Line ' + inttostr( lineNumber) + ': ' + ex.Message);
-        errorCount += 1;
-      end;
+        AddError(lineNumber, ex.Message);
     end;
   end;
 
   line.Free;
 
-  if errorCount < MAX_ERRORS then
+  if ReadProgErrors.Count < MAX_ERRORS then
   begin
     if inSub<>-1 then
     begin
-      ReadProgErrors.Add('Line ' + inttostr( lineNumber) + ': Sub or Function not finished');
-      Inc(errorCount);
+      AddError(lineNumber, 'Sub or Function not finished');
       LastScope:= Procedures[inSub].InnerScope;
     end;
 
     if inEvent<>-1 then
     begin
-      ReadProgErrors.Add('Line ' + inttostr( lineNumber) + ': event not finished');
-      Inc(errorCount);
+      AddError(lineNumber, 'Event not finished');
       LastScope:= Events[inEvent].InnerScope;
     end;
 
     if inSubNew then
     begin
-      ReadProgErrors.Add('Line ' + inttostr( lineNumber) + ': Sub not finished');
-      Inc(errorCount);
+      AddError(lineNumber, 'Sub not finished');
       LastScope:= SubNewScope;
     end;
   end;
 
-  result := errorCount = 0;
+  result := ReadProgErrors.Count = 0;
 end;
 
 var i: integer;
 
+{ TCodeLine }
+
+constructor TCodeLine.Create(ATokens: TStringList; ALineNumber: integer);
+begin
+  Tokens := TStringList.Create;
+  Tokens.AddStrings(ATokens);
+  LineNumber := ALineNumber;
+end;
+
+destructor TCodeLine.Destroy;
+begin
+  Tokens.Free;
+  inherited Destroy;
+end;
+
+{ TCodeLineList }
+
+procedure TCodeLineList.FreeAll;
+begin
+  if self <> nil then
+  begin
+    for i := 0 to Count-1 do
+      Items[i].Free;
+    Free;
+  end;
+end;
+
 initialization
 
   MainProg := TInstructionList.Create;
+  MainCode := TCodeLineList.Create;
   ReadProgErrors := TStringList.Create;
+  ReadProgWarnings := TStringList.Create;
 
 finalization
 
@@ -2103,6 +2238,8 @@ finalization
     MainProg[i].Free;
 
   ReadProgErrors.Free;
+  ReadProgWarnings.Free;
+  MainCode.FreeAll;
   MainProg.Free;
 
   ClearProceduresAndEvents;

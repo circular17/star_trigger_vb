@@ -61,7 +61,7 @@ object FMain: TFMain
     TabOrder = 1
     inline SynEdit1: TSynEdit
       Left = 0
-      Height = 316
+      Height = 328
       Top = 0
       Width = 776
       Align = alClient
@@ -568,19 +568,19 @@ object FMain: TFMain
       Cursor = crVSplit
       Left = 0
       Height = 5
-      Top = 316
+      Top = 328
       Width = 776
       Align = alBottom
       ResizeAnchor = akBottom
     end
     object Panel_Errors: TPanel
       Left = 0
-      Height = 90
-      Top = 321
+      Height = 78
+      Top = 333
       Width = 776
       Align = alBottom
       BevelOuter = bvNone
-      ClientHeight = 90
+      ClientHeight = 78
       ClientWidth = 776
       TabOrder = 2
       object Errors: TLabel
@@ -594,7 +594,7 @@ object FMain: TFMain
       end
       object ListBox_Errors: TListBox
         Left = 0
-        Height = 77
+        Height = 65
         Top = 13
         Width = 776
         Align = alClient

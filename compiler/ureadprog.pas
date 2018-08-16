@@ -292,7 +292,7 @@ end;
 function CreateEvent(APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
 begin
   if AConditions.IsArithmetic then
-    raise exception.Create('Arithmetic expressions cannot be used in When clause');
+    raise exception.Create('Arithmetic expressions cannot be used in event conditions');
 
   if EventCount >= length(Events) then
     setlength(Events, EventCount*2+4);
@@ -304,7 +304,7 @@ begin
     Players := APlayers;
     Conditions := AConditions;
     Instructions := TInstructionList.Create;
-    Instructions.Add(TCommentInstruction.Create('When'));
+    Instructions.Add(TCommentInstruction.Create('Event'));
     Code := TCodeLineList.Create;
     Preserve := APreserve;
     InnerScope := -1-result;
@@ -450,7 +450,7 @@ var
   conds: TConditionList;
 begin
   index := 0;
-  ExpectToken(ALine,index,'When');
+  ExpectToken(ALine,index,'On');
 
   conds := ExpectConditions(GlobalScope, ALine,index,APlayers);
   if ACheckStop then
@@ -1516,7 +1516,7 @@ begin
   begin
     conds := ExpectConditions(AScope,ALine,index,AThreads);
     if (conds.Count = 1) and (conds[0] is TAlwaysCondition) then
-      raise exception.Create('Infinite loop not allowed. You can use When True instead');
+      raise exception.Create('Infinite loop not allowed. You can use an event "On True" instead though');
     AProg.Add(TWhileInstruction.Create(conds));
     CheckEndOfLine;
   end else
@@ -2008,7 +2008,12 @@ var
           ALineIndex := j;
           break;
         end;
-      end;
+      end else if (CompareText(code[j].Tokens[0],'Dim')=0) or
+        (CompareText(code[j].Tokens[0],'Const')=0) then
+        begin
+          lineNumber := code[j].LineNumber;
+          raise exception.Create('You cannot declare variables or constants within a For loop');
+        end;
     end;
 
     if nesting <> 0 then raise exception.Create('Matching "Next" not found');
@@ -2298,7 +2303,7 @@ begin
         end else
           inEvent := ProcessEvent(line, players, true)
       end
-      else if TryToken(line,index,'When') then
+      else if TryToken(line,index,'On') then
       begin
         if (inSub<>-1) or (inEvent <> -1) or inSubNew then
           raise exception.Create('Nested events not allowed');
@@ -2354,7 +2359,7 @@ begin
             CheckEndOfLine;
             done := true;
           end
-          else if TryToken(line,index,'When') then
+          else if TryToken(line,index,'On') then
           begin
             if inEvent= -1 then
               raise Exception.create('Not in an event');

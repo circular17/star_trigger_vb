@@ -42,8 +42,8 @@ function IsUnsignedIntegerType(AName: string): boolean;
 function BitCountNeededFor(AValue: integer): integer;
 
 const
-  ImplementedReservedWords: array[1..51] of string =
-    ('Dim','As','Const','Sub','When','End','If','EndIf', 'Then','Else','ElseIf','Not','And','Or','While','Option','Return',
+  ImplementedReservedWords: array[1..50] of string =
+    ('Dim','As','Const','Sub','End','If','EndIf', 'Then','Else','ElseIf','Not','And','Or','While','Option','Return',
      'On','Off','Hyper','Boolean','Byte','UInt8','UShort','UInt16','UInt24','String','True','False',
      'Do','Len','Chr','Asc','Exit','Function','LBound','UBound','Me','Rnd','New','Min','Max','All',
      'For','To','Step','Next','Each','In','UInteger','Integer');

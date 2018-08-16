@@ -863,7 +863,7 @@ begin
   if nb = 1 then result := 'As ' + result + LineEnding
   else if nb > 1 then result := 'As {' + result + '}' + LineEnding;
 
-  result += 'When ';
+  result += 'On ';
   for i := 0 to ConditionCount-1 do
   begin
     if i > 0 then result += ' And ';
@@ -879,7 +879,7 @@ begin
       result += '    '+Action[i].ToBasic+LineEnding;
 
   if not (preserveAction or Preserve) then result += '    Stop'+LineEnding;
-  result += 'End When';
+  result += 'End On';
 end;
 
 initialization

@@ -222,7 +222,8 @@ begin
   result := (IntVarIndexOf(AScope, AName, False)<>-1) or (BoolVarIndexOf(AScope, AName, False)<>-1) or
             (IntArrayIndexOf(AScope, AName, False)<>-1) or (BoolArrayIndexOf(AScope, AName, False)<>-1) or
             (ProcedureIndexOf(AName,AParamCount)<>-1) or (UnitPropIndexOf(AScope, AName, False) <> -1) or
-            (StringIndexOf(AScope, AName, False)<>-1) or (SoundIndexOf(AScope, AName, False)<>-1) or
+            (StringIndexOf(AScope, AName, False)<>-1) or (StringArrayIndexOf(AScope, AName, False)<>-1) or
+            (SoundIndexOf(AScope, AName, False)<>-1) or
             (CompareText('AI',AName) = 0) or (CompareText('Present',AName) = 0) or
             (CompareText('CountIf',AName)=0) or IsUnitType(AName) or (CompareText('Alliance',AName) = 0) or
             (CompareText('Unit',AName) = 0) or (CompareText('Leaderboard',AName) = 0);
@@ -475,6 +476,7 @@ var
   prop: TUnitProperties;
   arrBoolValues: ArrayOfSwitchValue;
   Constant: boolean;
+  strValues: ArrayOfString;
 
   procedure ExpectArraySize;
   begin
@@ -652,6 +654,18 @@ begin
             arraySize:= length(arrBoolValues);
           end;
           SetupBoolArray(CreateBoolArray(AScope,varName, arraySize, arrBoolValues, Constant));
+        end else if varType = 'String' then
+        begin
+          strValues := ParseStringArray(AScope,ALine,index);
+          if (arraySize <> 0) and (length(strValues) <> arraySize) then
+            raise exception.Create('Array size mismatch');
+          if arraySize = 0 then
+          begin
+            if (length(strValues) < 1) or (length(strValues) > MaxStringArraySize) then
+              raise exception.Create('Integer array size can go from 1 to ' + inttostr(MaxStringArraySize));
+            arraySize:= length(strValues);
+          end;
+          CreateStringArray(AScope,varName, arraySize, strValues, Constant);
         end else
           raise exception.Create(varType+' arrays not supported');
       end else
@@ -746,6 +760,8 @@ begin
           SetupBoolArray(CreateBoolArray(AScope,varName, arraySize, [], Constant))
         else if IsIntegerType(varType) then
           SetupIntArray(CreateIntArray(AScope,varName, arraySize, [], bitCount, Constant))
+        else if varType = 'String' then
+          CreateStringArray(AScope,varName, arraySize, [], Constant)
         else raise Exception.Create(varType+' arrays not supported')
       end else
       begin

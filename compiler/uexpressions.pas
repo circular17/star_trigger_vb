@@ -282,6 +282,13 @@ begin
           AValue := 1;
           exit(true);
         end;
+        idxVar := StringArrayIndexOf(AScope, ident);
+        if idxVar <> -1 then
+        begin
+          AValue := 1;
+          exit(true);
+        end;
+
       end;
 
       if TryToken(ALine,AIndex,'UBound') then
@@ -300,6 +307,12 @@ begin
         if idxVar <> -1 then
         begin
           AValue := BoolArrays[idxVar].Size;
+          exit(true);
+        end;
+        idxVar := StringArrayIndexOf(AScope, ident);
+        if idxVar <> -1 then
+        begin
+          AValue := StringArrays[idxVar].Size;
           exit(true);
         end;
       end;
@@ -526,7 +539,7 @@ begin
         if TryToken(ALine,AIndex,'Me') then
         begin
           if IntArrays[varIdx].Constant then
-            raise exception.Create('Cannot access a constant via Me');
+            raise exception.Create('Constant arrays cannot be indexed by "Me"');
           result.IntValue:= 0;
           result.UnitType := IntArrays[varIdx].UnitType;
           result.Player := plCurrentPlayer;
@@ -684,31 +697,47 @@ begin
        inc(idx);
      end else
      begin
-       scalar := TryScalarVariable(AScope, ALine,idx);
-       if scalar.VarType <> svtNone then
+       idxVar := StringArrayIndexOf(AScope, ALine[idx]);
+       if idxVar <> -1 then
        begin
-         if not scalar.Constant then
-         begin
-           if ARaiseException then raise exception.Create('Only constants can be used in a string');
-           exit(false);
-         end;
+         inc(idx);
+         ExpectToken(ALine,idx,'(');
+         if TryToken(ALine,idx,'Me') then
+            raise exception.Create('Constant arrays cannot be indexed by "Me"');
+         intVal := ExpectIntegerConstant(AScope,ALine,idx);
+         ExpectToken(ALine,idx,')');
+         if (intVal < 1) or (intVal > StringArrays[idxVar].Size) then
+           raise exception.Create('Index out of bounds');
 
-         case scalar.VarType of
-         svtInteger: AStr += inttostr(scalar.IntValue);
-         svtSwitch: AStr += BoolToStr(scalar.BoolValue, 'True', 'False');
-         else raise exception.Create('Unhandled case');
-         end;
-
-         if firstElem then
-         begin
-           if not ((idx < ALine.Count) and (ALine[idx] = '&')) then exit(false);
-           firstElem := false;
-           continue;
-         end;
+         AStr += StringArrays[idxVar].Values[intVal-1];
        end else
        begin
-         if ARaiseException then raise exception.Create('Expecting string but "' + ALine[idx] + '" found');
-         exit(false);
+         scalar := TryScalarVariable(AScope, ALine,idx);
+         if scalar.VarType <> svtNone then
+         begin
+           if not scalar.Constant then
+           begin
+             if ARaiseException then raise exception.Create('Only constants can be used in a string');
+             exit(false);
+           end;
+
+           case scalar.VarType of
+           svtInteger: AStr += inttostr(scalar.IntValue);
+           svtSwitch: AStr += BoolToStr(scalar.BoolValue, 'True', 'False');
+           else raise exception.Create('Unhandled case');
+           end;
+
+           if firstElem then
+           begin
+             if not ((idx < ALine.Count) and (ALine[idx] = '&')) then exit(false);
+             firstElem := false;
+             continue;
+           end;
+         end else
+         begin
+           if ARaiseException then raise exception.Create('Expecting string but "' + ALine[idx] + '" found');
+           exit(false);
+         end;
        end;
      end;
     end;
@@ -795,16 +824,29 @@ var
               end;
               ExpectToken(ALine,idx,')');
             end else
-            if AAcceptCalls and TryIdentifier(ALine,idx,name, false) then  //function call?
             begin
-              if IsReservedWord(name) then exit;
-              if TryToken(ALine,idx,'(') then ExpectToken(ALine,idx,')');
-              result := TFunctionCallNode.Create(neg, name);
-            end else
-            begin
-              if ARaiseException then
-                raise exception.Create('Integer expected');
-              exit;
+              if TryIdentifier(ALine,idx, name, false) then
+              begin
+                idxVar := StringIndexOf(AScope,name);
+                if idxVar = -1 then idxVar := StringArrayIndexOf(AScope,name);
+                if idxVar <> -1 then
+                begin
+                  if ARaiseException then
+                    raise exception.Create('String is not valid in integer expression');
+                  exit;
+                end;
+
+                if AAcceptCalls then  //function call?
+                begin
+                  if TryToken(ALine,idx,'(') then ExpectToken(ALine,idx,')');
+                  result := TFunctionCallNode.Create(neg, name);
+                end else
+                begin
+                  if ARaiseException then
+                    raise exception.Create('Integer expected');
+                  exit;
+                end;
+              end;
             end;
           end;
         end;

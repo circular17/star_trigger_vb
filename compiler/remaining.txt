@@ -1,5 +1,4 @@
 - fonctions avec parametres
-- string array
 
 - select case
 - simple do - loop until

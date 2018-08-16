@@ -10,6 +10,7 @@ uses
 const
   MaxBoolArraySize = MaxSwitches;
   MaxIntArraySize = MaxBoolArraySize;
+  MaxStringArraySize = MaxBoolArraySize;
   MaxUnitProperties = 64;
   GlobalScope = 0;
 
@@ -144,6 +145,18 @@ function CreateString(AScope: integer; AName: string; AValue: string; AConstant:
 function StringIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean = true): integer;
 
 var
+  StringArrays: array of record
+    Name: string;
+    Values: array of string;
+    Scope: integer;
+    Size: integer;
+  end;
+  StringArrayCount: integer;
+
+function CreateStringArray(AScope: integer; AName: string; ASize: integer; AValues: array of string; AConstant: boolean = false): integer;
+function StringArrayIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean = true): integer;
+
+var
   Messages: array of record
     Text: string;
     Players: TPlayers;
@@ -167,6 +180,7 @@ begin
   IntVarCount:= 0;
   IntArrayCount:= 0;
   StringCount := 0;
+  StringArrayCount := 0;
   UnitPropCount := 0;
   SoundCount := 0;
   BoolResultVar := -1;
@@ -834,6 +848,49 @@ begin
   if ACheckGlobal then
     for i := 0 to StringCount-1 do
       if (StringVars[i].Scope = GlobalScope) and (CompareText(StringVars[i].Name,AName)=0) then exit(i);
+  exit(-1);
+end;
+
+function CreateStringArray(AScope: integer; AName: string; ASize: integer;
+  AValues: array of string; AConstant: boolean): integer;
+var
+  i: Integer;
+begin
+  CheckReservedWord(AName);
+
+  if not AConstant then
+    raise Exception.Create('Array of strings must be constant');
+
+  if length(AValues)>ASize then
+    raise exception.Create('Too many elements in value array');
+
+  if StringArrayCount >= length(StringArrays) then
+    setlength(StringArrays, StringArrayCount*2+4);
+  result := StringArrayCount;
+  inc(StringArrayCount);
+
+  with StringArrays[result] do
+  begin
+    Scope := AScope;
+    Name := AName;
+    Size := ASize;
+    Values := nil;
+    setlength(Values,ASize);
+    for i := 0 to high(AValues) do
+      Values[i] := AValues[i];
+  end;
+end;
+
+function StringArrayIndexOf(AScope: integer; AName: string;
+  ACheckGlobal: boolean): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to StringArrayCount-1 do
+    if (StringArrays[i].Scope = AScope) and (CompareText(StringArrays[i].Name,AName)=0) then exit(i);
+  if ACheckGlobal then
+    for i := 0 to StringArrayCount-1 do
+      if (StringArrays[i].Scope = GlobalScope) and (CompareText(StringArrays[i].Name,AName)=0) then exit(i);
   exit(-1);
 end;
 

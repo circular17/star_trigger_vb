@@ -2042,8 +2042,8 @@ begin
   end
   else if inEvent <> -1 then
   begin
-    code := Events[inSub].Code;
-    scope := Events[inSub].InnerScope;
+    code := Events[inEvent].Code;
+    scope := Events[inEvent].InnerScope;
   end
   else raise exception.Create('Not in a code block');
 
@@ -2356,15 +2356,15 @@ begin
               raise Exception.create('Not in an event');
             try
               ParseCode(Events[inEvent].Players, AMainThread, inSubNew, inSub, inEvent);
+              with Events[inEvent] do
+                while (Instructions.Count > 0) and (Instructions[Instructions.Count-1] is TReturnInstruction) do
+                begin
+                  Instructions[Instructions.Count-1].Free;
+                  Instructions.Delete(Instructions.Count-1);
+                end;
             finally
               inEvent := -1;
             end;
-            with Events[inEvent] do
-              while (Instructions.Count > 0) and (Instructions[Instructions.Count-1] is TReturnInstruction) do
-              begin
-                Instructions[Instructions.Count-1].Free;
-                Instructions.Delete(Instructions.Count-1);
-              end;
             CheckEndOfLine;
             done := true;
           end;

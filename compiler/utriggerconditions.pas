@@ -718,6 +718,7 @@ end;
 constructor TBringCondition.Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; ALocation: string;
   AMode: TIntegerConditionMode; AValue: integer);
 begin
+  if ALocation = '' then ALocation:= MapInfo.AnywhereLocationName;
   if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
   Player := APlayer;
   UnitType := AUnitType;

@@ -483,6 +483,23 @@ begin
       exit;
     end;
 
+    if CompareText(ALine[AIndex],'Switch')=0 then
+    begin
+      inc(AIndex);
+      ExpectToken(ALine,AIndex,'(');
+      result.VarType := svtSwitch;
+      result.Player := plNone;
+      result.UnitType := suSwitch;
+      result.Switch := ExpectIntegerConstant(AScope,ALine,AIndex);
+      if (result.Switch < 1) or (result.Switch > 256) then raise exception.Create('Switch index out of bounds (1 to 256)');
+      result.Constant:= False;
+      result.ReadOnly := False;
+      result.BoolValue:= false;
+      result.IntValue := 0;
+      ExpectToken(ALine,AIndex,')');
+      exit;
+    end;
+
     varIdx := BoolArrayIndexOf(AScope, ALine[AIndex]);
     if varIdx <> -1 then
     begin

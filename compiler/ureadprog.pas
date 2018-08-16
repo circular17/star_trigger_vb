@@ -226,7 +226,8 @@ begin
             (SoundIndexOf(AScope, AName, False)<>-1) or
             (CompareText('AI',AName) = 0) or (CompareText('Present',AName) = 0) or
             (CompareText('CountIf',AName)=0) or IsUnitType(AName) or (CompareText('Alliance',AName) = 0) or
-            (CompareText('Unit',AName) = 0) or (CompareText('Leaderboard',AName) = 0);
+            (CompareText('Unit',AName) = 0) or (CompareText('Leaderboard',AName) = 0) or
+            (CompareText('Switch',AName) = 0);
 end;
 
 function CreateProcedure(AName: string; AParamCount: integer; AReturnType: string): integer;
@@ -899,8 +900,10 @@ begin
     try
       ExpectToken(ALine,AIndex,',');
       unitType := ExpectUnitType(AScope,ALine,AIndex);
-      ExpectToken(ALine,AIndex,',');
-      locStr := ExpectString(AScope,ALine,AIndex);
+      if TryToken(ALine,AIndex,',') then
+        locStr := ExpectString(AScope,ALine,AIndex)
+      else
+        locStr := MapInfo.AnywhereLocationName;
       if TryToken(ALine,AIndex,',') then
       begin
         propIndex := TryUnitPropVar(AScope,ALine,AIndex);
@@ -1282,7 +1285,7 @@ begin
               if TryToken(ALine,AIndex,',') then
                 locStr := ExpectString(AScope,ALine,AIndex)
               else
-                locStr := '';
+                locStr := MapInfo.AnywhereLocationName;
               ExpectToken(ALine,AIndex,')');
             end else
             begin
@@ -2227,6 +2230,7 @@ begin
   ProcessDim(GlobalScope,0,'Const vbLf = Chr(10)',MainProg, False);
   ProcessDim(GlobalScope,0,'Const vbTab = Chr(9)',MainProg, False);
   ProcessDim(GlobalScope,0,'Const vbCrLf = vbCr & vbLf',MainProg, False);
+  CreateString(GlobalScope, 'Anywhere', MapInfo.AnywhereLocationName, true);
 
   fileLineNumber:= 0;
   lineNumber := 0;

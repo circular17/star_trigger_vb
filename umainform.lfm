@@ -1055,7 +1055,13 @@ object FMain: TFMain
     left = 376
     top = 176
     object MenuItem1: TMenuItem
-      Caption = 'Couper'
+      Action = EditCut
+    end
+    object MenuItem2: TMenuItem
+      Action = EditCopy
+    end
+    object MenuItem3: TMenuItem
+      Action = EditPaste
     end
   end
 end

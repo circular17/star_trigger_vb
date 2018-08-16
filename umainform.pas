@@ -25,6 +25,8 @@ type
     ListBox_Locations: TListBox;
     ListBox_Errors: TListBox;
     MenuItem1: TMenuItem;
+    MenuItem2: TMenuItem;
+    MenuItem3: TMenuItem;
     OpenDialog1: TOpenDialog;
     Panel_Locations: TPanel;
     Panel_Utils: TPanel;

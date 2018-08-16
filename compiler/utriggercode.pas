@@ -849,6 +849,7 @@ function TTrigger.ToBasic: string;
 var
   nb, i: integer;
   pl: TPlayer;
+  preserveAction: Boolean;
 begin
   result := '';
   nb := 0;
@@ -870,9 +871,14 @@ begin
   end;
   result += LineEnding;
 
+  preserveAction := false;
   for i := 0 to ActionCount-1 do
-    result += '    '+Action[i].ToTrigEdit+LineEnding;
+    if Action[i] is TPreserveTriggerInstruction then
+      preserveAction := true
+    else
+      result += '    '+Action[i].ToBasic+LineEnding;
 
+  if not (preserveAction or Preserve) then result += '    Stop'+LineEnding;
   result += 'End When';
 end;
 

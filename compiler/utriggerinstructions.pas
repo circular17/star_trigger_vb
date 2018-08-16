@@ -12,6 +12,7 @@ type
 
   TTriggerInstruction = class(TInstruction)
     function ToTrigEditAndFree: string;
+    function ToBasic: string; virtual;
     function ToTrigEdit: string; virtual; abstract;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); virtual; abstract;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
@@ -21,6 +22,7 @@ type
 
   TPreserveTriggerInstruction = class(TTriggerInstruction)
     constructor Create;
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -33,6 +35,7 @@ type
     Switch: integer;
     Value: TSwitchValue;
     constructor Create(ASwitch: integer; AValue: TSwitchValue);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -47,6 +50,7 @@ type
     Value: integer;
     Mode: TSetIntegerMode;
     constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; AMode: TSetIntegerMode; AValue: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -61,6 +65,7 @@ type
     Value: integer;
     Mode: TSetIntegerMode;
     constructor Create(APlayer: TPlayer; AResource: TStarcraftResource; AMode: TSetIntegerMode; AValue: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -75,6 +80,7 @@ type
     Value: integer;
     Mode: TSetIntegerMode;
     constructor Create(APlayer: TPlayer; AScore: TStarcraftScore; AMode: TSetIntegerMode; AValue: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -87,6 +93,7 @@ type
     Value: integer;
     Mode: TSetIntegerMode;
     constructor Create(AMode: TSetIntegerMode; AValue: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -99,6 +106,7 @@ type
     Always: boolean;
     Text: string;
     constructor Create(AAlways: boolean; AText: string);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -110,6 +118,7 @@ type
   TWaitInstruction = class(TTriggerInstruction)
     DelayMs: integer;
     constructor Create(ADelayMs: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -125,6 +134,7 @@ type
     Location: string;
     Properties: integer;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string; AProperties: integer = -1);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -143,6 +153,7 @@ type
     UnitProperty: TSetUnitProperty;
     Value: integer;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string; AProperty: TSetUnitProperty; AValue: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -161,6 +172,7 @@ type
     Flag: TSetUnitFlag;
     Value: TUnitFlagValue;
     constructor Create(APlayer: TPlayer; AUnitType:TStarcraftUnit; ALocation: string; AFlag: TSetUnitFlag; AValue: TUnitFlagValue);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -176,6 +188,7 @@ type
     Location: string;
     DeathAnimation: boolean;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string = ''; ADeathAnimation: boolean = true);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -190,6 +203,7 @@ type
     UnitType: TStarcraftUnit;
     Location: string;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string; ADestPlayer: TPlayer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -205,6 +219,7 @@ type
     Location: string;
     DestLocation: string;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string; ADestLocation: string);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -219,6 +234,7 @@ type
     Location: string;
     LocationToChange: string;
     constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; ALocation: string; ALocationToChange: string);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -234,6 +250,7 @@ type
     DestLocation: string;
     Order: TUnitOrder;
     constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; ALocation: string; ADestLocation: string; AOrder: TUnitOrder);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -246,6 +263,7 @@ type
     Filename: string;
     DurationMs: integer;
     constructor Create(AFilename: string; ADurationMs: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -258,6 +276,7 @@ type
     UnitType: TStarcraftUnit;
     DurationMs: integer;
     constructor Create(AUnitType: TStarcraftUnit; ADurationMs: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -269,6 +288,7 @@ type
   TRunAIScriptInstruction = class(TTriggerInstruction)
     ScriptCode, Location: string;
     constructor Create(AScriptCode: string; ALocation: string = '');
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -280,6 +300,7 @@ type
   TCommentInstruction = class(TTriggerInstruction)
     Text: string;
     constructor Create(AText: string);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -291,6 +312,7 @@ type
   TSetMissionObjectivesInstruction = class(TTriggerInstruction)
     Text: string;
     constructor Create(AText: string);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -302,6 +324,7 @@ type
   TSetNextScenarioInstruction = class(TTriggerInstruction)
     Scenario: string;
     constructor Create(AScenario: string);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -313,6 +336,7 @@ type
   TCenterViewInstruction = class(TTriggerInstruction)
     Location: string;
     constructor Create(ALocation: string);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -324,6 +348,7 @@ type
   TMinimapPingInstruction = class(TTriggerInstruction)
     Location: string;
     constructor Create(ALocation: string);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -335,6 +360,7 @@ type
   TLeaderBoardIncludeComputersInstruction = class(TTriggerInstruction)
     Value: TUnitFlagValue;
     constructor Create(AValue: TUnitFlagValue);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -346,6 +372,7 @@ type
   TShowLeaderboardOreAndGasIconInstruction = class(TTriggerInstruction)
     Amount: integer;
     constructor Create(AAmount: integer);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -359,6 +386,7 @@ type
     Resource: TStarcraftResource;
     Goal: integer;
     constructor Create(AText: string; AResource: TStarcraftResource; AGoal: integer = -1);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -372,6 +400,7 @@ type
     Score: TStarcraftScore;
     Goal: integer;
     constructor Create(AText: string; AScore: TStarcraftScore; AGoal: integer = -1);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -385,6 +414,7 @@ type
     UnitType: TStarcraftUnit;
     Goal: integer;
     constructor Create(AText: string; AUnitType: TStarcraftUnit; AGoal: integer = -1);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -399,6 +429,7 @@ type
     Location: string;
     Goal: integer;
     constructor Create(AText: string; AUnitType:TStarcraftUnit; ALocation: string; AGoal: integer = -1);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -412,6 +443,7 @@ type
   TEndGameInstruction = class(TTriggerInstruction)
     Mode: TEndGameMode;
     constructor Create(AMode: TEndGameMode);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -423,6 +455,7 @@ type
   TUnitSpeechInstruction = class(TTriggerInstruction)
     Active: boolean;
     constructor Create(AActive: Boolean);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -434,6 +467,7 @@ type
   TPauseGameInstruction = class(TTriggerInstruction)
     Paused: boolean;
     constructor Create(APaused: Boolean);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -445,6 +479,7 @@ type
   TPauseCountdownInstruction = class(TTriggerInstruction)
     Paused: boolean;
     constructor Create(APaused: Boolean);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -457,6 +492,7 @@ type
     Player: TPlayer;
     Status: TAllianceStatus;
     constructor Create(APlayer: TPlayer; AStatus: TAllianceStatus);
+    function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
@@ -465,7 +501,7 @@ type
 
 implementation
 
-uses utrigedittypes, umapinfo;
+uses utrigedittypes, umapinfo, uparsevb;
 
 function CreateSetIntegerInstructionImplementation(APlayer: TPlayer; AUnitType: TStarcraftUnit; AMode: TSetIntegerMode; AValue: integer): TInstruction;
 begin
@@ -519,6 +555,21 @@ begin
   Text := AText;
 end;
 
+function TCommentInstruction.ToBasic: string;
+var
+  lines: TStringList;
+  i: Integer;
+begin
+  lines := TStringList.Create;
+  lines.Text := Text;
+  for i := 0 to lines.Count-1 do
+  begin
+    if i > 0 then result += lineending;
+    Result += '''' + lines[i];
+  end;
+  lines.Free;
+end;
+
 function TCommentInstruction.ToTrigEdit: string;
 begin
   result := 'Comment('+ AddTrigEditQuotes(Text) + ')';
@@ -557,6 +608,11 @@ begin
   result := 'Preserve Trigger()';
 end;
 
+function TPreserveTriggerInstruction.ToBasic: string;
+begin
+  result := '';
+end;
+
 procedure TPreserveTriggerInstruction.WriteTriggerData(
   var AData: TTriggerInstructionData);
 begin
@@ -587,6 +643,11 @@ begin
     Free;
   end else
     result := '';
+end;
+
+function TTriggerInstruction.ToBasic: string;
+begin
+  result := ToTrigEdit;
 end;
 
 class function TTriggerInstruction.LoadFromData(
@@ -672,6 +733,12 @@ begin
   Value:= AValue;
 end;
 
+function TSetSwitchInstruction.ToBasic: string;
+begin
+  result := 'Switch('+inttostr(Switch)+') = '+SwitchValueToBasic[Value];
+  if Value = svToggle then result += ' Switch('+inttostr(Switch)+')';
+end;
+
 function TSetSwitchInstruction.ToTrigEdit: string;
 begin
   Result:= 'Set Switch('+SwitchToTrigEditCode(Switch)+ ', ' + SwitchValueToStr[Value] + ')';
@@ -708,6 +775,11 @@ begin
   UnitType:= AUnitType;
   Value:= AValue;
   Mode:= AMode;
+end;
+
+function TSetDeathInstruction.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.DeathCount(Unit.'+StarcraftUnitIdentifier[UnitType]+') '+SetIntModeToBasic[Mode]+' '+inttostr(Value);
 end;
 
 function TSetDeathInstruction.ToTrigEdit: string;
@@ -750,6 +822,11 @@ begin
   Mode:= AMode;
 end;
 
+function TSetResourceInstruction.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.'+StarcraftResourceToBasic[Resource]+' '+SetIntModeToBasic[Mode]+' '+inttostr(Value);
+end;
+
 function TSetResourceInstruction.ToTrigEdit: string;
 begin
   Result:= 'Set Resources("' + PlayerToTrigEditStr(Player) + '", ' + SetIntegerModeToStr(Mode) + ', ' + IntToStr(Value) + ', ' + StarcraftResourceToStr(Resource) + ')'
@@ -790,6 +867,11 @@ begin
   Mode:= AMode;
 end;
 
+function TSetScoreInstruction.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.'+StarcraftScoreToBasic[Score]+' '+SetIntModeToBasic[Mode]+' '+inttostr(Value);
+end;
+
 function TSetScoreInstruction.ToTrigEdit: string;
 begin
   Result:= 'Set Score("' + PlayerToTrigEditStr(Player) + '", ' + SetIntegerModeToStr(Mode) + ', ' + IntToStr(Value) + ', ' + StarcraftScoreToStr(Score) + ')'
@@ -828,6 +910,11 @@ begin
   Value := AValue;
 end;
 
+function TSetCountdownInstruction.ToBasic: string;
+begin
+  result := 'Countdown '+SetIntModeToBasic[Mode]+' '+inttostr(Value);
+end;
+
 function TSetCountdownInstruction.ToTrigEdit: string;
 begin
   result := 'Set Countdown Timer(' + SetIntegerModeToStr(Mode) +', ' + IntToStr(Value) + ')'
@@ -864,6 +951,13 @@ begin
   Text:= AText;
 end;
 
+function TDisplayTextMessageInstruction.ToBasic: string;
+begin
+  result := 'Print('+StrToBasic(Text);
+  if not Always then result += ', False';
+  result += ')';
+end;
+
 function TDisplayTextMessageInstruction.ToTrigEdit: string;
 begin
   Result := 'Display Text Message(' + BoolToStr(Always, 'Always Display', 'Don''t Always Display') +
@@ -897,6 +991,11 @@ end;
 constructor TWaitInstruction.Create(ADelayMs: integer);
 begin
   DelayMs:= ADelayMs;
+end;
+
+function TWaitInstruction.ToBasic: string;
+begin
+  Result:= 'Wait('+IntToStr(DelayMs)+')';
 end;
 
 function TWaitInstruction.ToTrigEdit: string;
@@ -937,6 +1036,14 @@ begin
   UnitType:= AUnitType;
   Location:= ALocation;
   Properties:= AProperties;
+end;
+
+function TCreateUnitInstruction.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.CreateUnit('+inttostr(Quantity)+', Unit.'+StarcraftUnitIdentifier[UnitType];
+  if not MapInfo.IsAnywhere(Location) then result += ', ' + StrToBasic(Location);
+  result += ')';
+  if Properties >= 0 then result += ' With UnitProperties' + inttostr(Properties+1);
 end;
 
 function TCreateUnitInstruction.ToTrigEdit: string;
@@ -1012,6 +1119,25 @@ begin
     raise exception.Create('Property value out of bounds (0 to 100)')
   else if (AValue < 0) or (AValue > 65535) then
     raise exception.Create('Property value out of bounds (0 to 65535)')
+end;
+
+function TSetUnitPropertyInstruction.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.Units(';
+  if quantity <> -1 then result += inttostr(Quantity)+', ';
+  result += 'Unit.'+StarcraftUnitIdentifier[UnitType];
+  if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+  result += ').';
+  case UnitProperty of
+  supLife: result += 'Life';
+  supShield: result += 'Shield';
+  supEnergy: result += 'Energy';
+  supResource: result += 'Resource';
+  supHangarCount: result += 'HangarCount';
+  else
+    raise exception.Create('Case not handled');
+  end;
+  result += ' = '+inttostr(Value);
 end;
 
 function TSetUnitPropertyInstruction.ToTrigEdit: string;
@@ -1090,6 +1216,34 @@ begin
   Value := AValue;
 end;
 
+function TSetUnitFlagInstruction.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.Units(Unit.'+StarcraftUnitIdentifier[UnitType];
+  if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+  result += ').';
+  case Value of
+  ufvDisable,ufvEnable:
+  begin
+    case Flag of
+    sufInvincible: result += 'Invincible';
+    sufDoodadState: result += 'DoodadState';
+    else
+      raise exception.Create('Case not handled');
+    end;
+    result += ' = ' + BoolToStr(Value=ufvEnable,'True','False');
+  end;
+  else
+    begin
+      case Flag of
+      sufInvincible: result += 'ToggleInvincibility';
+      sufDoodadState: result += 'ToggleDoodadState';
+      else
+        raise exception.Create('Case not handled');
+      end;
+    end;
+  end;
+end;
+
 function TSetUnitFlagInstruction.ToTrigEdit: string;
 begin
   if Flag = sufInvincible then
@@ -1164,6 +1318,16 @@ begin
   Location:= ALocation;
   DeathAnimation:= ADeathAnimation;
   If MapInfo.IsAnywhere(Location) then Location := MapInfo.AnywhereLocationName;
+end;
+
+function TKillUnitInstruction.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.Units(';
+  if Quantity <> -1 then result += inttostr(Quantity)+', ';
+  result += 'Unit.'+StarcraftUnitIdentifier[UnitType];
+  if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+  result += ').';
+  if DeathAnimation then result += 'Kill' else result += 'Remove';
 end;
 
 function TKillUnitInstruction.ToTrigEdit: string;
@@ -1243,6 +1407,15 @@ begin
   DestPlayer := ADestPlayer;
 end;
 
+function TGiveUnitInstruction.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.Units(';
+  if Quantity <> -1 then result += inttostr(Quantity)+', ';
+  result += 'Unit.'+StarcraftUnitIdentifier[UnitType];
+  if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+  result += ').Give('+PlayerIdentifiers[DestPlayer]+')';
+end;
+
 function TGiveUnitInstruction.ToTrigEdit: string;
 begin
   result := 'Give Units to Player(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))+', '+ AddTrigEditQuotes(PlayerToTrigEditStr(DestPlayer))+ ', ' +
@@ -1294,6 +1467,18 @@ begin
   DestLocation:= ADestLocation;
 end;
 
+function TTeleportUnitInstruction.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.Units(';
+  if Quantity <> -1 then result += inttostr(Quantity)+', ';
+  result += 'Unit.'+StarcraftUnitIdentifier[UnitType];
+  if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+  result += ').Teleport(';
+  if MapInfo.IsAnywhere(DestLocation) then result += 'Anywhere'
+  else result += StrToBasic(DestLocation);
+  result += ')';
+end;
+
 function TTeleportUnitInstruction.ToTrigEdit: string;
 begin
   Result:= 'Move Unit(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player)) + ', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
@@ -1341,6 +1526,17 @@ begin
   LocationToChange:= ALocationToChange;
 end;
 
+function TMoveLocationInstruction.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.Units(';
+  result += 'Unit.'+StarcraftUnitIdentifier[UnitType];
+  if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+  result += ').AttractLocation(';
+  if MapInfo.IsAnywhere(LocationToChange) then result += 'Anywhere'
+  else result += StrToBasic(LocationToChange);
+  result += ')';
+end;
+
 function TMoveLocationInstruction.ToTrigEdit: string;
 begin
   Result:= 'Move Location(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player)) + ', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
@@ -1386,6 +1582,20 @@ begin
   Location:= ALocation;
   DestLocation:= ADestLocation;
   Order := AOrder;
+end;
+
+function TOrderUnitInstruction.ToBasic: string;
+begin
+  result := PlayerIdentifiers[Player]+'.Units(';
+  result += 'Unit.'+StarcraftUnitIdentifier[UnitType];
+  if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+  result += ').';
+  case Order of
+  uoPatrol: result += 'PatrolOrder';
+  uoAttack: result += 'AttackOrder';
+  else result += 'MoveOrder';
+  end;
+  result += '('+StrToBasic(DestLocation)+')';
 end;
 
 function TOrderUnitInstruction.ToTrigEdit: string;
@@ -1436,6 +1646,11 @@ begin
   DurationMs:= ADurationMs;
 end;
 
+function TPlayWAVInstruction.ToBasic: string;
+begin
+  Result:= 'Sound.Play()';
+end;
+
 function TPlayWAVInstruction.ToTrigEdit: string;
 begin
   Result:= 'Play WAV(' + AddTrigEditQuotes(Filename) + ', ' + inttostr(DurationMs) + ')';
@@ -1474,6 +1689,11 @@ begin
   DurationMs:= ADurationMs;
 end;
 
+function TTalkingPortraitInstruction.ToBasic: string;
+begin
+  Result:= 'TalkingPortrait(Unit.'+StarcraftUnitIdentifier[UnitType]+', '+inttostr(DurationMs)+')';
+end;
+
 function TTalkingPortraitInstruction.ToTrigEdit: string;
 begin
   Result:= 'Talking Portrait(' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]) + ', ' + inttostr(DurationMs) + ')';
@@ -1503,12 +1723,32 @@ end;
 
 { TRunAIScriptInstruction }
 
-constructor TRunAIScriptInstruction.Create(AScriptCode, ALocation: string);
+constructor TRunAIScriptInstruction.Create(AScriptCode: string;
+  ALocation: string);
 begin
   if MapInfo.IsAnywhere(ALocation) then ALocation:= MapInfo.AnywhereLocationName;
   if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
   ScriptCode:= AScriptCode;
   Location:= ALocation;
+end;
+
+function TRunAIScriptInstruction.ToBasic: string;
+var
+  i: Integer;
+  found: Boolean;
+begin
+  Result:= 'RunAIScript(';
+  found := false;
+  for i := low(AIScripts) to high(AIScripts) do
+    if AIScripts[i].Code = ScriptCode then
+    begin
+      result += 'AI.'+AIScripts[i].Identifier;
+      found := true;
+      break;
+    end;
+  if not found then result += StrToBasic(ScriptCode);
+  if not MapInfo.IsAnywhere(Location) then Result += ', ' + StrToBasic(Location);
+  result += ')';
 end;
 
 function TRunAIScriptInstruction.ToTrigEdit: string;
@@ -1558,6 +1798,11 @@ begin
   Text := AText;
 end;
 
+function TSetMissionObjectivesInstruction.ToBasic: string;
+begin
+  Result:='MissionObjectives = '+StrToBasic(Text);
+end;
+
 function TSetMissionObjectivesInstruction.ToTrigEdit: string;
 begin
   Result:= 'Set Mission Objectives(' + AddTrigEditQuotes(Text) + ')';
@@ -1589,6 +1834,11 @@ end;
 constructor TSetNextScenarioInstruction.Create(AScenario: string);
 begin
   Scenario:= AScenario;
+end;
+
+function TSetNextScenarioInstruction.ToBasic: string;
+begin
+  Result:='NextScenario = '+StrToBasic(Scenario);
 end;
 
 function TSetNextScenarioInstruction.ToTrigEdit: string;
@@ -1625,6 +1875,14 @@ begin
   Location:= ALocation;
 end;
 
+function TCenterViewInstruction.ToBasic: string;
+begin
+  Result:= 'Me.CenterView(';
+  if MapInfo.IsAnywhere(Location) then result += 'Anywhere'
+  else result += StrToBasic(Location);
+  result += ')';
+end;
+
 function TCenterViewInstruction.ToTrigEdit: string;
 begin
   Result:= 'Center View(' + AddTrigEditQuotes(Location) + ')';
@@ -1659,6 +1917,14 @@ begin
   Location:= ALocation;
 end;
 
+function TMinimapPingInstruction.ToBasic: string;
+begin
+  Result:= 'Me.MinimapPing(';
+  if MapInfo.IsAnywhere(Location) then result += 'Anywhere'
+  else result += StrToBasic(Location);
+  result += ')';
+end;
+
 function TMinimapPingInstruction.ToTrigEdit: string;
 begin
   Result:= 'Minimap Ping(' + AddTrigEditQuotes(Location) + ')';
@@ -1690,6 +1956,15 @@ end;
 constructor TLeaderBoardIncludeComputersInstruction.Create(AValue: TUnitFlagValue);
 begin
   Value:= AValue;
+end;
+
+function TLeaderBoardIncludeComputersInstruction.ToBasic: string;
+begin
+  Result:='Me.Leaderboard.Computers';
+  case Value of
+  ufvDisable,ufvEnable: result += ' = ' + BoolToStr(Value=ufvEnable,'True','False');
+  else result += '.ToggleComputers';
+  end;
 end;
 
 function TLeaderBoardIncludeComputersInstruction.ToTrigEdit: string;
@@ -1739,6 +2014,13 @@ begin
   Amount := AAmount;
 end;
 
+function TShowLeaderboardOreAndGasIconInstruction.ToBasic: string;
+begin
+  Result:= 'Me.Leaderboard.Show(MineralsAndGas';
+  if Amount > 0 then result += ', '+ inttostr(Amount);
+  result += ')';
+end;
+
 function TShowLeaderboardOreAndGasIconInstruction.ToTrigEdit: string;
 begin
   Result:='Leaderboard Greed(' + intTostr(Amount)+')';
@@ -1773,6 +2055,13 @@ begin
   Text:= AText;
   Resource:= AResource;
   Goal:= AGoal;
+end;
+
+function TShowLeaderboardResourceInstruction.ToBasic: string;
+begin
+  Result:= 'Me.Leaderboard.Show(' + StrToBasic(Text)+', ';
+  if Goal <> -1 then result += inttostr(Goal)+' - ';
+  result += StarcraftResourceToBasic[Resource] + ')';
 end;
 
 function TShowLeaderboardResourceInstruction.ToTrigEdit: string;
@@ -1826,6 +2115,13 @@ begin
   Goal:= AGoal;
 end;
 
+function TShowLeaderboardScoreInstruction.ToBasic: string;
+begin
+  Result:= 'Me.Leaderboard.Show(' + StrToBasic(Text)+', ';
+  if Goal <> -1 then result += inttostr(Goal)+' - ';
+  result += StarcraftScoreToBasic[Score] + ')';
+end;
+
 function TShowLeaderboardScoreInstruction.ToTrigEdit: string;
 begin
   if Goal = -1 then
@@ -1875,6 +2171,13 @@ begin
   Text:= AText;
   UnitType := AUnitType;
   Goal := AGoal;
+end;
+
+function TShowLeaderboardKillCountInstruction.ToBasic: string;
+begin
+  Result:= 'Me.Leaderboard.Show(' + StrToBasic(Text)+', ';
+  if Goal <> -1 then result += inttostr(Goal)+' - ';
+  result += 'KillCount(Unit.' + StarcraftUnitIdentifier[UnitType] + '))';
 end;
 
 function TShowLeaderboardKillCountInstruction.ToTrigEdit: string;
@@ -1931,6 +2234,15 @@ begin
   UnitType := AUnitType;
   Goal := AGoal;
   Location:= ALocation;
+end;
+
+function TShowLeaderboardUnitCountInstruction.ToBasic: string;
+begin
+  Result:= 'Me.Leaderboard.Show(' + StrToBasic(Text)+', ';
+  if Goal <> -1 then result += inttostr(Goal)+' - ';
+  result += 'UnitCount(Unit.' + StarcraftUnitIdentifier[UnitType];
+  if not MapInfo.IsAnywhere(Location) then result += ', ' + StrToBasic(Location);
+  result += '))';
 end;
 
 function TShowLeaderboardUnitCountInstruction.ToTrigEdit: string;
@@ -2009,6 +2321,17 @@ begin
   Mode := AMode;
 end;
 
+function TEndGameInstruction.ToBasic: string;
+begin
+  case Mode of
+  egDefeat: Result:='Defeat()';
+  egDraw: Result:='Draw()';
+  egVictory: Result := 'Victory()';
+  else
+    raise exception.Create('Unhandled case');
+  end;
+end;
+
 function TEndGameInstruction.ToTrigEdit: string;
 begin
   case Mode of
@@ -2054,6 +2377,11 @@ begin
   Active := AActive;
 end;
 
+function TUnitSpeechInstruction.ToBasic: string;
+begin
+  Result:= 'UnitSpeech = ' + BoolToStr(Active);
+end;
+
 function TUnitSpeechInstruction.ToTrigEdit: string;
 begin
   if not Active then
@@ -2089,6 +2417,11 @@ end;
 constructor TPauseGameInstruction.Create(APaused: Boolean);
 begin
   Paused := APaused;
+end;
+
+function TPauseGameInstruction.ToBasic: string;
+begin
+  Result:= 'GamePaused = ' + BoolToStr(Paused);
 end;
 
 function TPauseGameInstruction.ToTrigEdit: string;
@@ -2128,6 +2461,11 @@ begin
   Paused := APaused;
 end;
 
+function TPauseCountdownInstruction.ToBasic: string;
+begin
+  Result:= 'CountdownPaused = ' + BoolToStr(Paused);
+end;
+
 function TPauseCountdownInstruction.ToTrigEdit: string;
 begin
   If Paused then
@@ -2164,6 +2502,16 @@ constructor TSetAllianceStatus.Create(APlayer: TPlayer; AStatus: TAllianceStatus
 begin
   Player:= APlayer;
   Status:= AStatus;
+end;
+
+function TSetAllianceStatus.ToBasic: string;
+begin
+  Result:= 'Me.Alliance(' + PlayerIdentifiers[Player]+') = Alliance.';
+  case Status of
+  asEnnemy: result += 'Ennemy';
+  asAlly: result += 'Ally';
+  asAlliedVictory: result += 'AlliedVictory';
+  end;
 end;
 
 function TSetAllianceStatus.ToTrigEdit: string;

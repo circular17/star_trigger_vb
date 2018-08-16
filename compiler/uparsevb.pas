@@ -19,10 +19,11 @@ var
 const
   NotConditionOperator : array[TConditionOperator] of TConditionOperator = (coNone, coNotEqual, coLowerThanOrEqual, coGreaterThanOrEqual, coLowerThan, coGreaterThan, coEqual);
   IntConditionModeToBasic : array[TIntegerConditionMode] of string = ('>=','<=','=');
+  SetIntModeToBasic: array[TSetIntegerMode] of string = ('=','+=','-=');
   StarcraftResourceToBasic : array[TStarcraftResource] of string = ('Minerals','Gas','MineralsAndGas');
   StarcraftScoreToBasic: array[TStarcraftScore] of string = ('TotalScore','UnitScore','BuildingScore','UnitAndBuildingScore',
                          'KillScore','RazingScore','KillAndRazingScore','CustomScore');
-
+  SwitchValueToBasic: array[TSwitchValue] of string = ('False','True','Rnd','Not');
 function RemoveQuotes(AQuotedText: string): string;
 function StrToBasic(AText: string): string;
 procedure CheckReservedWord(AText: string);

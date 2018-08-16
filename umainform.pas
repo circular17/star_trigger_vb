@@ -6,13 +6,16 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, SynEdit, SynHighlighterVB, SynCompletion, Forms,
-  Controls, Graphics, Dialogs, StdCtrls, ComCtrls, ActnList, ExtCtrls;
+  Controls, Graphics, Dialogs, StdCtrls, ComCtrls, ActnList, ExtCtrls, Menus;
 
 type
 
   { TFMain }
 
   TFMain = class(TForm)
+    EditPaste: TAction;
+    EditCopy: TAction;
+    EditCut: TAction;
     Compile: TAction;
     FileSaveAs: TAction;
     FileSave: TAction;
@@ -21,11 +24,13 @@ type
     Label1: TLabel;
     ListBox_Locations: TListBox;
     ListBox_Errors: TListBox;
+    MenuItem1: TMenuItem;
     OpenDialog1: TOpenDialog;
     Panel_Locations: TPanel;
     Panel_Utils: TPanel;
     Panel_Code: TPanel;
     Panel_Errors: TPanel;
+    PopupMenu1: TPopupMenu;
     SaveDialog1: TSaveDialog;
     CompileDialog1: TSaveDialog;
     Splitter1: TSplitter;
@@ -42,6 +47,9 @@ type
     ImageList1: TImageList;
     ToolBar1: TToolBar;
     procedure CompileExecute(Sender: TObject);
+    procedure EditCopyExecute(Sender: TObject);
+    procedure EditCutExecute(Sender: TObject);
+    procedure EditPasteExecute(Sender: TObject);
     procedure FileOpenExecute(Sender: TObject);
     procedure FileSaveAsExecute(Sender: TObject);
     procedure FileSaveExecute(Sender: TObject);
@@ -346,6 +354,21 @@ begin
       end;
     end;
   end;
+end;
+
+procedure TFMain.EditCopyExecute(Sender: TObject);
+begin
+  SynEdit1.CopyToClipboard;
+end;
+
+procedure TFMain.EditCutExecute(Sender: TObject);
+begin
+  SynEdit1.CutToClipboard;
+end;
+
+procedure TFMain.EditPasteExecute(Sender: TObject);
+begin
+  SynEdit1.PasteFromClipboard;
 end;
 
 procedure TFMain.FileOpenExecute(Sender: TObject);

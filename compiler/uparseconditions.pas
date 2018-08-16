@@ -391,7 +391,7 @@ begin
     scalar := TryScalarVariable(AScope, ALine,AIndex);
     if scalar.VarType = svtNone then
     begin
-      pl := TryParsePlayer(ALine,AIndex);
+      pl := TryParsePlayer(AScope, ALine,AIndex);
       if pl <> plNone then
       begin
         ExpectToken(ALine,AIndex,'.');

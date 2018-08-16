@@ -10,6 +10,10 @@ uses
 type
   ArrayOfInteger = array of integer;
   TConditionOperator = (coNone, coEqual, coGreaterThan, coLowerThan, coGreaterThanOrEqual, coLowerThanOrEqual, coNotEqual);
+  TTryParsePlayerFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
+
+var
+  TryParsePlayerExpression: TTryParsePlayerFunc;
 
 const
   NotConditionOperator : array[TConditionOperator] of TConditionOperator = (coNone, coNotEqual, coLowerThanOrEqual, coGreaterThanOrEqual, coLowerThan, coGreaterThan, coEqual);
@@ -23,21 +27,22 @@ function TryToken(ALine: TStringList; var AIndex: integer; AToken: string): bool
 procedure ExpectToken(ALine: TStringList; var AIndex: integer; AToken: string);
 function TryConditionOperator(ALine: TStringList; var AIndex: integer): TConditionOperator;
 function ParseRandom(ALine: TStringList; var AIndex: integer): integer;
-function TryParsePlayer(ALine: TStringList; var AIndex: integer): TPlayer;
-function ExpectPlayers(ALine: TStringList; var AIndex: integer): TPlayers;
+function TryParsePlayer(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
+function ExpectPlayers(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayers;
 function GetBitCountOfType(AName: string): integer;
 function IsIntegerType(AName: string): boolean;
 function BitCountNeededFor(AValue: integer): integer;
 
 const
-  ImplementedReservedWords: array[1..42] of string =
-    ('Dim','As','Const','Sub','When','End','If','EndIf', 'Then','Else','Not','And','Or','While','Option','Return',
+  ImplementedReservedWords: array[1..49] of string =
+    ('Dim','As','Const','Sub','When','End','If','EndIf', 'Then','Else','ElseIf','Not','And','Or','While','Option','Return',
      'On','Off','Hyper','Boolean','Byte','UInt8','UShort','UInt16','UInt24','String','True','False',
-     'Do','Len','Chr','Asc','Exit','Function','LBound','UBound','Me','Rnd','New','Min','Max','All');
+     'Do','Len','Chr','Asc','Exit','Function','LBound','UBound','Me','Rnd','New','Min','Max','All',
+     'For','To','Step','Next','Each','In');
 
-  NotImplementedReservedWords: array[1..19] of string =
-     ('For','To','Step','Next','Loop','Until','ElseIf','Select','Case',  //reserved and planned to implement
-     'SByte','Short','Int16','Int24','UInteger','Integer','Xor','Date','ReDim','Preserve'); //reserved but not planned to implement
+  NotImplementedReservedWords: array[1..16] of string =
+     ('Loop','Until','Select','Case',  //reserved and planned to implement
+     'SByte','Short','Int16','Int24','UInt32','Int32','UInteger','Integer','Xor','Date','ReDim','Preserve'); //reserved but not planned to implement
 
 implementation
 
@@ -58,6 +63,7 @@ begin
   if IsReservedWord(AText) then raise exception.Create('"' + AText + '" is a word reserved');
   for pl := low(TPlayer) to high(TPlayer) do
     if CompareText(PlayerIdentifiers[pl], AText)=0 then raise exception.Create('"' + PlayerIdentifiers[pl] + '" is a player identifier');
+  if CompareText(AText,'Player')=0 then raise exception.Create('"' + PlayerIdentifiers[pl] + '" is a player identifier');
 end;
 
 function IsReservedWord(AText: string): boolean;
@@ -230,7 +236,7 @@ begin
     exit(-1);
 end;
 
-function TryParsePlayer(ALine: TStringList; var AIndex: integer): TPlayer;
+function TryParsePlayer(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
 var
   pl: TPlayer;
 begin
@@ -241,10 +247,13 @@ begin
       inc(AIndex);
       exit(pl);
     end;
-  exit(plNone);
+  If Assigned(TryParsePlayerExpression) then
+    result := TryParsePlayerExpression(AScope, ALine,AIndex)
+  else
+    result := plNone;
 end;
 
-function ExpectPlayers(ALine: TStringList; var AIndex: integer): TPlayers;
+function ExpectPlayers(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayers;
 var
   pl: TPlayer;
 begin
@@ -252,7 +261,7 @@ begin
   if TryToken(ALine, AIndex, '{') then
   begin
     repeat
-      pl := TryParsePlayer(ALine,AIndex);
+      pl := TryParsePlayer(AScope, ALine,AIndex);
       if pl = plNone then
       begin
         if AIndex >= ALine.Count then
@@ -270,7 +279,7 @@ begin
     if result = [] then raise exception.Create('No player specified');
   end else
   begin
-    pl := TryParsePlayer(ALine,AIndex);
+    pl := TryParsePlayer(AScope, ALine,AIndex);
     if pl = plNone then
     begin
       if AIndex >= ALine.Count then
@@ -302,6 +311,10 @@ begin
   if AValue >= 1 shl 8 then result := 16 else
     result := 8;
 end;
+
+initialization
+
+  TryParsePlayerExpression := nil;
 
 end.
 

@@ -1,13 +1,14 @@
 - fonctions avec parametres
-- templates (string array)
-- simple do - loop until
-- simple for step next
-- select case
-- indexation par variable
+- string array
 
+- select case
+- simple do - loop until
+
+- indexation par variable
 - variable in any death count
 - xor booleen
 - division
+
 - procedure transmission
 - resursivité
 

@@ -19,10 +19,10 @@ type
     BoolValue: boolean;
   end;
 
-function ExpectString(AScope: integer; ALine: TStringList; var AIndex: integer): string;
+function ExpectString(AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): string;
 function ExpectUnitType({%H-}AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
 function IsUnitType(AName: string): boolean;
-function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string): boolean;
+function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string; AcceptsReservedWords: boolean): boolean;
 function TryInteger(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
 function TryIntegerConstant(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
 function ExpectInteger(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
@@ -206,7 +206,7 @@ var
 begin
   ExpectToken(ALine,AIndex,'Unit');
   ExpectToken(ALine,AIndex,'.');
-  if not TryIdentifier(ALine, AIndex, ident) then raise exception.Create('Expecting identifier');
+  if not TryIdentifier(ALine, AIndex, ident, false) then raise exception.Create('Expecting identifier');
   for u := low(TStarcraftUnit) to suFactories do
     if CompareText(StarcraftUnitIdentifier[u],ident)=0 then exit(u);
   raise exception.Create('Unknown unit type');
@@ -221,9 +221,10 @@ begin
   exit(false);
 end;
 
-function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string): boolean;
+function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string; AcceptsReservedWords: boolean): boolean;
 begin
-  if (AIndex < ALine.Count) and IsValidVariableName(ALine[AIndex]) then
+  if (AIndex < ALine.Count) and IsValidVariableName(ALine[AIndex]) and
+   (AcceptsReservedWords or not IsReservedWord(ALine[AIndex])) then
   begin
     AIdentifier:= ALine[AIndex];
     inc(AIndex);
@@ -266,7 +267,7 @@ begin
       if TryToken(ALine,AIndex,'LBound') then
       begin
         ExpectToken(ALine,AIndex,'(');
-        if not TryIdentifier(ALine,AIndex,ident) then
+        if not TryIdentifier(ALine,AIndex,ident, false) then
           raise exception.Create('Identifier expected');
         ExpectToken(ALine,AIndex,')');
         idxVar := IntArrayIndexOf(AScope, ident);
@@ -286,7 +287,7 @@ begin
       if TryToken(ALine,AIndex,'UBound') then
       begin
         ExpectToken(ALine,AIndex,'(');
-        if not TryIdentifier(ALine,AIndex,ident) then
+        if not TryIdentifier(ALine,AIndex,ident, false) then
           raise exception.Create('Identifier expected');
         ExpectToken(ALine,AIndex,')');
         idxVar := IntArrayIndexOf(AScope, ident);
@@ -555,7 +556,7 @@ begin
     end;
 
     idx := AIndex;
-    pl := TryParsePlayer(ALine,idx);
+    pl := TryParsePlayer(AScope, ALine,idx);
     if pl <> plNone then
     begin
       if TryToken(ALine,idx,'.') then
@@ -664,7 +665,7 @@ begin
     if TryToken(ALine,idx,'AI') then
     begin
       ExpectToken(ALine,idx,'.');
-      if not TryIdentifier(ALine,idx,ident) then raise exception.Create('Expecting script name');
+      if not TryIdentifier(ALine,idx,ident, false) then raise exception.Create('Expecting script name');
       found := false;
       for i := low(AIScripts) to high(AIScripts) do
         if CompareText(ident, AIScripts[i].Identifier)=0 then
@@ -767,7 +768,7 @@ var
             if TryToken(ALine,idx,'CountIf') then
             begin
               ExpectToken(ALine,idx,'(');
-              if not TryIdentifier(ALine,idx,name) then
+              if not TryIdentifier(ALine,idx,name, false) then
                 raise exception.Create('Array identifier expected');
               ExpectToken(ALine,idx,',');
 
@@ -794,7 +795,7 @@ var
               end;
               ExpectToken(ALine,idx,')');
             end else
-            if AAcceptCalls and TryIdentifier(ALine,idx,name) then  //function call?
+            if AAcceptCalls and TryIdentifier(ALine,idx,name, false) then  //function call?
             begin
               if IsReservedWord(name) then exit;
               if TryToken(ALine,idx,'(') then ExpectToken(ALine,idx,')');
@@ -971,9 +972,24 @@ begin
   end;
 end;
 
-function ExpectString(AScope: integer; ALine: TStringList; var AIndex: integer): string;
+function ExpectString(AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): string;
+var
+  intVal: integer;
+  boolVal: boolean;
 begin
-  TryString(AScope, ALine,AIndex,result,True);
+  if not TryString(AScope, ALine,AIndex,result,True) then
+  begin
+    if AConvertToString then
+    begin
+      if TryIntegerConstant(AScope,ALine,AIndex,intVal) then
+        result := IntToStr(intVal)
+      else if TryBoolean(AScope,ALine,AIndex,boolVal) then
+        result := BoolToStr(boolVal, 'True','False')
+      else
+        raise exception.Create('No value found');
+    end else
+      raise exception.Create('No string found');
+  end;
 end;
 
 { TSubExpression }
@@ -1742,6 +1758,30 @@ constructor TExpressionNode.Create(ANegative: boolean);
 begin
   Negative:= ANegative;
 end;
+
+function TryParsePlayerExpressionImplementation(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
+var
+  idx, numPlayer: Integer;
+begin
+  result := plNone;
+  idx := AIndex;
+  if TryToken(ALine,idx,'Player') then
+  begin
+    if TryToken(ALine,idx,'(') then
+    begin
+      numPlayer := ExpectIntegerConstant(AScope, ALine,idx);
+      ExpectToken(ALine,idx,')');
+      if (numPlayer < 1) or (numPlayer > 12) then
+        raise exception.Create('Player index out of bounds');
+      result := TPlayer(ord(plPlayer1)+numPlayer-1);
+      AIndex := idx;
+    end;
+  end;
+end;
+
+initialization
+
+  TryParsePlayerExpression := @TryParsePlayerExpressionImplementation;
 
 end.
 

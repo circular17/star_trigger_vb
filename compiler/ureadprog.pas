@@ -929,7 +929,7 @@ begin
     ExpectToken(ALine,AIndex,',');
     locStr := ExpectString(AScope,ALine,AIndex);
     ExpectToken(ALine,AIndex,',');
-    destPl := TryParsePlayer(ALine,AIndex);
+    destPl := TryParsePlayer(AScope, ALine,AIndex);
     if destPl = plNone then raise Exception.Create('Expecting player');
     ExpectToken(ALine,AIndex,')');
 
@@ -1033,7 +1033,7 @@ begin
     if TryToken(ALine,AIndex,'Give') then
     begin
       ExpectToken(ALine,AIndex,'(');
-      destPl:= TryParsePlayer(ALine,AIndex);
+      destPl:= TryParsePlayer(AScope,ALine,AIndex);
       if destPl = plNone then raise exception.Create('Expecting player');
       ExpectToken(ALine,AIndex,')');
 
@@ -1109,7 +1109,7 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      text := ExpectString(AScope,ALine,AIndex);
+      text := ExpectString(AScope,ALine,AIndex,true);
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TDisplayTextMessageInstruction.Create(true, text));
     end else
@@ -1268,7 +1268,7 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      players := ExpectPlayers(ALine,AIndex);
+      players := ExpectPlayers(AScope,ALine,AIndex);
       ExpectToken(ALine,AIndex,')');
       ExpectToken(ALine,AIndex,'=');
       ExpectToken(ALine,AIndex,'Alliance');
@@ -1635,7 +1635,7 @@ begin
     if not done then
     begin
       index := 0;
-      pl := TryParsePlayer(ALine,index);
+      pl := TryParsePlayer(AScope,ALine,index);
       if pl <> plNone then
       begin
         done := true;
@@ -1650,7 +1650,7 @@ begin
             raise exception.Create('Printing for any player is only possible from main thread');
 
           ExpectToken(ALine,index,'(');
-          text := ExpectString(AScope,ALine,index);
+          text := ExpectString(AScope,ALine,index,true);
           ExpectToken(ALine,index,')');
           idxMsg := FindOrCreateMessage(text, [pl]);
           AProg.Add( TPrintForAnyPlayerInstruction.Create(idxMsg) );
@@ -1777,18 +1777,19 @@ end;
 function IsTokenOverEndOfLine(ALastToken:string): boolean;
 begin
   result := (ALastToken = '&') or (ALastToken = '+') or (ALastToken = '-') or (ALastToken = '*') or (ALastToken = '\')
-         or (ALastToken = '=') or (ALastToken = ',')
+         or (ALastToken = '=') or (ALastToken = ',') or (ALastToken = 'In') or (ALastToken = 'To')
          or (CompareText(ALastToken,'Or')=0) or (CompareText(ALastToken,'And')=0) or (CompareText(ALastToken,'Xor')=0);
 end;
 
-procedure ParseCode(AMainThread: TPlayer; inSubNew: boolean; inSub, inEvent: integer);
+procedure ParseCode(AMainThread: TPlayer; inSubNew: boolean; inSub, inEvent: integer; ACustomCode: TCodeLineList = nil);
 var
   code: TCodeLineList;
   i, lineNumber: Integer;
   line: TStringList;
-  index, j: integer;
+  index: integer;
   doPlayers: TPlayers;
   inDoAs: Boolean;
+  scope: integer;
 
   procedure CheckEndOfLine;
   begin
@@ -1817,30 +1818,183 @@ var
     end
   end;
 
+  procedure DoForLoop(var ALineIndex: integer);
+  const MAX_LOOP = 256;
+
+    procedure CheckLoopCount(ACount: integer);
+    begin
+      if ACount > MAX_LOOP then raise exception.Create('Too many iterations (maximum is '+inttostr(MAX_LOOP)+' but '+inttostr(ACount)+' found)');
+    end;
+
+    function ParseLoopCode(AFromLine,AToLine: integer; ALoopVar, ACurValue: string): boolean;
+    var
+      loopCode: TCodeLineList;
+      loopLine: TCodeLine;
+      i, j: integer;
+      prevErrCount: integer;
+    begin
+      result := true;
+      prevErrCount := ReadProgErrors.Count;
+      loopCode := TCodeLineList.Create;
+      try
+        for i := AFromLine to AToLine do
+        begin
+          loopLine := TCodeLine.Create(code[i].Tokens,code[i].LineNumber);
+          for j := 0 to loopLine.Tokens.Count-1 do
+            if (CompareText(loopLine.Tokens[j], ALoopVar)=0) and
+              ((j = 0) or (loopLine.Tokens[j-1] <> '.')) then
+              loopLine.Tokens[j] := ACurValue;
+          loopCode.Add(loopLine);
+        end;
+        ParseCode(AMainThread, inSubNew, inSub, inEvent, loopCode);
+      finally
+        loopCode.FreeAll;
+      end;
+      result := ReadProgErrors.Count = prevErrCount;
+    end;
+
+  var j,k: integer;
+    loopValues: array of string;
+    fromValue, stepValue, nesting, toValue: integer;
+    intValues: ArrayOfInteger;
+    loopVar: string;
+
+  begin
+    if TryIdentifier(line,index,loopVar, false) then
+    begin
+      if IsVarNameUsed(scope, loopVar, 0) then
+        raise exception.Create('The name "'+loopVar+'" is already in use');
+      ExpectToken(line,index,'=');
+      fromValue := ExpectIntegerConstant(scope, line,index);
+      ExpectToken(line,index,'To');
+      toValue := ExpectIntegerConstant(scope, line,index);
+      if TryToken(line,index,'Step') then
+      begin
+        stepValue := ExpectIntegerConstant(scope, line,index);
+        if stepValue = 0 then raise exception.Create('Zero is not allowed as a step value');
+      end
+      else
+        stepValue := 1;
+
+      if ((stepValue > 0) and (toValue < fromValue)) or
+         ((stepValue < 0) and (toValue > fromValue)) then
+        loopValues := nil
+      else
+      begin
+        j := abs(toValue-fromValue) div abs(stepValue) + 1;
+        CheckLoopCount(j);
+        setlength(loopValues, j);
+        for j := 0 to high(loopValues) do
+          loopValues[j] := inttostr(fromValue + j*stepValue);
+      end;
+    end else
+    if TryToken(line,index,'Each') then
+    begin
+      if TryIdentifier(line,index,loopVar, false) then
+      begin
+        if IsVarNameUsed(scope, loopVar, 0) then
+          raise exception.Create('The name "'+loopVar+'" is already in use');
+        ExpectToken(line,index,'In');
+        intValues := ParseIntArray(scope, line, index);
+        CheckLoopCount(length(intValues));
+        setlength(loopValues, length(intValues));
+        for j := 0 to high(loopValues) do
+          loopValues[j] := inttostr(intValues[j]);
+      end else
+        raise exception.Create('Loop variable expected');
+    end else
+      raise exception.Create('Loop variable expected');
+    CheckEndOfLine;
+
+    nesting := 1;
+    for j := ALineIndex+1 to code.Count-1 do
+    if code[j].Tokens.Count > 0 then
+    begin
+      if CompareText(code[j].Tokens[0], 'For')=0 then inc(nesting)
+      else if CompareText(code[j].Tokens[0], 'Next')=0 then
+      begin
+        if code[j].Tokens.Count > 1 then
+        begin
+          if CompareText(code[j].Tokens[1], loopVar)<>0 then
+            raise exception.Create('Expecting end of line or matching loop variable');
+
+          if code[j].Tokens.Count > 2 then
+            raise exception.Create('Expecting end of line');
+        end;
+        dec(nesting);
+        if nesting = 0 then
+        begin
+          for k := 0 to high(loopValues) do
+            if not ParseLoopCode(ALineIndex+1, j-1, loopVar, loopValues[k]) then break;
+
+          ALineIndex := j+1;
+          break;
+        end;
+      end;
+    end;
+
+    if nesting <> 0 then raise exception.Create('Matching "Next" not found');
+  end;
+
+  procedure DoStop;
+  var j: integer;
+  begin
+    if inEvent <> -1 then
+    begin
+      if Events[inEvent].Preserve then
+      begin
+        Events[inEvent].Preserve := false;
+        for j := 0 to Events[inEvent].Instructions.Count-1 do
+          if Events[inEvent].Instructions[j] is TReturnInstruction then
+            raise exception.Create('If you use Stop in an event, you cannot use Return in the same event');
+      end;
+      CheckEndOfLine;
+      Events[inEvent].Instructions.Add(TReturnInstruction.Create);
+    end else
+      raise exception.Create('Stop instruction only allowed in event');
+  end;
+
 begin
-  if inSubNew then code := MainCode
-  else if inSub <> -1 then code := Procedures[inSub].Code
-  else if inEvent <> -1 then code := Events[inSub].Code
+  if inSubNew then
+  begin
+    code := MainCode;
+    scope := SubNewScope;
+  end
+  else if inSub <> -1 then
+  begin
+    code := Procedures[inSub].Code;
+    scope := Procedures[inSub].InnerScope;
+  end
+  else if inEvent <> -1 then
+  begin
+    code := Events[inSub].Code;
+    scope := Events[inSub].InnerScope;
+  end
   else raise exception.Create('Not in a code block');
+
+  if ACustomCode <> nil then code := ACustomCode;
 
   inDoAs := false;
   doPlayers := [];
 
-  for i := 0 to code.Count-1 do
+  i := -1;
+  while i < code.Count-1 do
   begin
+    i += 1;
     lineNumber := code[i].LineNumber;
     line := code[i].tokens;
     index := 0;
 
     try
+      if TryToken(line,index,'For') then DoForLoop(i) else
       if TryToken(line,index,'Dim') or TryToken(line,index,'Const') then
       begin
         if inEvent <> -1 then
-          ProcessDim(Events[inEvent].InnerScope,lineNumber, line, Events[inEvent].Instructions, true)
+          ProcessDim(scope,lineNumber, line, Events[inEvent].Instructions, true)
         else if inSub <> -1 then
-          ProcessDim(Procedures[inSub].InnerScope,lineNumber,line, Procedures[inSub].Instructions, true)
+          ProcessDim(scope,lineNumber,line, Procedures[inSub].Instructions, true)
         else
-          ProcessDim(SubNewScope, lineNumber,line, MainProg, false)
+          ProcessDim(scope, lineNumber,line, MainProg, false)
       end
       else if (inEvent <> -1) and TryToken(line,index, 'Return') then
       begin
@@ -1849,29 +2003,14 @@ begin
         CheckEndOfLine;
         Events[inEvent].Instructions.Add(TReturnInstruction.Create);
       end
-      else if TryToken(line,index, 'Stop') then
-      begin
-        if inEvent <> -1 then
-        begin
-          if Events[inEvent].Preserve then
-          begin
-            Events[inEvent].Preserve := false;
-            for j := 0 to Events[inEvent].Instructions.Count-1 do
-              if Events[inEvent].Instructions[j] is TReturnInstruction then
-                raise exception.Create('If you use Stop in an event, you cannot use Return in the same event');
-          end;
-          CheckEndOfLine;
-          Events[inEvent].Instructions.Add(TReturnInstruction.Create);
-        end else
-          raise exception.Create('Stop instruction only allowed in event');
-      end
+      else if TryToken(line,index, 'Stop') then DoStop
       else if TryToken(line,index,'Do') then
       begin
         if TryToken(line,index,'As') then
         begin
           if inDoAs then raise exception.Create('Nested multi-thread instruction not allowed');
 
-          doPlayers := ExpectPlayers(line,index);
+          doPlayers := ExpectPlayers(scope,line,index);
           if (plAllPlayers in doPlayers) or ([plForce1,plForce2,plForce3,plForce4] <= doPlayers) then
             doPlayers := [plPlayer1,plPlayer2,plPlayer3,plPlayer4,
                       plPlayer5,plPlayer6,plPlayer7,plPlayer8];
@@ -2054,7 +2193,7 @@ begin
       end
       else if (inSub = -1) and (inEvent = -1) and not inSubNew and TryToken(line,index,'As') then
       begin
-        players := ExpectPlayers(line,index);
+        players := ExpectPlayers(GlobalScope,line,index);
         if index < line.Count then
         begin
           for i := index-1 downto 0 do

@@ -9,6 +9,7 @@ uses
 
 type
   ArrayOfInteger = array of integer;
+  ArrayOfString = array of string;
   TConditionOperator = (coNone, coEqual, coGreaterThan, coLowerThan, coGreaterThanOrEqual, coLowerThanOrEqual, coNotEqual);
   TTryParsePlayerFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
 
@@ -31,18 +32,19 @@ function TryParsePlayer(AScope: integer; ALine: TStringList; var AIndex: integer
 function ExpectPlayers(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayers;
 function GetBitCountOfType(AName: string): integer;
 function IsIntegerType(AName: string): boolean;
+function IsUnsignedIntegerType(AName: string): boolean;
 function BitCountNeededFor(AValue: integer): integer;
 
 const
-  ImplementedReservedWords: array[1..49] of string =
+  ImplementedReservedWords: array[1..51] of string =
     ('Dim','As','Const','Sub','When','End','If','EndIf', 'Then','Else','ElseIf','Not','And','Or','While','Option','Return',
      'On','Off','Hyper','Boolean','Byte','UInt8','UShort','UInt16','UInt24','String','True','False',
      'Do','Len','Chr','Asc','Exit','Function','LBound','UBound','Me','Rnd','New','Min','Max','All',
-     'For','To','Step','Next','Each','In');
+     'For','To','Step','Next','Each','In','UInteger','Integer');
 
-  NotImplementedReservedWords: array[1..16] of string =
+  NotImplementedReservedWords: array[1..14] of string =
      ('Loop','Until','Select','Case',  //reserved and planned to implement
-     'SByte','Short','Int16','Int24','UInt32','Int32','UInteger','Integer','Xor','Date','ReDim','Preserve'); //reserved but not planned to implement
+     'SByte','Short','Int16','Int24','UInt32','Int32','Xor','Date','ReDim','Preserve'); //reserved but not planned to implement
 
 implementation
 
@@ -297,6 +299,14 @@ begin
   else if (CompareText(AName,'UShort')=0) or (CompareText(AName,'UInt16')=0) then result := 16
   else if (CompareText(AName,'UInt24')=0) then result := 24
   else result := 0;
+end;
+
+function IsUnsignedIntegerType(AName: string): boolean;
+begin
+  result := (CompareText(AName,'Byte')=0) or (CompareText(AName,'UInt8')=0) or
+          (CompareText(AName,'UShort')=0) or (CompareText(AName,'UInt16')=0) or
+          (CompareText(AName,'UInt24')=0) or
+          (CompareText(AName,'UInteger')=0);
 end;
 
 function IsIntegerType(AName: string): boolean;

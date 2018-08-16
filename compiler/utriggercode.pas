@@ -440,6 +440,7 @@ begin
             switchCheck.Switch := BoolVars[ GetPlayerPresenceBoolVar(pl) ].Switch;
             ipCheck := CreateIntegerCondition(pl, IntArrays[IPVar].UnitType, icmAtLeast, 1);
             WriteProg(APlayers, [switchCheck, ipCheck], proc, whileIP, beforeIP, true);
+            ipCheck.Free;
           end;
 
         switchCheck.Free;

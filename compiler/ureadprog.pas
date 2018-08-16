@@ -365,6 +365,25 @@ begin
   setlength(result, count);
 end;
 
+function ParseStringArray(AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfString;
+var count: integer;
+begin
+  setlength(result, 4);
+  count := 0;
+  ExpectToken(ALine, AIndex, '{');
+  while not TryToken(ALine, AIndex, '}') do
+  begin
+    if Count >= length(result) then
+      setlength(result, Count*2 + 4);
+
+    if Count > 0 then ExpectToken(ALine, AIndex, ',');
+    if not TryString(AScope, ALine, AIndex, result[count]) then
+      raise exception.Create('Expecting string or "}"');
+    inc(count);
+  end;
+  setlength(result, count);
+end;
+
 function ProcessSub(ALine: TStringList): integer;
 var
   index: Integer;
@@ -1781,7 +1800,7 @@ begin
          or (CompareText(ALastToken,'Or')=0) or (CompareText(ALastToken,'And')=0) or (CompareText(ALastToken,'Xor')=0);
 end;
 
-procedure ParseCode(AMainThread: TPlayer; inSubNew: boolean; inSub, inEvent: integer; ACustomCode: TCodeLineList = nil);
+procedure ParseCode(AThreads: TPlayers; AMainThread: TPlayer; inSubNew: boolean; inSub, inEvent: integer; ACustomCode: TCodeLineList = nil);
 var
   code: TCodeLineList;
   i, lineNumber: Integer;
@@ -1800,21 +1819,19 @@ var
   procedure DoParseInstruction;
   begin
     if inSub <> -1 then
-      ParseInstruction(Procedures[inSub].InnerScope, line, Procedures[inSub].Instructions,[plAllPlayers], AMainThread, inSub,false)
+      ParseInstruction(scope, line, Procedures[inSub].Instructions, AThreads, AMainThread, inSub,false)
     else if inEvent <> -1 then
     begin
       if inDoAs then
-        ParseInstruction(Events[inEvent].InnerScope, line, Events[inEvent].Instructions, doPlayers, AMainThread, -1, false)
+        ParseInstruction(scope, line, Events[inEvent].Instructions, doPlayers, AMainThread, -1, false)
       else
-        ParseInstruction(Events[inEvent].InnerScope, line, Events[inEvent].Instructions, Events[inEvent].Players, AMainThread, -1, false);
+        ParseInstruction(scope, line, Events[inEvent].Instructions, AThreads, AMainThread, -1, false);
     end else
     begin
       if inDoAs then
-        ParseInstruction(SubNewScope, line, MainProg, doPlayers, AMainThread, -1, true)
-      else if AMainThread = plNone then
-        ParseInstruction(SubNewScope, line, MainProg, [], AMainThread, -1, true)
+        ParseInstruction(scope, line, MainProg, doPlayers, AMainThread, -1, true)
       else
-        ParseInstruction(SubNewScope, line, MainProg, [AMainThread], AMainThread, -1, true);
+        ParseInstruction(scope, line, MainProg, AThreads, AMainThread, -1, true);
     end
   end;
 
@@ -1846,7 +1863,10 @@ var
               loopLine.Tokens[j] := ACurValue;
           loopCode.Add(loopLine);
         end;
-        ParseCode(AMainThread, inSubNew, inSub, inEvent, loopCode);
+        if inDoAs then
+          ParseCode(doPlayers, AMainThread, inSubNew, inSub, inEvent, loopCode)
+        else
+          ParseCode(AThreads, AMainThread, inSubNew, inSub, inEvent, loopCode);
       finally
         loopCode.FreeAll;
       end;
@@ -1855,9 +1875,9 @@ var
 
   var j,k: integer;
     loopValues: array of string;
-    fromValue, stepValue, nesting, toValue: integer;
+    fromValue, stepValue, nesting, toValue, bitCount: integer;
     intValues: ArrayOfInteger;
-    loopVar: string;
+    loopVar, varType: string;
 
   begin
     if TryIdentifier(line,index,loopVar, false) then
@@ -1894,17 +1914,56 @@ var
       begin
         if IsVarNameUsed(scope, loopVar, 0) then
           raise exception.Create('The name "'+loopVar+'" is already in use');
+        bitCount := 0;
+        if TryToken(line,index,'As') then
+        begin
+          TryIdentifier(line,index,varType,true);
+          if varType = '' then raise exception.Create('Expecting loop variable type')
+          else
+          begin
+            if IsUnsignedIntegerType(varType) then
+            begin
+              bitCount := GetBitCountOfType(varType);
+              if bitCount = 0 then bitCount := 24;
+            end
+            else if (compareText(varType,'String')<>0) and
+              (compareText(varType,'Boolean')<>0) then
+              raise exception.Create('Expecting loop variable type but "'+vartype+'" found');
+          end;
+        end else
+        begin
+          varType := 'UInt24';
+          bitCount := 24;
+        end;
         ExpectToken(line,index,'In');
-        intValues := ParseIntArray(scope, line, index);
-        CheckLoopCount(length(intValues));
-        setlength(loopValues, length(intValues));
-        for j := 0 to high(loopValues) do
-          loopValues[j] := inttostr(intValues[j]);
+        if IsUnsignedIntegerType(varType) then
+        begin
+          intValues := ParseIntArray(scope, line, index);
+          CheckLoopCount(length(intValues));
+          if bitCount <> 0 then
+            for j := 0 to high(intValues) do
+              if intValues[j] >= 1 shl bitCount then
+                raise exception.Create('Integer value out of bounds');
+
+          setlength(loopValues, length(intValues));
+          for j := 0 to high(loopValues) do
+            loopValues[j] := inttostr(intValues[j]);
+        end else
+        if (compareText(varType,'String')=0) then
+        begin
+          loopValues := ParseStringArray(scope, line, index);
+          CheckLoopCount(length(loopValues));
+          for j := 0 to high(loopValues) do
+            loopValues[j] := '"'+stringreplace(loopValues[j],'"','""',[rfReplaceAll])+'"';
+        end;
       end else
         raise exception.Create('Loop variable expected');
     end else
       raise exception.Create('Loop variable expected');
     CheckEndOfLine;
+
+    if length(loopValues) = 0 then
+      AddWarning(lineNumber,'Loop will never be executed');
 
     nesting := 1;
     for j := ALineIndex+1 to code.Count-1 do
@@ -1927,7 +1986,7 @@ var
           for k := 0 to high(loopValues) do
             if not ParseLoopCode(ALineIndex+1, j-1, loopVar, loopValues[k]) then break;
 
-          ALineIndex := j+1;
+          ALineIndex := j;
           break;
         end;
       end;
@@ -2015,18 +2074,15 @@ begin
             doPlayers := [plPlayer1,plPlayer2,plPlayer3,plPlayer4,
                       plPlayer5,plPlayer6,plPlayer7,plPlayer8];
 
+          if (AThreads<> []) and (AThreads <> [AMainThread]) then
+            raise exception.Create('Multi-thread instruction only allowed in main thread');
+
           if inEvent<>-1 then
-          begin
-            if (Events[inEvent].Players <> []) and (Events[inEvent].Players <> [AMainThread]) then
-              raise exception.Create('Multi-thread instruction only allowed in main thread');
-            Events[inEvent].Instructions.Add(TDoAsInstruction.Create(doPlayers));
-          end else
+            Events[inEvent].Instructions.Add(TDoAsInstruction.Create(doPlayers)) else
           if inSubNew then
-          begin
-            MainProg.Add(TDoAsInstruction.Create(doPlayers));
-          end
+            MainProg.Add(TDoAsInstruction.Create(doPlayers))
           else
-            raise exception.Create('Multi-thread instructions must be in the Sub New or in an event of the main thread');
+            raise exception.Create('Unhandled case');
 
           CheckEndOfLine;
 
@@ -2042,10 +2098,11 @@ begin
           begin
             inDoAs := false;
             if inSubNew then
-              MainProg.Add(TEndDoAsInstruction.Create(doPlayers) )
-            else
+              MainProg.Add(TEndDoAsInstruction.Create(doPlayers) ) else
             if (inEvent<>-1) then
-              Events[inEvent].Instructions.Add(TEndDoAsInstruction.Create(doPlayers) );
+              Events[inEvent].Instructions.Add(TEndDoAsInstruction.Create(doPlayers) )
+            else
+              raise exception.Create('Unhandled case');
           end
           else raise exception.Create('Unexpected end of block');
         end else
@@ -2236,7 +2293,10 @@ begin
             if inSubNew then
             begin
               try
-                ParseCode(AMainThread, inSubNew, inSub, inEvent);
+                if AMainThread <> plNone then
+                  ParseCode([AMainThread], AMainThread, inSubNew, inSub, inEvent)
+                else
+                  ParseCode([], AMainThread, inSubNew, inSub, inEvent);
               finally
                 inSubNew := false;
               end;
@@ -2247,7 +2307,7 @@ begin
                 raise Exception.create('Not in a procedure');
               if Procedures[inSub].ReturnType <> 'Void' then raise exception.Create('Expecting "End Function"');
               try
-                ParseCode(AMainThread, inSubNew, inSub, inEvent);
+                ParseCode([plAllPlayers], AMainThread, inSubNew, inSub, inEvent);
               finally
                 inSub := -1;
               end;
@@ -2264,7 +2324,7 @@ begin
               raise Exception.create('Not in a function');
             if Procedures[inSub].ReturnType = 'Void' then raise exception.Create('Expecting "End Sub" instead');
             try
-              ParseCode(AMainThread, inSubNew, inSub, inEvent);
+              ParseCode([plAllPlayers], AMainThread, inSubNew, inSub, inEvent);
             finally
               inSub := -1;
             end;
@@ -2279,7 +2339,7 @@ begin
             if inEvent= -1 then
               raise Exception.create('Not in an event');
             try
-              ParseCode(AMainThread, inSubNew, inSub, inEvent);
+              ParseCode(Events[inEvent].Players, AMainThread, inSubNew, inSub, inEvent);
             finally
               inEvent := -1;
             end;

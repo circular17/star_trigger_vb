@@ -3,6 +3,7 @@
 - select case
 - simple do - loop until
 
+- enumerations
 - indexation par variable
 - variable in any death count
 - xor booleen

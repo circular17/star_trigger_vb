@@ -12,7 +12,7 @@
       </SearchPaths>
     </CompilerOptions>
     <Version Minor="1"/>
-    <Files Count="15">
+    <Files Count="19">
       <Item1>
         <Filename Value="uarithmetic.pas"/>
         <UnitName Value="uarithmetic"/>
@@ -73,6 +73,22 @@
         <Filename Value="utriggerconditions.pas"/>
         <UnitName Value="utriggerconditions"/>
       </Item15>
+      <Item16>
+        <Filename Value="uparsescalar.pas"/>
+        <UnitName Value="uparsescalar"/>
+      </Item16>
+      <Item17>
+        <Filename Value="uparsecomplex.pas"/>
+        <UnitName Value="uparsecomplex"/>
+      </Item17>
+      <Item18>
+        <Filename Value="uprocedures.pas"/>
+        <UnitName Value="uprocedures"/>
+      </Item18>
+      <Item19>
+        <Filename Value="ureadinstruction.pas"/>
+        <UnitName Value="ureadinstruction"/>
+      </Item19>
     </Files>
     <RequiredPkgs Count="1">
       <Item1>

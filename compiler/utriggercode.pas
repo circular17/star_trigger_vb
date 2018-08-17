@@ -86,7 +86,7 @@ procedure WriteStackTriggers;
 
 implementation
 
-uses ureadprog, uvariables, utrigedittypes;
+uses ureadprog, uvariables, utrigedittypes, uprocedures;
 
 // instruction pointer for regular blocks
 

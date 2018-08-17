@@ -11,7 +11,8 @@ uses
   uarithmetic, uexpressions, uinstructions, uparseconditions, uparsevb, 
   ureadprog, usctypes, utriggercode, uvariables, uwritetriggers, 
   utrigeditoutput, utriggerchunk, umapinfo, utriggerinstructions, 
-  utriggerconditions, LazarusPackageIntf;
+  utriggerconditions, uparsescalar, uparsecomplex, uprocedures, 
+  ureadinstruction, LazarusPackageIntf;
 
 implementation
 

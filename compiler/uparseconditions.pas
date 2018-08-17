@@ -12,7 +12,7 @@ function ExpectConditions(AScope: integer; ALine: TStringList; var AIndex: integ
 implementation
 
 uses
-  uvariables, utriggerconditions;
+  uvariables, utriggerconditions, uparsescalar;
 
 function TryNeutralConditionFunction(AScope: integer; ALine: TStringList; var AIndex: Integer; ANegation: boolean): TCondition;
 var
@@ -68,7 +68,7 @@ begin
     begin
       unitType := ExpectUnitType(AScope, ALine,AIndex);
       if TryToken(ALine,AIndex,',') then
-        locStr := ExpectString(AScope, ALine,AIndex)
+        locStr := ExpectStringConstant(AScope, ALine,AIndex)
       else
         locStr := '';
       ExpectToken(ALine,AIndex,')');

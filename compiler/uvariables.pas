@@ -14,6 +14,9 @@ const
   MaxUnitProperties = 64;
   GlobalScope = 0;
 
+var
+  HyperTriggersOption: boolean;
+
 procedure InitVariables;
 
 var
@@ -127,12 +130,6 @@ var
 function CreateSound(AScope: integer; AName: string; AFilename: string; ADurationMs: integer; AConstant: boolean): integer;
 function SoundIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean = true): integer;
 
-{var
-  StringArrays: array of record
-    Name: string;
-    Values: array of string;
-  end;
-}
 var
   StringVars: array of record
     Name: string;
@@ -189,6 +186,7 @@ begin
   PlayerPresenceDefinedVar := -1;
   StopEventBoolVar := -1;
   MessageCount := 0;
+  HyperTriggersOption := false;
 end;
 
 function CreateIntArray(AScope: integer; AName: string; ASize: integer;

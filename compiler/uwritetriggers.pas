@@ -12,14 +12,15 @@ procedure CreateTriggers(AMainThread: TPlayer; ASourceCode: string = '');
 implementation
 
 uses utriggercode, uarithmetic, ureadprog, uinstructions, uvariables, uparsevb,
-  uexpressions, utriggerinstructions, utriggerconditions, utrigedittypes;
+  uexpressions, utriggerinstructions, utriggerconditions, utrigedittypes,
+  uprocedures;
 
 var
   HyperWaitVar: integer;
 
 procedure ConfigureHyperWait;
 begin
-  if HyperTriggers then
+  if HyperTriggersOption then
   begin
     if HyperWaitVar = -1 then
     begin
@@ -214,7 +215,7 @@ begin
       end;
       continue;
     end else
-    if HyperTriggers and (AProg[i] is TWaitInstruction) then
+    if HyperTriggersOption and (AProg[i] is TWaitInstruction) then
     begin
       ConfigureHyperWait;
 
@@ -455,7 +456,7 @@ var
   actions: array of TInstruction;
   i: Integer;
 begin
-  if not HyperTriggers then exit;
+  if not HyperTriggersOption then exit;
 
   setlength(actions,63);
   actions[0] := TCommentInstruction.Create('Hyper triggers');

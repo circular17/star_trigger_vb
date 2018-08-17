@@ -131,11 +131,12 @@ var
   i: Integer;
   MainThread: TPlayer;
   success: Boolean;
+  LastScope: integer;
 begin
   ErrorsToUpdate := false;
 
   //full program for validation
-  success := ureadprog.ReadProg(SynEdit1.Lines, MainThread);
+  success := ureadprog.ReadProg(SynEdit1.Lines, MainThread, LastScope);
   if success then
   begin
     if MainThread = plNone then MainThread := plPlayer8;
@@ -192,7 +193,7 @@ procedure TFMain.UpdateAutoCompleteList;
   end;
 var
   programUpToCursor: TStringList;
-  i: Integer;
+  i, LastScope: Integer;
   MainThread, pl: TPlayer;
   u: TStarcraftUnit;
   prevLine, lineUpToCursor: TStringList;
@@ -204,7 +205,7 @@ begin
   for i := 1 to SynEdit1.CaretY do
     if i <= SynEdit1.Lines.Count then
       programUpToCursor.Add(SynEdit1.Lines[i-1]);
-  ureadprog.ReadProg(programUpToCursor, MainThread);
+  ureadprog.ReadProg(programUpToCursor, MainThread, LastScope);
   programUpToCursor.Free;
 
   lineUpToCursor := nil;

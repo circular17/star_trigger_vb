@@ -8,8 +8,6 @@ uses
   Classes, SysUtils, usctypes;
 
 type
-  ArrayOfInteger = array of integer;
-  ArrayOfString = array of string;
   TConditionOperator = (coNone, coEqual, coGreaterThan, coLowerThan, coGreaterThanOrEqual, coLowerThanOrEqual, coNotEqual);
   TTryParsePlayerFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
 
@@ -40,6 +38,7 @@ function GetBitCountOfType(AName: string): integer;
 function IsIntegerType(AName: string): boolean;
 function IsUnsignedIntegerType(AName: string): boolean;
 function BitCountNeededFor(AValue: integer): integer;
+function IsTokenOverEndOfLine(ALastToken:string): boolean;
 
 const
   ImplementedReservedWords: array[1..50] of string =
@@ -53,6 +52,13 @@ const
      'SByte','Short','Int16','Int24','UInt32','Int32','Xor','Date','ReDim','Preserve'); //reserved but not planned to implement
 
 implementation
+
+function IsTokenOverEndOfLine(ALastToken:string): boolean;
+begin
+  result := (ALastToken = '&') or (ALastToken = '+') or (ALastToken = '-') or (ALastToken = '*') or (ALastToken = '\')
+         or (ALastToken = '=') or (ALastToken = ',') or (ALastToken = 'In') or (ALastToken = 'To')
+         or (CompareText(ALastToken,'Or')=0) or (CompareText(ALastToken,'And')=0) or (CompareText(ALastToken,'Xor')=0);
+end;
 
 function RemoveQuotes(AQuotedText: string): string;
 begin

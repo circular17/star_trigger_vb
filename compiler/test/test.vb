@@ -10,7 +10,7 @@ Sub New()
 End Sub
 
 As Player1
-When UnitCount(Unit.TerranMarine, "TestLocation2") > 0
+On UnitCount(Unit.TerranMarine, "TestLocation2") > 0
   If AllowedSwaps = 0 Then
     Print("Sorry, you have no more swaps left.")
     Return
@@ -21,10 +21,10 @@ When UnitCount(Unit.TerranMarine, "TestLocation2") > 0
   CreateUnit(1, Unit.ProtossZealot, "TestLocation")
   
   Print("Here is your zealot.")
-End When
+End On
 
 As Player1
-When UnitCount(Unit.ProtossZealot, "TestLocation2") > 0
+On UnitCount(Unit.ProtossZealot, "TestLocation2") > 0
   If AllowedSwaps = 0 Then
     Print("Sorry, you have no more swaps left.") 
     Return
@@ -35,6 +35,6 @@ When UnitCount(Unit.ProtossZealot, "TestLocation2") > 0
   CreateUnit(1, Unit.TerranMarine, "TestLocation")
   
   Print("Here is your marine.")
-End When
+End On
 
 

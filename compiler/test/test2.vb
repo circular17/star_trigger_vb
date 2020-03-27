@@ -1,7 +1,7 @@
 Dim foo As Byte = 6
 
 As AllPlayers
-When True
+On True
 
     If foo >= 5 Then
       Print("6 >= 5")
@@ -37,5 +37,5 @@ When True
 
     Wait(4000)
 
-End When
+End On
 

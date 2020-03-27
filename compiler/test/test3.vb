@@ -3,12 +3,12 @@ Sub New()
 End Sub
 
 As AllPlayers
-When Me.Minerals >= 25
+On Me.Minerals >= 25
   Print("We have the minerals!")
-End When
+End On
 
 As AllPlayers
-When ElapsedTime >= 5
+On ElapsedTime >= 5
   Print("5 seconds have elapsed!")
-End When
+End On
 

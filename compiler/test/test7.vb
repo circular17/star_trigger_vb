@@ -3,7 +3,7 @@ Option Hyper On
 Const LUCKY_NUMBER = 100
 
 As Player1
-When Countdown = 0
+On Countdown = 0
   Countdown = 2 + Rnd()*4
   If Rnd()*256 >= LUCKY_NUMBER Then
     Print("Lucky you")
@@ -14,5 +14,5 @@ When Countdown = 0
     Player2.CreateUnit(1 + Rnd()*4, Unit.TerranMarine, "TestLocation2")
     Player2.Units(Unit.TerranMarine, "TestLocation2").AttackOrder("TestLocation")
   EndIf
-End When
+End On
 

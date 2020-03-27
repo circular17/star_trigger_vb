@@ -1,10 +1,10 @@
 Dim PlayerScore(8) As Byte
 
-When Player2.DeathCount(Unit.TerranMarine) > 0
+On Player2.DeathCount(Unit.TerranMarine) > 0
   Player2.DeathCount(Unit.TerranMarine) -= 1
   PlayerScore(1) += 1
   PlayerScore(2) += 1
-End When
+End On
 
 Sub New()
   Dim foo(4) As Byte

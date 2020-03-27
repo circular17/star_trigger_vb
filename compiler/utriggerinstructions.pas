@@ -560,6 +560,7 @@ var
   lines: TStringList;
   i: Integer;
 begin
+  result := '';
   lines := TStringList.Create;
   lines.Text := Text;
   for i := 0 to lines.Count-1 do

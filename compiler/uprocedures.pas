@@ -286,10 +286,10 @@ begin
     end;
   EventCount:= 0;
 
-  MainProg.FreeAll;
+  if Assigned(MainProg) then MainProg.FreeAll;
   MainProg := TInstructionList.Create;
   MainProg.Add(TCommentInstruction.Create('Sub New'));
-  MainCode.FreeAll;
+  if Assigned(MainCode) then MainCode.FreeAll;
   MainCode := TCodeLineList.Create;
 end;
 

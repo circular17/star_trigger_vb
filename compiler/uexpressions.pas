@@ -1125,7 +1125,7 @@ end;
 constructor TRandomNode.Create(ANegative: boolean; ARange: integer);
 begin
   inherited Create(ANegative);
-  if not IsPowerOf2(Range) then
+  if not IsPowerOf2(ARange) then
     raise exception.Create('Random can only be computed for powers of 2');
   Range := ARange;
 end;

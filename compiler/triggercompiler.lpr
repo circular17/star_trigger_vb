@@ -6,11 +6,8 @@ uses
   {$IFDEF UNIX}{$IFDEF UseCThreads}
   cthreads,
   {$ENDIF}{$ENDIF}
-  Classes, SysUtils, CustApp, ureadprog, uwritetriggers, uinstructions,
-  utriggercode, uarithmetic, usctypes, uparsevb, uvariables, uexpressions,
-  uparseconditions, utriggerinstructions, utriggerconditions, utrigedittypes,
-  umapinfo, utriggerchunk, utrigeditoutput
-  { you can add units after this };
+  Classes, SysUtils, CustApp,
+  usctypes, ureadprog, umapinfo, uwritetriggers, utrigeditoutput;
 
 type
 
@@ -28,11 +25,14 @@ type
 { TMyApplication }
 
 procedure TMyApplication.DoRun;
+const testPath = 'test'+PathDelim;
+  outputPath = 'output'+PathDelim;
 var
   ErrorMsg: String;
   MainThread: TPlayer;
   success: Boolean;
-  i: Integer;
+  i, lastScope: Integer;
+  search: TRawByteSearchRec;
 begin
   // quick check parameters
   ErrorMsg:=CheckOptions('h', 'help');
@@ -51,19 +51,29 @@ begin
 
   MapInfo := TDefaultMapInfo.Create;
   try
-    success := ureadprog.ReadProg('prog.vb', MainThread);
-    for i := 0 to ReadProgErrors.Count-1 do
-      writeln(ReadProgErrors[i]);
+    if FindFirst(testPath+'*.vb', faAnyFile, search) = 0 then
+    repeat
+      writeln('Reading ',search.name);
+      success := ureadprog.ReadProg(testPath+search.Name, MainThread, lastScope);
+      for i := 0 to ReadProgErrors.Count-1 do
+        writeln('Error: ', ReadProgErrors[i]);
+      for i := 0 to ReadProgWarnings.Count-1 do
+        writeln('Warning: ', ReadProgWarnings[i]);
 
-    if success then
-    begin
-      if MainThread = plNone then MainThread := plPlayer8;
+      if success then
+      begin
+        writeln('Writing output');
+        if MainThread = plNone then MainThread := plPlayer8;
 
-      CreateTriggers(MainThread);
-
-      WriteTrigEditCode('prog.trigger');
-      WriteTrigEditUnitProperties('prog.property');
-    end;
+        CreateTriggers(MainThread);
+ {       if not DirectoryExists(outputPath) then
+          CreateDir(outputPath);
+        WriteTrigEditCode(outputPath+ChangeFileExt(search.name,'.trig'));
+        WriteTrigEditUnitProperties(outputPath+ChangeFileExt(search.name,'.prop'));}
+      end else
+        break;
+    until FindNext(search) <> 0;
+    FindClose(search);
   finally
     FreeAndNil(MapInfo);
   end;

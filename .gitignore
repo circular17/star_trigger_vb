@@ -24,3 +24,4 @@ lib/i386-win32/
 *.dll
 
 compiler/lib/x86_64-linux/
+/compiler/output

@@ -66,10 +66,10 @@ begin
         if MainThread = plNone then MainThread := plPlayer8;
 
         CreateTriggers(MainThread);
- {       if not DirectoryExists(outputPath) then
+        if not DirectoryExists(outputPath) then
           CreateDir(outputPath);
-        WriteTrigEditCode(outputPath+ChangeFileExt(search.name,'.trig'));
-        WriteTrigEditUnitProperties(outputPath+ChangeFileExt(search.name,'.prop'));}
+        WriteTrigEditCode(outputPath+ChangeFileExt(search.name,'.trigger'));
+        WriteTrigEditUnitProperties(outputPath+ChangeFileExt(search.name,'.properties'));
       end else
         break;
     until FindNext(search) <> 0;

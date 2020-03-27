@@ -624,7 +624,7 @@ procedure TNotCondition.AddToProgAsAndVar(AProg: TInstructionList;
 begin
   if not Conditions.IsComputed then
   begin
-    AProg.Add(TFastIfInstruction.Create(Conditions,[CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0)]));
+    AProg.Add(TFastIfInstruction.Create(Conditions.Duplicate,[CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0)]));
   end else
   begin
     AProg.Add(TIfInstruction.Create(Conditions.Duplicate));

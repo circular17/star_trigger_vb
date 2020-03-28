@@ -211,7 +211,7 @@ begin
       begin
         AExpanded.Add( TDropThreadInstruction.Create(0, EndDoIP, endDoAs.Players - APlayers, APlayers) );
         AExpanded.Add( TWaitForPlayersInstruction.Create( endDoAs.Players - APlayers, True ) );
-        AExpanded.Add( TSetSwitchInstruction.Create(BoolVars[GetStopEventBoolVar].Switch, svSet) );
+        AExpanded.Add( TSetSwitchInstruction.Create(BoolVars[GetStopEventBoolVar].Switch, svClear) );
       end;
       continue;
     end else

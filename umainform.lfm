@@ -1,29 +1,31 @@
 object FMain: TFMain
   Left = 464
-  Height = 449
+  Height = 674
   Top = 160
-  Width = 951
+  Width = 1426
   BorderIcons = [biSystemMenu, biMaximize]
   Caption = 'BroodBasic program'
-  ClientHeight = 449
-  ClientWidth = 951
+  ClientHeight = 674
+  ClientWidth = 1426
+  DesignTimePPI = 144
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnDropFiles = FormDropFiles
-  LCLVersion = '1.8.4.0'
+  LCLVersion = '2.0.2.0'
   object ToolBar1: TToolBar
     Left = 0
-    Height = 38
+    Height = 56
     Top = 0
-    Width = 951
+    Width = 1426
     HelpType = htKeyword
     HelpKeyword = '0'
     AutoSize = True
-    ButtonHeight = 36
-    ButtonWidth = 23
+    ButtonHeight = 54
+    ButtonWidth = 34
     Caption = 'ToolBar1'
     Images = ImageList1
+    ParentFont = False
     ParentShowHint = False
     ShowCaptions = True
     TabOrder = 0
@@ -33,40 +35,41 @@ object FMain: TFMain
       Action = FileOpen
     end
     object ToolButton4: TToolButton
-      Left = 66
+      Left = 93
       Top = 2
       Action = FileSave
       Caption = 'Save file'
     end
     object ToolButton5: TToolButton
-      Left = 119
+      Left = 166
       Top = 2
       Action = FileSaveAs
     end
     object ToolButton6: TToolButton
-      Left = 196
+      Left = 273
       Top = 2
       Action = Compile
     end
   end
   object Panel_Code: TPanel
     Left = 0
-    Height = 411
-    Top = 38
-    Width = 776
+    Height = 618
+    Top = 56
+    Width = 1163
     Align = alClient
     BevelOuter = bvNone
-    ClientHeight = 411
-    ClientWidth = 776
+    ClientHeight = 618
+    ClientWidth = 1163
+    ParentFont = False
     TabOrder = 1
     inline SynEdit1: TSynEdit
       Left = 0
-      Height = 328
+      Height = 493
       Top = 0
-      Width = 776
+      Width = 1163
       Align = alClient
       Color = 14206148
-      Font.Height = -15
+      Font.Height = -13
       Font.Name = 'Courier New'
       Font.Pitch = fpFixed
       Font.Quality = fqCleartype
@@ -74,7 +77,7 @@ object FMain: TFMain
       ParentFont = False
       PopupMenu = PopupMenu1
       TabOrder = 0
-      Gutter.Width = 59
+      Gutter.Width = 84
       Gutter.MouseActions = <>
       RightGutter.Width = 0
       RightGutter.MouseActions = <>
@@ -532,11 +535,11 @@ object FMain: TFMain
       OnChange = SynEdit1Change
       inline SynLeftGutterPartList1: TSynGutterPartList
         object SynGutterMarks1: TSynGutterMarks
-          Width = 24
+          Width = 36
           MouseActions = <>
         end
         object SynGutterLineNumber1: TSynGutterLineNumber
-          Width = 19
+          Width = 17
           MouseActions = <>
           MarkupInfo.Background = clBtnFace
           MarkupInfo.Foreground = clNone
@@ -546,19 +549,20 @@ object FMain: TFMain
           LeadingZeros = False
         end
         object SynGutterChanges1: TSynGutterChanges
-          Width = 4
+          Width = 6
           MouseActions = <>
           ModifiedColor = 59900
           SavedColor = clGreen
         end
         object SynGutterSeparator1: TSynGutterSeparator
-          Width = 2
+          Width = 3
           MouseActions = <>
           MarkupInfo.Background = clWhite
           MarkupInfo.Foreground = clGray
         end
         object SynGutterCodeFolding1: TSynGutterCodeFolding
           AutoSize = False
+          Width = 22
           MouseActions = <>
           MarkupInfo.Background = clNone
           MarkupInfo.Foreground = clGray
@@ -570,97 +574,105 @@ object FMain: TFMain
     object Splitter1: TSplitter
       Cursor = crVSplit
       Left = 0
-      Height = 5
-      Top = 328
-      Width = 776
+      Height = 8
+      Top = 493
+      Width = 1163
       Align = alBottom
       ResizeAnchor = akBottom
     end
     object Panel_Errors: TPanel
       Left = 0
-      Height = 78
-      Top = 333
-      Width = 776
+      Height = 117
+      Top = 501
+      Width = 1163
       Align = alBottom
       BevelOuter = bvNone
-      ClientHeight = 78
-      ClientWidth = 776
+      ClientHeight = 117
+      ClientWidth = 1163
+      ParentFont = False
       TabOrder = 2
       object Errors: TLabel
         Left = 0
-        Height = 13
+        Height = 25
         Top = 0
-        Width = 776
+        Width = 1163
         Align = alTop
         Caption = 'Errors'
         ParentColor = False
+        ParentFont = False
       end
       object ListBox_Errors: TListBox
         Left = 0
-        Height = 65
-        Top = 13
-        Width = 776
+        Height = 92
+        Top = 25
+        Width = 1163
         Align = alClient
         ItemHeight = 0
         OnDblClick = ListBox_ErrorsDblClick
+        ParentFont = False
         TabOrder = 0
       end
     end
   end
   object Splitter2: TSplitter
-    Left = 776
-    Height = 411
-    Top = 38
-    Width = 5
+    Left = 1163
+    Height = 618
+    Top = 56
+    Width = 8
     Align = alRight
     ResizeAnchor = akRight
   end
   object Panel_Utils: TPanel
-    Left = 781
-    Height = 411
-    Top = 38
-    Width = 170
+    Left = 1171
+    Height = 618
+    Top = 56
+    Width = 255
     Align = alRight
     BevelOuter = bvNone
-    ClientHeight = 411
-    ClientWidth = 170
+    ClientHeight = 618
+    ClientWidth = 255
+    ParentFont = False
     TabOrder = 3
     object Panel_Locations: TPanel
       Left = 0
-      Height = 411
+      Height = 618
       Top = 0
-      Width = 170
+      Width = 255
       Align = alClient
       BevelOuter = bvNone
-      ClientHeight = 411
-      ClientWidth = 170
+      ClientHeight = 618
+      ClientWidth = 255
+      ParentFont = False
       TabOrder = 0
       object Label1: TLabel
         Left = 0
-        Height = 13
+        Height = 25
         Top = 0
-        Width = 170
+        Width = 255
         Align = alTop
         Caption = 'Locations'
         ParentColor = False
+        ParentFont = False
       end
       object ListBox_Locations: TListBox
         Left = 0
-        Height = 398
-        Top = 13
-        Width = 170
+        Height = 593
+        Top = 25
+        Width = 255
         Align = alClient
         ItemHeight = 0
         OnDblClick = ListBox_LocationsDblClick
+        ParentFont = False
         TabOrder = 0
       end
     end
   end
   object ImageList1: TImageList
-    left = 264
-    top = 88
+    Scaled = True
+    left = 396
+    top = 132
     Bitmap = {
-      4C690900000010000000100000000000000052521F0097970000333349092E2E
+      4C690800000010000000100000000000000052521F0097970000333349092E2E
       44052F2F4F000000000000000000000000000000000000008000000077050000
       780A0000000000003400000000004D4D3700181894002727752D1B1B9FAF1B1B
       938B202056112020680000000000000000000E0E95000606870E2020B4872525
@@ -916,45 +928,13 @@ object FMain: TFMain
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
-      00000000000000000000000000000000000000000000938B88EB9D938EFFF8F8
-      F7FFFFFFFFFFA09692FFA09692FFFEFEFEFFFEFEFEFF9D938EFF9D938EFFFEFE
-      FEFFF7F7F7FE000000000000000000000000000000009D938EFFFFD4BFFFFFD4
-      BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4
-      BFFF9D938EFF000000000000000000000000FFFFFF60FFFFFFFFFFD4BFFFFFD4
-      BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4
-      BFFF9D938EFF000000000000000000000000FEFEFE25FEFEFDFFFFD4BFFFFFD4
-      BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4
-      BFFFFBFBFBFFFEFEFE170000000000000000000000009D938EFFFFD4BFFFFFD4
-      BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4
-      BFFFFFFFFFFFFFFFFF080000000000000000FEFEFE45FFFFFFFFFFD4BFFFFFD4
-      BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4
-      BFFF9D938EFF000000000000000000000000FEFEFE45FEFEFEFFFFD4BFFFFFD4
-      BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4BFFFFFD4
-      BFFF9D938EFF000000000000000000000000000000008F8B88F99D938EFFFEFE
-      FEFFFEFEFEFF9D938EFF9D938EFFFFFFFFFFFEFEFEFF9D938EFF9D938EFFFEFE
-      FEFFFFFFFFFF0000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
-      0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000
     }
   end
   object ActionList1: TActionList
     Images = ImageList1
-    left = 152
-    top = 88
+    left = 228
+    top = 132
     object FileOpen: TAction
       Category = 'File'
       Caption = 'Open file...'
@@ -1004,13 +984,13 @@ object FMain: TFMain
     CommentAttri.Foreground = clGreen
     KeyAttri.Foreground = clBlue
     StringAttri.Foreground = clMaroon
-    left = 152
-    top = 176
+    left = 228
+    top = 264
   end
   object Timer1: TTimer
     OnTimer = Timer1Timer
-    left = 200
-    top = 264
+    left = 300
+    top = 396
   end
   object SynCompletion1: TSynCompletion
     OnExecute = SynCompletion1Execute
@@ -1025,35 +1005,35 @@ object FMain: TFMain
     ExecCommandID = ecSynCompletionExecute
     Editor = SynEdit1
     ToggleReplaceWhole = False
-    left = 264
-    top = 176
+    left = 396
+    top = 264
   end
   object OpenDialog1: TOpenDialog
     Title = 'Open existing file'
     DefaultExt = '.vb'
     Filter = 'BroodBasic program (*.vb)|*.vb|Any file|*.*'
-    left = 376
-    top = 88
+    left = 564
+    top = 132
   end
   object SaveDialog1: TSaveDialog
     Title = 'Save file as'
     DefaultExt = '.vb'
     Filter = 'BroodBasic program (*.vb)|*.vb|Any file|*.*'
     Options = [ofOverwritePrompt, ofEnableSizing, ofViewDetail]
-    left = 474
-    top = 91
+    left = 711
+    top = 137
   end
   object CompileDialog1: TSaveDialog
     Title = 'Compile program as'
     DefaultExt = '.trigger'
     Filter = 'TrigEdit code (*.trigger)|*.trigger|Any file|*.*'
-    left = 578
-    top = 93
+    left = 867
+    top = 140
   end
   object PopupMenu1: TPopupMenu
     Images = ImageList1
-    left = 376
-    top = 176
+    left = 564
+    top = 264
     object MenuItem1: TMenuItem
       Action = EditCut
     end

@@ -136,7 +136,13 @@ begin
   ErrorsToUpdate := false;
 
   //full program for validation
-  success := ureadprog.ReadProg(SynEdit1.Lines, MainThread, LastScope);
+  success := false;
+  try
+    success := ureadprog.ReadProg(SynEdit1.Lines, MainThread, LastScope);
+  except on ex: exception do
+    ReadProgErrors.Add(ex.Message);
+  end;
+
   if success then
   begin
     if MainThread = plNone then MainThread := plPlayer8;
@@ -441,6 +447,8 @@ begin
 
   if MapInfo.ProgramMapEmbedded then
     SynEdit1.Text := MapInfo.RetrieveStoredProgram;
+
+  SynEdit1.Font.Size := 12;
 
   Modified := false;
 

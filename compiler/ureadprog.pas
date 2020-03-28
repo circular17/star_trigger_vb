@@ -605,11 +605,11 @@ begin
               try
                 ParseCode([plAllPlayers], AMainThread, inSubNew, inSub, inEvent);
               finally
+                with Procedures[inSub].Instructions do
+                  if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
+                    Add(TReturnInstruction.Create);
                 inSub := -1;
               end;
-              with Procedures[inSub].Instructions do
-                if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
-                  Add(TReturnInstruction.Create);
             end;
             CheckEndOfLine;
             done := true;

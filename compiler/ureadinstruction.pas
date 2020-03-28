@@ -931,24 +931,29 @@ begin
         ((index < ALine.Count) and (ALine[index] = '(')) then
       begin
         params := TStringList.Create;
-        if TryToken(ALine,index,'(') then
-        begin
-          while not TryToken(ALine,index,')') do
+        try
+          if TryToken(ALine,index,'(') then
           begin
-            if params.Count > 0 then ExpectToken(ALine,index,',');
-            if TryToken(ALine,index,',') then
-              raise exception.Create('Empty parameters not allowed');
-            if index < ALine.Count then
-              params.Add(ALine[index])
-            else
-              raise exception.Create('Parameter expected but end of line found');
+            while not TryToken(ALine,index,')') do
+            begin
+              if params.Count > 0 then ExpectToken(ALine,index,',');
+              if TryToken(ALine,index,',') then
+                raise exception.Create('Empty parameters not allowed');
+              if index < ALine.Count then
+                params.Add(ALine[index])
+              else
+                raise exception.Create('Parameter expected but end of line found');
 
-            inc(index);
+              inc(index);
+            end;
           end;
-        end;
-        CheckEndOfLine;
+          CheckEndOfLine;
 
-        AProg.Add(TCallInstruction.Create(name, params));
+          AProg.Add(TCallInstruction.Create(name, params));
+          params := nil;
+        finally
+          params.Free;
+        end;
       end else
       if scalar.VarType = svtNone then
       begin

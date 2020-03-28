@@ -197,6 +197,9 @@ begin
   isFunc := TryToken(ALine,index,'Function');
   if not isFunc then ExpectToken(ALine,index,'Sub');
 
+  if index >= ALine.Count then
+    raise exception.Create('Expecting name');
+
   name := ALine[index];
   if not IsValidVariableName(name) then
     raise exception.Create('Invalid procedure name');

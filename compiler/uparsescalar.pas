@@ -46,8 +46,8 @@ var
   u: TStarcraftUnit;
   ident: string;
 begin
-  ExpectToken(ALine,AIndex,'Unit');
-  ExpectToken(ALine,AIndex,'.');
+  if TryToken(ALine,AIndex,'Unit') then
+    ExpectToken(ALine,AIndex,'.');
   if not TryIdentifier(ALine, AIndex, ident, false) then raise exception.Create('Expecting identifier');
   for u := low(TStarcraftUnit) to suFactories do
     if CompareText(StarcraftUnitIdentifier[u],ident)=0 then exit(u);

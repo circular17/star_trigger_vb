@@ -99,16 +99,16 @@ var
       raise exception.Create('This action can only be done with the current player "Me". Use instruction "Do As" for multithreading');
   end;
 
-  function ParseOptionalQuantity: integer;
+  function ParseOptionalQuantity(ACommaAfter: boolean = true): integer;
   begin
     if TryToken(ALine,AIndex,'All') then
     begin
       result := -1;
-      ExpectToken(ALine,AIndex,',');
+      if ACommaAfter then ExpectToken(ALine,AIndex,',');
     end else
     if TryIntegerConstant(AScope, ALine,AIndex,result) then
     begin
-      ExpectToken(ALine,AIndex,',');
+      if ACommaAfter then ExpectToken(ALine,AIndex,',');
     end else
       result := -1; //All by default
   end;
@@ -200,6 +200,28 @@ begin
 
     AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
   end else
+  if TryToken(ALine,AIndex,'Location') then
+  begin
+    ExpectToken(ALine,AIndex,'(');
+    locStr := ExpectStringConstant(AScope,ALine,AIndex);
+    ExpectToken(ALine,AIndex,')');
+    ExpectToken(ALine,AIndex,'.');
+    if TryToken(ALine,AIndex,'Attract') then
+    begin
+       ExpectToken(ALine,AIndex,'(');
+       destLocStr := ExpectStringConstant(AScope,ALine,AIndex);
+       ExpectToken(ALine,AIndex,')');
+       AProg.Add(TMoveLocationInstruction.Create(APlayer, suUnusedCaveIn, locStr, destLocStr));
+    end else
+    if TryToken(ALine,AIndex,'Center') then
+    begin
+       ExpectToken(ALine,AIndex,'(');
+       destLocStr := ExpectStringConstant(AScope,ALine,AIndex);
+       ExpectToken(ALine,AIndex,')');
+       AProg.Add(TMoveLocationInstruction.Create(APlayer, suUnusedCaveIn, destLocStr, locStr));
+    end else
+      raise exception.create('Expecting location method');
+  end else
   if TryToken(ALine,AIndex,'Units') then
   begin
     ExpectToken(ALine,AIndex,'(');
@@ -287,17 +309,29 @@ begin
     end else
     if TryToken(ALine,AIndex,'Kill') then
     begin
-      if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
+      if TryToken(ALine,AIndex,'(') then
+      begin
+        if intVal = -1 then
+          intVal := ParseOptionalQuantity(false);
+        ExpectToken(ALine,AIndex,')');
+      end;
       AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, true));
     end else
     if TryToken(ALine,AIndex,'Remove') then
     begin
-      if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
+      if TryToken(ALine,AIndex,'(') then
+      begin
+        if intVal = -1 then
+          intVal := ParseOptionalQuantity(false);
+        ExpectToken(ALine,AIndex,')');
+      end;
       AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, false));
     end else
     if TryToken(ALine,AIndex,'Give') then
     begin
       ExpectToken(ALine,AIndex,'(');
+      if intVal = -1 then
+        intVal := ParseOptionalQuantity(false);
       destPl:= TryParsePlayer(AScope,ALine,AIndex);
       if destPl = plNone then raise exception.Create('Expecting player');
       ExpectToken(ALine,AIndex,')');
@@ -308,16 +342,23 @@ begin
     begin
       if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,'(');
 
+      if intVal <> -1 then
+        raise exception.Create('Cannot specify quantity here (use All quantity instead)');
       AProg.Add(TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufInvincible, ufvToggle));
     end else
     if TryToken(ALine,AIndex,'ToggleDoodadState') then
     begin
       if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,'(');
 
+      if intVal <> -1 then
+        raise exception.Create('Cannot specify quantity here (use All quantity instead)');
       AProg.Add(TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufDoodadState, ufvToggle));
     end else
     if TryToken(ALine,AIndex,'Invincible') then
     begin
+      if intVal <> -1 then
+        raise exception.Create('Cannot specify quantity here (use All quantity instead)');
+
       ExpectToken(ALine,AIndex,'=');
       conds := ExpectConditions(AScope,ALine,AIndex,AThreads);
       AppendConditionalInstruction(AProg, conds,
@@ -326,6 +367,9 @@ begin
     end else
     if TryToken(ALine,AIndex,'DoodadState') then
     begin
+      if intVal <> -1 then
+        raise exception.Create('Cannot specify quantity here (use All quantity instead)');
+
       ExpectToken(ALine,AIndex,'=');
       conds := ExpectConditions(AScope,ALine,AIndex,AThreads);
       AppendConditionalInstruction(AProg, conds,

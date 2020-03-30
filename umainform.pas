@@ -353,12 +353,14 @@ begin
       AddLocation(MapInfo.LocationName[i], True);
   ListBox_Locations.Items.EndUpdate;
 
-  if MapInfo.ProgramMapEmbedded then
-    SynEdit1.Text := MapInfo.RetrieveStoredProgram;
-
   SynEdit1.Font.Size := 12;
-
   Modified := false;
+
+  if MapInfo.ProgramMapEmbedded then
+  begin
+    SynEdit1.Text := MapInfo.RetrieveStoredProgram;
+    UpdateErrors;
+  end;
 
   ErrorsToUpdate:= false; //true;
 end;

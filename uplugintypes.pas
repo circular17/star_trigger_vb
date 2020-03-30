@@ -55,6 +55,7 @@ type
     function GetAnywhereLocationName: string; override;
     function GetForceName(AIndexBase1: integer): string; override;
     function GetLocationName(AIndex: integer): string; override;
+    function GetWavName(AIndex: integer): string; override;
     function GetSwitchName(AIndexBase1: integer): string; override;
     function GetProgramMapEmbedded: boolean; override;
   public
@@ -72,6 +73,8 @@ type
   end;
 
 implementation
+
+uses uparsevb;
 
 { TPluginContext }
 
@@ -153,7 +156,27 @@ end;
 
 function TPluginContext.RetrieveStoredProgram: string;
 var trigs: TTriggerList;
-  i: Integer;
+  i,j: Integer;
+
+  procedure AddSoundInfo(AFilename: string; ADuration: integer);
+  var
+    k: Integer;
+  begin
+    for k := 0 to high(BasicSoundInfoArray) do
+      if (BasicSoundInfoArray[k].Filename = AFilename) and
+        (BasicSoundInfoArray[k].Duration = ADuration) then exit;
+
+    setlength(BasicSoundInfoArray, length(BasicSoundInfoArray)+1);
+    with BasicSoundInfoArray[high(BasicSoundInfoArray)] do
+    begin
+      ConstName:= 'Sound' + inttostr(length(BasicSoundInfoArray));
+      Filename:= AFilename;
+      Duration:= ADuration;
+      result += 'Const '+ConstName+' As Sound = {.Filename = '+
+        StrToBasic(Filename)+', .Duration = '+inttostr(Duration)+'}' + LineEnding;
+    end;
+  end;
+
 begin
   trigs:= RetrieveStoredTriggers;
   for i := 0 to trigs.Count-1 do
@@ -170,10 +193,21 @@ begin
       exit;
     end;
 
-  result := '';
-  for i := 0 to trigs.Count-1 do
-    result += trigs[i].ToBasic+LineEnding+LineEnding;
-  trigs.Free;
+  try
+    result := '';
+    BasicSoundInfoArray := nil;
+    for i := 0 to trigs.count-1 do
+      for j := 0 to trigs[i].ActionCount-1 do
+        if trigs[i].Action[j] is TPlayWAVInstruction then
+        with TPlayWAVInstruction(trigs[i].Action[j]) do
+          AddSoundInfo(Filename, DurationMs);
+    if result <> '' then result += LineEnding;
+    for i := 0 to trigs.Count-1 do
+      result += trigs[i].ToBasic+LineEnding+LineEnding;
+    trigs.Free;
+  finally
+    BasicSoundInfoArray := nil;
+  end;
 end;
 
 function TPluginContext.UseWavFilename(AFilename: string): integer;
@@ -254,6 +288,11 @@ end;
 function TPluginMapInfo.GetLocationName(AIndex: integer): string;
 begin
   result := FContext.GetLocationName(AIndex);
+end;
+
+function TPluginMapInfo.GetWavName(AIndex: integer): string;
+begin
+  result := FContext.GetWavFilename(AIndex);
 end;
 
 function TPluginMapInfo.GetSwitchName(AIndexBase1: integer): string;

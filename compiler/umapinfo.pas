@@ -11,6 +11,8 @@ const
   AnywhereLocationIndex = 63;
   LocationMinIndex = 0;
   LocationMaxIndex = 255;
+  WavMinIndex = 0;
+  WavMaxIndex = 511;
 
 type
 
@@ -22,6 +24,7 @@ type
     function GetAnywhereLocationName: string; virtual; abstract;
     function GetForceName(AIndexBase1: integer): string; virtual; abstract;
     function GetLocationName(AIndex: integer): string; virtual; abstract;
+    function GetWavName(AIndex: integer): string; virtual; abstract;
     function GetSwitchName(AIndexBase1: integer): string; virtual; abstract;
   public
     function StrictLocations: boolean; virtual; abstract;
@@ -38,6 +41,7 @@ type
     property ForceName[AIndexBase1: integer]: string read GetForceName;
     property SwitchName[AIndexBase1: integer]: string read GetSwitchName;
     property LocationName[AIndex: integer]: string read GetLocationName;
+    property WavName[AIndex: integer]: string read GetWavName;
     property AnywhereLocationName: string read GetAnywhereLocationName;
     property ProgramMapEmbedded: boolean read GetProgramMapEmbedded;
   end;
@@ -50,6 +54,7 @@ type
     function GetAnywhereLocationName: string; override;
     function GetForceName(AIndexBase1: integer): string; override;
     function GetLocationName(AIndex: integer): string; override;
+    function GetWavName({%H-}AIndex: integer): string; override;
     function GetSwitchName(AIndexBase1: integer): string; override;
   public
     function StrictLocations: boolean; override;
@@ -98,6 +103,11 @@ begin
   if AIndex = AnywhereLocationIndex then result := GetAnywhereLocationName
   else if AIndex < AnywhereLocationIndex then result := 'Location '+inttostr(AIndex+1)
   else if AIndex > AnywhereLocationIndex then result := 'Location '+inttostr(AIndex);
+end;
+
+function TDefaultMapInfo.GetWavName(AIndex: integer): string;
+begin
+  result := '';
 end;
 
 function TDefaultMapInfo.GetSwitchName(AIndexBase1: integer): string;

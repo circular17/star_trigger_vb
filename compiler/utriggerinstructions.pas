@@ -499,6 +499,16 @@ type
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
+type
+  TBasicSoundInfo = record
+    ConstName: string;
+    Filename: string;
+    Duration: integer;
+  end;
+
+var
+  BasicSoundInfoArray : array of TBasicSoundInfo;
+
 implementation
 
 uses utrigedittypes, umapinfo, uparsevb;
@@ -780,7 +790,7 @@ end;
 
 function TSetDeathInstruction.ToBasic: string;
 begin
-  result := PlayerIdentifiers[Player]+'.DeathCount(Unit.'+StarcraftUnitIdentifier[UnitType]+') '+SetIntModeToBasic[Mode]+' '+inttostr(Value);
+  result := PlayerIdentifiers[Player]+'.DeathCount('+StarcraftUnitIdentifier[UnitType]+') '+SetIntModeToBasic[Mode]+' '+inttostr(Value);
 end;
 
 function TSetDeathInstruction.ToTrigEdit: string;
@@ -1041,7 +1051,7 @@ end;
 
 function TCreateUnitInstruction.ToBasic: string;
 begin
-  result := PlayerIdentifiers[Player]+'.CreateUnit('+inttostr(Quantity)+', Unit.'+StarcraftUnitIdentifier[UnitType];
+  result := PlayerIdentifiers[Player]+'.CreateUnit('+inttostr(Quantity)+', '+StarcraftUnitIdentifier[UnitType];
   if not MapInfo.IsAnywhere(Location) then result += ', ' + StrToBasic(Location);
   result += ')';
   if Properties >= 0 then result += ' With UnitProperties' + inttostr(Properties+1);
@@ -1219,7 +1229,7 @@ end;
 
 function TSetUnitFlagInstruction.ToBasic: string;
 begin
-  result := PlayerIdentifiers[Player]+'.Units(Unit.'+StarcraftUnitIdentifier[UnitType];
+  result := PlayerIdentifiers[Player]+'.Units('+StarcraftUnitIdentifier[UnitType];
   if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
   result += ').';
   case Value of
@@ -1324,11 +1334,11 @@ end;
 function TKillUnitInstruction.ToBasic: string;
 begin
   result := PlayerIdentifiers[Player]+'.Units(';
-  if Quantity <> -1 then result += inttostr(Quantity)+', ';
-  result += 'Unit.'+StarcraftUnitIdentifier[UnitType];
+  result += StarcraftUnitIdentifier[UnitType];
   if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
   result += ').';
   if DeathAnimation then result += 'Kill' else result += 'Remove';
+  if Quantity <> -1 then result += '('+inttostr(Quantity)+')';
 end;
 
 function TKillUnitInstruction.ToTrigEdit: string;
@@ -1411,10 +1421,11 @@ end;
 function TGiveUnitInstruction.ToBasic: string;
 begin
   result := PlayerIdentifiers[Player]+'.Units(';
-  if Quantity <> -1 then result += inttostr(Quantity)+', ';
-  result += 'Unit.'+StarcraftUnitIdentifier[UnitType];
+  result += StarcraftUnitIdentifier[UnitType];
   if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
-  result += ').Give('+PlayerIdentifiers[DestPlayer]+')';
+  result += ').Give('+PlayerIdentifiers[DestPlayer];
+  if Quantity <> -1 then result += ', '+inttostr(Quantity);
+  result += ')';
 end;
 
 function TGiveUnitInstruction.ToTrigEdit: string;
@@ -1472,7 +1483,7 @@ function TTeleportUnitInstruction.ToBasic: string;
 begin
   result := PlayerIdentifiers[Player]+'.Units(';
   if Quantity <> -1 then result += inttostr(Quantity)+', ';
-  result += 'Unit.'+StarcraftUnitIdentifier[UnitType];
+  result += StarcraftUnitIdentifier[UnitType];
   if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
   result += ').Teleport(';
   if MapInfo.IsAnywhere(DestLocation) then result += 'Anywhere'
@@ -1529,13 +1540,22 @@ end;
 
 function TMoveLocationInstruction.ToBasic: string;
 begin
-  result := PlayerIdentifiers[Player]+'.Units(';
-  result += 'Unit.'+StarcraftUnitIdentifier[UnitType];
-  if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
-  result += ').AttractLocation(';
-  if MapInfo.IsAnywhere(LocationToChange) then result += 'Anywhere'
-  else result += StrToBasic(LocationToChange);
-  result += ')';
+  if (UnitType = suUnusedCaveIn) and not MapInfo.IsAnywhere(Location) then
+  begin
+    result := 'Location('+StrToBasic(LocationToChange)+').CenterOn(';
+    if MapInfo.IsAnywhere(LocationToChange) then result += 'Anywhere'
+    else result += StrToBasic(Location);
+    result += ')';
+  end else
+  begin
+    result := PlayerIdentifiers[Player]+'.Units(';
+    result += StarcraftUnitIdentifier[UnitType];
+    if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+    result += ').AttractLocation(';
+    if MapInfo.IsAnywhere(LocationToChange) then result += 'Anywhere'
+    else result += StrToBasic(LocationToChange);
+    result += ')';
+  end;
 end;
 
 function TMoveLocationInstruction.ToTrigEdit: string;
@@ -1588,7 +1608,7 @@ end;
 function TOrderUnitInstruction.ToBasic: string;
 begin
   result := PlayerIdentifiers[Player]+'.Units(';
-  result += 'Unit.'+StarcraftUnitIdentifier[UnitType];
+  result += StarcraftUnitIdentifier[UnitType];
   if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
   result += ').';
   case Order of
@@ -1648,8 +1668,14 @@ begin
 end;
 
 function TPlayWAVInstruction.ToBasic: string;
+var
+  i: Integer;
 begin
-  Result:= 'Sound.Play()';
+  for i := 0 to high(BasicSoundInfoArray) do
+    if (BasicSoundInfoArray[i].Filename = Filename) and
+       (BasicSoundInfoArray[i].Duration = DurationMs) then
+       exit(BasicSoundInfoArray[i].ConstName + '.Play');
+  Result:= '{.Filename = ' + StrToBasic(Filename)+', .Duration = '+inttostr(DurationMs)+'}.Play';
 end;
 
 function TPlayWAVInstruction.ToTrigEdit: string;
@@ -1676,7 +1702,7 @@ class function TPlayWAVInstruction.LoadFromData(
   const AData: TTriggerInstructionData): TTriggerInstruction;
 begin
   if AData.ActionType = atPlayWAV then
-    result := TPlayWAVInstruction.Create(MapInfo.LocationName[AData.WavStringIndex], AData.Duration)
+    result := TPlayWAVInstruction.Create(MapInfo.MapStringRead(AData.WavStringIndex), AData.Duration)
   else
     result := nil;
 end;
@@ -1692,7 +1718,7 @@ end;
 
 function TTalkingPortraitInstruction.ToBasic: string;
 begin
-  Result:= 'TalkingPortrait(Unit.'+StarcraftUnitIdentifier[UnitType]+', '+inttostr(DurationMs)+')';
+  Result:= 'TalkingPortrait('+StarcraftUnitIdentifier[UnitType]+', '+inttostr(DurationMs)+')';
 end;
 
 function TTalkingPortraitInstruction.ToTrigEdit: string;
@@ -2178,7 +2204,7 @@ function TShowLeaderboardKillCountInstruction.ToBasic: string;
 begin
   Result:= 'Me.Leaderboard.Show(' + StrToBasic(Text)+', ';
   if Goal <> -1 then result += inttostr(Goal)+' - ';
-  result += 'KillCount(Unit.' + StarcraftUnitIdentifier[UnitType] + '))';
+  result += 'KillCount(' + StarcraftUnitIdentifier[UnitType] + '))';
 end;
 
 function TShowLeaderboardKillCountInstruction.ToTrigEdit: string;
@@ -2241,7 +2267,7 @@ function TShowLeaderboardUnitCountInstruction.ToBasic: string;
 begin
   Result:= 'Me.Leaderboard.Show(' + StrToBasic(Text)+', ';
   if Goal <> -1 then result += inttostr(Goal)+' - ';
-  result += 'UnitCount(Unit.' + StarcraftUnitIdentifier[UnitType];
+  result += 'UnitCount(' + StarcraftUnitIdentifier[UnitType];
   if not MapInfo.IsAnywhere(Location) then result += ', ' + StrToBasic(Location);
   result += '))';
 end;

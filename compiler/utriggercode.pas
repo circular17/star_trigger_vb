@@ -869,6 +869,8 @@ begin
     if i > 0 then result += ' And ';
     result += Condition[i].ToBasic;
   end;
+  if ConditionCount = 0 then
+    result += 'True';
   result += LineEnding;
 
   preserveAction := false;

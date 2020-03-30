@@ -103,6 +103,7 @@ var
   end;
 
 begin
+  if AText = '' then exit('""');
   result := '';
   prev := -1;
   i := 1;

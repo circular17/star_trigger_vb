@@ -36,11 +36,13 @@ function TryStringArray(AScope: integer; ALine: TStringList; var AIndex: integer
 function TrySoundVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 
 type
+  TExpectBooleanConstantFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer): boolean;
   TExpectIntegerConstantFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer; AAcceptNegative: boolean): integer;
   TTryIntegerConstantFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
   TExpectStringConstantFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): string;
 
 var
+  ExpectBooleanConstant: TExpectBooleanConstantFunc;
   ExpectIntegerConstant: TExpectIntegerConstantFunc;
   TryIntegerConstant: TTryIntegerConstantFunc;
   ExpectStringConstant: TExpectStringConstantFunc;
@@ -52,7 +54,7 @@ uses uparsevb, uvariables;
 function ExpectUnitType(AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
 var
   u: TStarcraftUnit;
-  ident, partialName: string;
+  ident: string;
   i: Integer;
 begin
   if TryToken(ALine,AIndex,'Unit') then

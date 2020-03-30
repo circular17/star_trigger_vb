@@ -27,22 +27,21 @@ implementation
 uses uparsevb, uparsescalar, uexpressions, utriggerinstructions, uprocedures;
 
 function TryUnitProperties(AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
-var idx, intVal: integer;
+var intVal, oldIndex: integer;
   name: String;
-  valueType: string;
   boolVal: boolean;
 
   procedure ValueInteger(AMin,AMax: integer);
   begin
-    if valueType <> 'UInt24' then
-      raise exception.Create('Expecting integer value');
+    ExpectToken(ALine,AIndex,'=');
+    intVal := ExpectIntegerConstant(AScope, ALine, AIndex, false);
     if (intVal < AMin) or (intVal > AMax) then
       raise exception.Create('Value out of range (' + inttostr(AMin)+' to '+Inttostr(AMax)+')');
   end;
   procedure ValueBool;
   begin
-    if valueType <> 'Boolean' then
-      raise exception.Create('Expecting bool value');
+    ExpectToken(ALine,AIndex,'=');
+    boolVal := ExpectBooleanConstant(AScope, ALine, AIndex);
   end;
 
 begin
@@ -58,83 +57,81 @@ begin
   AProp.Lifted := false;
   result := false;
 
-  idx := AIndex;
+  oldIndex := AIndex;
   intVal := 0;
 
-  if not TryToken(ALine,idx,'{') then exit;
-  if not TryToken(ALine,idx,'.') then exit;
+  if not TryToken(ALine,AIndex,'{') then exit;
+  if not TryToken(ALine,AIndex,'.') then
+  begin
+    AIndex := oldIndex;
+    exit;
+  end;
 
   while true do
   begin
-    if idx >= ALine.Count then raise exception.Create('Unexpected end of line');
-    name := ALine[idx];
-    if not IsValidVariableName(name) then raise exception.Create('Expecting variable name but "' + name + '" found');
-    inc(idx);
-    ExpectToken(ALine,idx,'=');
-    if TryIntegerConstant(AScope, ALine,idx,intVal) then valueType := 'UInt24'
-    else if TryBoolean(AScope, ALine,idx,boolVal) then valueType := 'Boolean'
-    else raise exception.Create('Expecting boolean or integer value');
-
-    if CompareText(name,'Life')=0 then
+    if TryToken(ALine,AIndex,'Life') then
     begin
       ValueInteger(0,100);
       AProp.Life := intVal;
     end else
-    if CompareText(name,'Shield')=0 then
+    if TryToken(ALine,AIndex,'Shield') then
     begin
       ValueInteger(0,100);
       AProp.Shield := intVal;
     end else
-    if CompareText(name,'Energy')=0 then
+    if TryToken(ALine,AIndex,'Energy') then
     begin
       ValueInteger(0,100);
       AProp.Energy := intVal;
     end else
-    if CompareText(name,'Resource')=0 then
+    if TryToken(ALine,AIndex,'Resource') then
     begin
       ValueInteger(0,65535);
       AProp.Resource := intVal;
     end else
-    if CompareText(name,'HangarCount')=0 then
+    if TryToken(ALine,AIndex,'HangarCount') then
     begin
       ValueInteger(0,65535);
       AProp.HangarCount := intVal;
     end else
-    if CompareText(name,'Burrowed')=0 then
+    if TryToken(ALine,AIndex,'Burrowed') then
     begin
       ValueBool;
       AProp.Burrowed := boolVal;
     end else
-    if CompareText(name,'Cloaked')=0 then
+    if TryToken(ALine,AIndex,'Cloaked') then
     begin
       ValueBool;
       AProp.Cloaked := boolVal;
     end else
-    if CompareText(name,'Hallucinated')=0 then
+    if TryToken(ALine,AIndex,'Hallucinated') then
     begin
       ValueBool;
       AProp.Hallucinated := boolVal;
     end else
-    if CompareText(name,'Invincible')=0 then
+    if TryToken(ALine,AIndex,'Invincible') then
     begin
       ValueBool;
       AProp.Invincible := boolVal;
     end else
-    if CompareText(name,'Lifted')=0 then
+    if TryToken(ALine,AIndex,'Lifted') then
     begin
       ValueBool;
       AProp.Lifted := boolVal;
     end else
-      raise exception.Create('Unknown member "'+name+'"');
-
-    if not TryToken(ALine,idx,',') then
     begin
-      ExpectToken(ALine,idx,'}');
+      if AIndex >= ALine.Count then raise exception.Create('Unexpected end of line') else
+      if not TryIdentifier(ALine, AIndex, name, false) then raise exception.Create('Expecting member name')
+      else raise exception.Create('Unknown member "'+name+'"');
+    end;
+
+    if not TryToken(ALine,AIndex,',') then
+    begin
+      ExpectToken(ALine,AIndex,'}');
       break;
     end else
-      ExpectToken(ALine,idx,'.');
+      ExpectToken(ALine,AIndex,'.');
   end;
-  AIndex := idx;
   result := true;
 end;
 
@@ -143,15 +140,11 @@ var
   idxProp: Integer;
   prop: TUnitProperties;
 begin
-  if (AIndex < ALine.Count) and IsValidVariableName(ALine[AIndex]) then
-  begin
-    idxProp := UnitPropIndexOf(AScope, ALine[AIndex]);
-    if idxProp <> -1 then
-    begin
-      inc(AIndex);
+  for idxProp := 0 to UnitPropCount-1 do
+    if ((UnitPropVars[idxProp].Scope = AScope) or
+      (UnitPropVars[idxProp].Scope = GlobalScope))
+       and TryToken(ALine, AIndex, UnitPropVars[idxProp].Name) then
       exit(idxProp);
-    end;
-  end;
 
   if TryUnitProperties(AScope, ALine,AIndex,prop) then
   begin
@@ -181,7 +174,6 @@ end;
 
 function ParseBoolArray(AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfSwitchValue;
 var count: integer;
-  boolVal: boolean;
 begin
   setlength(result, 4);
   count := 0;
@@ -192,15 +184,12 @@ begin
       setlength(result, Count*2 + 4);
 
     if Count > 0 then ExpectToken(ALine, AIndex, ',');
-    if TryBoolean(AScope, ALine,AIndex,boolVal) then
-      result[Count] := BoolToSwitch[boolval]
-    else if TryToken(ALine,AIndex,'Rnd') then
+    if TryToken(ALine,AIndex,'Rnd') then
     begin
       result[Count] := svRandomize;
       if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
-    end
-    else
-      raise exception.Create('Expecting boolean or "}"');
+    end else
+      result[Count] := BoolToSwitch[ExpectBooleanConstant(AScope, ALine, AIndex)];
     inc(count);
   end;
   setlength(result, count);
@@ -626,7 +615,8 @@ begin
         if TryUnitProperties(AScope,ALine,index,prop) then
         begin
           CreateUnitProp(AScope,varName, prop, Constant);
-        end;
+        end else
+          raise exception.Create('Expecting unit properties');
       end else
       if varType = 'String' then
       begin
@@ -640,10 +630,10 @@ begin
           SetupBoolVar(CreateBoolVar(AScope,varName, svRandomize, Constant));
         end
         else
-        if TryBoolean(AScope,ALine,index,boolVal) then
-          SetupBoolVar(CreateBoolVar(AScope,varName, BoolToSwitch[boolVal], Constant))
-        else
-          raise exception.Create('Expecting boolean constant');
+        begin
+          boolVal := ExpectBooleanConstant(AScope,ALine,index);
+          SetupBoolVar(CreateBoolVar(AScope,varName, BoolToSwitch[boolVal], Constant));
+        end;
       end else
       if IsIntegerType(varType) then
       begin

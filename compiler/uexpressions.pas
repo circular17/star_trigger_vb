@@ -287,8 +287,7 @@ var
               if idxVar <> -1 then
               begin
                 ExpectToken(ALine,idx,',');
-                if not TryBoolean(AScope, ALine,idx, boolVal) then
-                  raise exception.Create('Boolean constant expected');
+                boolVal := ExpectBooleanConstant(AScope, ALine, idx);
                 result := TCountIfBoolNode.Create(neg, idxVar, boolVal);
               end else
               begin

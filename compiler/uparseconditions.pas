@@ -14,6 +14,21 @@ implementation
 uses
   uvariables, utriggerconditions, uparsescalar;
 
+function ExpectBooleanConstantImplementation(AScope: integer; ALine: TStringList; var AIndex: integer): boolean;
+var
+  cond: TConditionList;
+begin
+  cond := ExpectConditions(AScope, ALine, AIndex, [], true);
+  if (cond.Count = 1) and (cond[0] is TAlwaysCondition) then result := true
+  else if (cond.Count = 1) and (cond[0] is TNeverCondition) then result := false
+  else
+  begin
+    cond.FreeAll;
+    raise exception.Create('Constant expression expected');
+  end;
+  cond.FreeAll;
+end;
+
 function TryNeutralConditionFunction(AScope: integer; ALine: TStringList; var AIndex: Integer; ANegation: boolean): TCondition;
 var
   op: TConditionOperator;
@@ -565,6 +580,27 @@ begin
             andExpr.Free;
           end;
         until not TryToken(ALine,AIndex,'Or');
+        for i := orCond.Conditions.Count-1 downto 0 do
+          if (orCond.Conditions[i] is TNeverCondition) and (orCond.Conditions.Count > 1) then
+          begin
+            orCond.Conditions[i].Free;
+            orCond.Conditions.Delete(i);
+          end else
+          if orCond.Conditions[i] is TAlwaysCondition then
+          begin
+            for j := orCond.Conditions.Count-1 downto 0 do
+              if j <> i then
+              begin
+                orCond.Conditions[j].Free;
+                orCond.Conditions.Delete(j);
+              end;
+          end;
+        if orCond.Conditions.Count = 1 then
+        begin
+          result.Remove(orCond);
+          result.Add(orCond.Conditions[0].Duplicate);
+          orCond.Free;
+        end;
       end;
       if not TryToken(ALine,AIndex,'And') then break;
     until false;
@@ -591,6 +627,9 @@ begin
     end;
 end;
 
+initialization
+
+  ExpectBooleanConstant := @ExpectBooleanConstantImplementation;
 
 end.
 

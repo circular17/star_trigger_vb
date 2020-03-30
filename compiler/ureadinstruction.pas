@@ -682,13 +682,20 @@ begin
       end else
       if Procedures[AProcId].ReturnType = 'Boolean' then
       begin
+        idxVar := GetBoolResultVar;
+        sw := BoolVars[idxVar].Switch;
         if TryBoolean(AScope,ALine,index,boolVal) then
         begin
-          idxVar := GetBoolResultVar;
-          sw := BoolVars[idxVar].Switch;
           AProg.Add( TSetSwitchInstruction.Create(sw, BoolToSwitch[boolVal]) );
         end else
-          raise exception.Create('Expecting boolean value');
+        begin
+          conds := ExpectConditions(AScope, ALine, index, AThreads, true);
+          AProg.Add( TIfInstruction.Create(conds) );
+          AProg.Add( TSetSwitchInstruction.Create(sw, svSet) );
+          AProg.Add( TElseInstruction.Create );
+          AProg.Add( TSetSwitchInstruction.Create(sw, svClear) );
+          AProg.Add( TEndIfInstruction.Create );
+        end;
       end;
     end;
     AProg.Add( TReturnInstruction.Create );

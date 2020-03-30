@@ -28,7 +28,7 @@ begin
 
     if ANegation then op := NotConditionOperator[op];
 
-    intVal := ExpectIntegerConstant(AScope, ALine,AIndex);
+    intVal := ExpectIntegerConstant(AScope, ALine,AIndex,false);
     case op of
     coEqual: result := TElapsedTimeCondition.Create(icmExactly, intVal);
     coGreaterThanOrEqual: result := TElapsedTimeCondition.Create(icmAtLeast, intVal);
@@ -118,7 +118,7 @@ begin
     end
     else
     begin
-      intVal := ExpectIntegerConstant(AScope, ALine,AIndex);
+      intVal := ExpectIntegerConstant(AScope, ALine,AIndex,false);
       case op of
       coEqual: result := TBringCondition.Create(APlayer, unitType, locStr, icmExactly, intVal);
       coGreaterThanOrEqual: result := TBringCondition.Create(APlayer, unitType, locStr, icmAtLeast, intVal);
@@ -190,7 +190,7 @@ begin
     end
     else
     begin
-      intVal := ExpectIntegerConstant(AScope, ALine,AIndex);
+      intVal := ExpectIntegerConstant(AScope, ALine,AIndex,false);
       case op of
       coEqual: result := TKillCountCondition.Create(APlayer, unitType, icmExactly, intVal);
       coGreaterThanOrEqual: result := TKillCountCondition.Create(APlayer, unitType, icmAtLeast, intVal);
@@ -226,7 +226,7 @@ begin
 
     if ANegation then op := NotConditionOperator[op];
 
-    intVal := ExpectIntegerConstant(AScope, ALine,AIndex);
+    intVal := ExpectIntegerConstant(AScope, ALine,AIndex,false);
     case op of
     coEqual: result := CreateIntegerCondition(APlayer, unitType, icmExactly, intVal);
     coGreaterThanOrEqual: result := CreateIntegerCondition(APlayer, unitType, icmAtLeast, intVal);
@@ -253,7 +253,7 @@ begin
 
     if ANegation then op := NotConditionOperator[op];
 
-    intVal := ExpectIntegerConstant(AScope, ALine,AIndex);
+    intVal := ExpectIntegerConstant(AScope, ALine,AIndex,false);
     case op of
     coEqual: result := TOpponentCountCondition.Create(APlayer, icmExactly, intVal);
     coGreaterThanOrEqual: result := TOpponentCountCondition.Create(APlayer, icmAtLeast, intVal);

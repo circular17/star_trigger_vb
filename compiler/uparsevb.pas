@@ -29,6 +29,7 @@ function IsReservedWord(AText: string): boolean;
 function ParseLine(ALine: string): TStringList;
 function IsValidVariableName(AText: string): boolean;
 function TryToken(ALine: TStringList; var AIndex: integer; AToken: string): boolean;
+function PeekToken(ALine: TStringList; var AIndex: integer; AToken: string): boolean;
 procedure ExpectToken(ALine: TStringList; var AIndex: integer; AToken: string);
 function TryConditionOperator(ALine: TStringList; var AIndex: integer): TConditionOperator;
 function ParseRandom(ALine: TStringList; var AIndex: integer): integer;
@@ -36,7 +37,7 @@ function TryParsePlayer(AScope: integer; ALine: TStringList; var AIndex: integer
 function ExpectPlayers(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayers;
 function GetBitCountOfType(AName: string): integer;
 function IsIntegerType(AName: string): boolean;
-function IsUnsignedIntegerType(AName: string): boolean;
+function TryUnsignedIntegerType(ALine: TStringList; var AIndex: integer): boolean;
 function BitCountNeededFor(AValue: integer): integer;
 function IsTokenOverEndOfLine(ALastToken:string): boolean;
 
@@ -51,7 +52,26 @@ const
      ('Loop','Until','Select','Case',  //reserved and planned to implement
      'SByte','Short','Int16','Int24','UInt32','Int32','Xor','Date','ReDim','Preserve'); //reserved but not planned to implement
 
+var
+  ParseCompletionList: TStringList;
+  FillParseCompletionList: boolean;
+
+procedure ClearParseCompletionList;
+procedure AddToCompletionList(AToken: string);
+
 implementation
+
+procedure ClearParseCompletionList;
+begin
+  if ParseCompletionList.Count > 0 then
+    ParseCompletionList.Clear;
+end;
+
+procedure AddToCompletionList(AToken: string);
+begin
+  if (AToken <> '') and FillParseCompletionList and (ParseCompletionList.IndexOf(AToken) = -1) then
+    ParseCompletionList.Add(AToken);
+end;
 
 function IsTokenOverEndOfLine(ALastToken:string): boolean;
 begin
@@ -131,7 +151,7 @@ procedure CheckReservedWord(AText: string);
 var
   pl: TPlayer;
 begin
-  if IsReservedWord(AText) then raise exception.Create('"' + AText + '" is a word reserved');
+  if IsReservedWord(AText) then raise exception.Create('"' + AText + '" is a reserved word');
   for pl := low(TPlayer) to high(TPlayer) do
     if CompareText(PlayerIdentifiers[pl], AText)=0 then raise exception.Create('"' + PlayerIdentifiers[pl] + '" is a player identifier');
   if CompareText(AText,'Player')=0 then raise exception.Create('"' + PlayerIdentifiers[pl] + '" is a player identifier');
@@ -238,6 +258,11 @@ begin
   exit(true);
 end;
 
+function PeekToken(ALine: TStringList; var AIndex: integer; AToken: string): boolean;
+begin
+  result := (AIndex < ALine.Count) and (CompareText(ALine[AIndex],AToken) = 0);
+end;
+
 function TryToken(ALine: TStringList; var AIndex: integer; AToken: string): boolean;
 begin
   if (AIndex < ALine.Count) and (CompareText(ALine[AIndex],AToken) = 0) then
@@ -245,7 +270,11 @@ begin
     inc(AIndex);
     exit(true);
   end else
+  begin
+    if AIndex >= ALine.Count then
+      AddToCompletionList(AToken);
     exit(false);
+  end;
 end;
 
 procedure ExpectToken(ALine: TStringList; var AIndex: integer; AToken: string);
@@ -308,13 +337,9 @@ function TryParsePlayer(AScope: integer; ALine: TStringList; var AIndex: integer
 var
   pl: TPlayer;
 begin
-  if AIndex >= ALine.Count then exit(plNone);
   for pl := succ(plNone) to high(TPlayer) do
-    if CompareText(ALine[AIndex],PlayerIdentifiers[pl])=0 then
-    begin
-      inc(AIndex);
+    if TryToken(ALine, AIndex, PlayerIdentifiers[pl]) then
       exit(pl);
-    end;
   If Assigned(TryParsePlayerExpression) then
     result := TryParsePlayerExpression(AScope, ALine,AIndex)
   else
@@ -367,12 +392,12 @@ begin
   else result := 0;
 end;
 
-function IsUnsignedIntegerType(AName: string): boolean;
+function TryUnsignedIntegerType(ALine: TStringList; var AIndex: integer): boolean;
 begin
-  result := (CompareText(AName,'Byte')=0) or (CompareText(AName,'UInt8')=0) or
-          (CompareText(AName,'UShort')=0) or (CompareText(AName,'UInt16')=0) or
-          (CompareText(AName,'UInt24')=0) or
-          (CompareText(AName,'UInteger')=0);
+  result := TryToken(ALine,AIndex,'Byte') or TryToken(ALine,AIndex,'UInt8') or
+          TryToken(ALine,AIndex,'UShort') or TryToken(ALine,AIndex,'UInt16') or
+          TryToken(ALine,AIndex,'UInt24') or
+          TryToken(ALine,AIndex,'UInteger');
 end;
 
 function IsIntegerType(AName: string): boolean;
@@ -391,6 +416,11 @@ end;
 initialization
 
   TryParsePlayerExpression := nil;
+  ParseCompletionList := TStringList.Create;
+
+finalization
+
+  ParseCompletionList.Free;
 
 end.
 

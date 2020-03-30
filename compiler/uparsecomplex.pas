@@ -232,7 +232,6 @@ var
   boolVal: boolean;
   idx, i: integer;
   firstElem, found: boolean;
-  ident: string;
 begin
   idx := AIndex;
   AStr := '';
@@ -247,7 +246,7 @@ begin
     if TryToken(ALine,idx,'Chr') then
     begin
       ExpectToken(ALine,idx,'(');
-      intVal := ExpectIntegerConstant(AScope, ALine,idx);
+      intVal := ExpectIntegerConstant(AScope, ALine,idx,false);
       ExpectToken(ALine,idx,')');
       AStr += chr(intVal);
     end else
@@ -279,10 +278,9 @@ begin
     if TryToken(ALine,idx,'AI') then
     begin
       ExpectToken(ALine,idx,'.');
-      if not TryIdentifier(ALine,idx,ident, false) then raise exception.Create('Expecting script name');
       found := false;
       for i := low(AIScripts) to high(AIScripts) do
-        if CompareText(ident, AIScripts[i].Identifier)=0 then
+        if TryToken(ALine,idx,AIScripts[i].Identifier) then
         begin
           AStr += AIScripts[i].Code;
           found := true;
@@ -298,14 +296,13 @@ begin
        inc(idx);
      end else
      begin
-       idxVar := StringArrayIndexOf(AScope, ALine[idx]);
+       idxVar := TryStringArray(AScope, ALine, idx);
        if idxVar <> -1 then
        begin
-         inc(idx);
          ExpectToken(ALine,idx,'(');
-         if TryToken(ALine,idx,'Me') then
+         if PeekToken(ALine,idx,'Me') then
             raise exception.Create('Constant arrays cannot be indexed by "Me"');
-         intVal := ExpectIntegerConstant(AScope,ALine,idx);
+         intVal := ExpectIntegerConstant(AScope,ALine,idx,true);
          ExpectToken(ALine,idx,')');
          if (intVal < 1) or (intVal > StringArrays[idxVar].Size) then
            raise exception.Create('Index out of bounds');
@@ -507,25 +504,32 @@ begin
 
     if TryToken(ALine,index,'As') then
     begin
-      if index >= ALine.Count then
-        raise Exception.Create('Expecting variable type');
-
-      if TryToken(ALine,index,'Integer') or TryToken(ALine,index,'UInteger') then
+      if PeekToken(ALine,index,'Integer') or PeekToken(ALine,index,'UInteger') then
         raise exception.Create('Please specify the bit count of the integer by using Byte, UInt16 or UInt24');
 
-      bitCount := GetBitCountOfType(ALine[index]);
-      if (bitCount<>0) then
+      if TryUnsignedIntegerType(ALine,index) then
       begin
-        varType := ALine[index];
-        inc(index);
+        varType := ALine[index-1];
+        bitCount := GetBitCountOfType(varType);
       end
-      else if TryToken(ALine,index,'Boolean') then varType := 'Boolean'
-      else if TryToken(ALine,index,'String') then varType := 'String'
-      else if TryToken(ALine,index,'UnitProperties') then varType := 'UnitProperties'
-      else if TryToken(ALine,index,'Sound') then varType := 'Sound'
-      else raise Exception.Create('Unknown type : ' + ALine[index]);
+      else
+      begin
+        bitCount := 0;
+        if TryToken(ALine,index,'Boolean') then varType := 'Boolean'
+        else if TryToken(ALine,index,'String') then varType := 'String'
+        else if TryToken(ALine,index,'UnitProperties') then varType := 'UnitProperties'
+        else if TryToken(ALine,index,'Sound') then varType := 'Sound'
+        else
+        begin
+          if index >= ALine.Count then
+            raise Exception.Create('Expecting variable type')
+          else
+            raise Exception.Create('Unknown type : ' + ALine[index]);
+        end;
+      end;
 
-      if not isArray and (varType <> 'UnitProperties') and TryToken(ALine,index,'(') then
+      if not isArray and (varType <> 'UnitProperties')
+        and (varType <> 'Sound') and TryToken(ALine,index,'(') then
       begin
         isArray := true;
         if not TryToken(ALine,index,')') then
@@ -604,7 +608,7 @@ begin
           if TryToken(ALine,index,'Duration') then
           begin
             ExpectToken(ALine,index,'=');
-            timeMs := ExpectIntegerConstant(AScope,ALine,index);
+            timeMs := ExpectIntegerConstant(AScope,ALine,index,false);
           end else
             raise exception.Create('Unknown field. Expecting Filename or Duration');
           if not TryToken(ALine,index,',') then
@@ -667,6 +671,8 @@ begin
       end;
     end else
     begin
+      if Constant then
+        raise exception.Create('Value not specified');
       if varType = '?' then
         raise Exception.Create('Variable type not specified');
 

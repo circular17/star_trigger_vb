@@ -136,12 +136,7 @@ begin
   ErrorsToUpdate := false;
 
   //full program for validation
-  success := false;
-  try
-    success := ureadprog.ReadProg(SynEdit1.Lines, MainThread, LastScope);
-  except on ex: exception do
-    ReadProgErrors.Add(ex.Message);
-  end;
+  success := ureadprog.ReadProg(SynEdit1.Lines, MainThread, LastScope);
 
   if success then
   begin
@@ -204,13 +199,23 @@ var
   u: TStarcraftUnit;
   prevLine, lineUpToCursor: TStringList;
   isBeginLine: boolean;
+  lastLineStr: String;
 
 begin
   //partial program for autocompletion
   programUpToCursor:= TStringList.Create;
-  for i := 1 to SynEdit1.CaretY do
+  for i := 1 to SynEdit1.CaretY-1 do
     if i <= SynEdit1.Lines.Count then
       programUpToCursor.Add(SynEdit1.Lines[i-1]);
+  if SynEdit1.CaretY <= SynEdit1.Lines.Count then
+  begin
+    lastLineStr := copy(SynEdit1.Lines[SynEdit1.CaretY-1],1,SynEdit1.CaretX-1);
+    if length(lastLineStr) = SynEdit1.CaretX-1 then
+    while (lastLineStr <> '') and (lastLineStr[length(lastLineStr)] in ['a'..'z','A'..'Z','0'..'9','_']) and
+      ((length(lastLineStr) = 1) or (lastLineStr[length(lastLineStr)] in ['a'..'z','A'..'Z','0'..'9','_'])) do
+      delete(lastLineStr, length(lastLineStr), 1);
+    programUpToCursor.Add(lastLineStr);
+  end;
   ureadprog.ReadProg(programUpToCursor, MainThread, LastScope);
   programUpToCursor.Free;
 
@@ -234,81 +239,9 @@ begin
   isBeginLine:= (lineUpToCursor.Count = 0) and not ((prevLine.Count > 0) and IsTokenOverEndOfLine(prevLine[prevLine.Count-1]));
 
   AllCompletion.Clear;
+  AllCompletion.AddStrings(uparsevb.ParseCompletionList);
 
-  if (lineUpToCursor.Count >= 2) and (lineUpToCursor[lineUpToCursor.Count-1] = '.') and
-     (comparetext(lineUpToCursor[lineUpToCursor.Count-2],'Alliance') = 0) then
-    AddCompletion(['Ennemy','Ally','AlliedVictory']) else
-  if (lineUpToCursor.Count >= 2) and (lineUpToCursor[lineUpToCursor.Count-1] = '.') and
-     (comparetext(lineUpToCursor[lineUpToCursor.Count-2],'Leaderboard') = 0) then
-     AddCompletion(['Computers','ToggleComputers','Show']) else
-  if (lineUpToCursor.Count >= 2) and (lineUpToCursor[lineUpToCursor.Count-1] = '.') and
-     (comparetext(lineUpToCursor[lineUpToCursor.Count-2],'Unit') = 0) then
-  begin
-    for u := low(TStarcraftUnit) to suFactories do
-      AllCompletion.Add(StarcraftUnitIdentifier[u]);
-  end else
-  if (lineUpToCursor.Count >= 2) and (lineUpToCursor[lineUpToCursor.Count-1] = '.') and
-     (comparetext(lineUpToCursor[lineUpToCursor.Count-2],'AI') = 0) then
-  begin
-    for i := low(AIScripts) to high(AIScripts) do
-      AllCompletion.Add(AIScripts[i].Identifier);
-  end else
-  begin
-    for i := 0 to IntVarCount-1 do
-      if (IntVars[i].IntArray = -1) and ((IntVars[i].Scope = GlobalScope) or (IntVars[i].Scope = LastScope))
-        and not (IntVars[i].Constant and isBeginLine) then
-        AllCompletion.Add(IntVars[i].Name);
-    for i := 0 to BoolVarCount-1 do
-      if (BoolVars[i].BoolArray = -1) and ((BoolVars[i].Scope = GlobalScope) or (BoolVars[i].Scope = LastScope))
-        and not (BoolVars[i].Constant and isBeginLine) then
-        AllCompletion.Add(BoolVars[i].Name);
-    for i := 0 to IntArrayCount-1 do
-      if ((IntArrays[i].Scope = GlobalScope) or (IntArrays[i].Scope = LastScope))
-        and not (IntArrays[i].Constant and isBeginLine) then
-        AllCompletion.Add(IntArrays[i].Name);
-    for i := 0 to BoolArrayCount-1 do
-      if ((BoolArrays[i].Scope = GlobalScope) or (BoolArrays[i].Scope = LastScope))
-        and not (BoolArrays[i].Constant and isBeginLine) then
-        AllCompletion.Add(BoolArrays[i].Name);
-
-    if (lineUpToCursor.Count > 0) and (lineUpToCursor[lineUpToCursor.Count-1] = '.') then
-    begin
-      AddCompletion(['Life','Shield','Energy','Resource','HangarCount','Burrowed',
-           'Cloaked','Hallucinated','Invincible','Lifted', 'Filename','Duration',
-           'Properties','Location','Teleport','AttractLocation','MoveOrder','PatrolOrder','AttackOrder','Kill',
-           'Remove','Give','ToggleInvincibility','ToggleDoodadState','Invincible','DoodadState','Alliance']);
-    end
-    else
-    begin
-      if not isBeginLine then
-      begin
-        AddCompletion(['AI','Present','CountIf','UnitProperties','Sound']);
-        for i := 0 to UnitPropCount-1 do
-          if (UnitPropVars[i].Scope = GlobalScope) or (UnitPropVars[i].Scope = LastScope) then
-            AllCompletion.Add(UnitPropVars[i].Name);
-        for i := 0 to SoundCount-1 do
-          if (SoundVars[i].Scope = GlobalScope) or (SoundVars[i].Scope = LastScope) then
-            AllCompletion.Add(SoundVars[i].Name);
-        for i := 0 to StringCount-1 do
-          if (StringVars[i].Scope = GlobalScope) or (StringVars[i].Scope = LastScope) then
-            AllCompletion.Add(StringVars[i].Name);
-        if (lineUpToCursor.Count > 0) and (lineUpToCursor[lineUpToCursor.Count-1] = '=') then
-          AddCompletion(['Alliance']);
-      end;
-
-      for pl := low(TPlayer) to high(TPlayer) do
-        if PlayerIdentifiers[pl]<>'' then
-          AllCompletion.Add(PlayerIdentifiers[pl]);
-
-      for i := low(ImplementedReservedWords) to High(ImplementedReservedWords) do
-        AllCompletion.Add(ImplementedReservedWords[i]);
-    end;
-
-    AddCompletion(['CountdownPaused','GamePaused','NextScenario','Wait']);
-    AddCompletion(['CreateUnit','KillUnit','RemoveUnit','GiveUnit','Units']);
-    AddCompletion(['CenterView','MinimapPing','Print','TalkingPortrait','MissionObjectives','Leaderboard']);
-  end;
-
+  prevLine.Free;
   lineUpToCursor.Free;
   AllCompletion.Sort;
 end;

@@ -406,8 +406,7 @@ begin
   end;
 end;
 
-function IntVarIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean
-  ): integer;
+function IntVarIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean): integer;
 var
   i: Integer;
 begin
@@ -802,8 +801,7 @@ begin
   end;
 end;
 
-function SoundIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean
-  ): integer;
+function SoundIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean): integer;
 var
   i: Integer;
 begin

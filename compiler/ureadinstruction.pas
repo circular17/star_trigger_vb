@@ -70,7 +70,7 @@ begin
   if TryToken(ALine,AIndex,'Wait') then
   begin
     ExpectToken(ALine,AIndex,'(');
-    AProg.Add(TWaitInstruction.Create(ExpectIntegerConstant(AScope, ALine,AIndex)));
+    AProg.Add(TWaitInstruction.Create(ExpectIntegerConstant(AScope, ALine,AIndex,false)));
     ExpectToken(ALine,AIndex,')');
   end else
     result := false;
@@ -311,9 +311,11 @@ begin
     begin
       if TryToken(ALine,AIndex,'(') then
       begin
-        if intVal = -1 then
-          intVal := ParseOptionalQuantity(false);
-        ExpectToken(ALine,AIndex,')');
+        if not TryToken(ALine,AIndex,')') then
+        begin
+          intVal := ExpectIntegerConstant(AScope, ALine, AIndex, false);
+          ExpectToken(ALine,AIndex,')');
+        end;
       end;
       AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, true));
     end else
@@ -321,21 +323,22 @@ begin
     begin
       if TryToken(ALine,AIndex,'(') then
       begin
-        if intVal = -1 then
-          intVal := ParseOptionalQuantity(false);
-        ExpectToken(ALine,AIndex,')');
+        if not TryToken(ALine,AIndex,')') then
+        begin
+          intVal := ExpectIntegerConstant(AScope, ALine, AIndex, false);
+          ExpectToken(ALine,AIndex,')');
+        end;
       end;
       AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, false));
     end else
     if TryToken(ALine,AIndex,'Give') then
     begin
       ExpectToken(ALine,AIndex,'(');
-      if intVal = -1 then
-        intVal := ParseOptionalQuantity(false);
       destPl:= TryParsePlayer(AScope,ALine,AIndex);
       if destPl = plNone then raise exception.Create('Expecting player');
+      if TryToken(ALine,AIndex,',')  then
+        intVal := ExpectIntegerConstant(AScope, ALine, AIndex, false);
       ExpectToken(ALine,AIndex,')');
-
       AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
     end else
     if TryToken(ALine,AIndex,'ToggleInvincibility') then
@@ -392,7 +395,7 @@ begin
         raise exception.Create('Expecting property name');
       ExpectToken(ALine,AIndex,'=');
 
-      propVal:= ExpectIntegerConstant(AScope,ALine,AIndex);
+      propVal:= ExpectIntegerConstant(AScope,ALine,AIndex,false);
       AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, propVal));
     end;
 
@@ -428,7 +431,7 @@ begin
       ExpectToken(ALine,AIndex,'(');
       unitType := ExpectUnitType(AScope,ALine,AIndex);
       ExpectToken(ALine,AIndex,',');
-      timeMs := ExpectIntegerConstant(AScope,ALine,AIndex);
+      timeMs := ExpectIntegerConstant(AScope,ALine,AIndex,false);
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TTalkingPortraitInstruction.Create(unitType, timeMs));
     end else
@@ -641,7 +644,7 @@ var
   index, intVal, idxArr, i, idxSound, sw, idxVar, idxMsg: integer;
   params: TStringList;
   name, assignOp, text: String;
-  done, boolVal, isPresent: boolean;
+  done, boolVal: boolean;
   scalar: TScalarVariable;
   conds: TConditionList;
   ints: ArrayOfInteger;
@@ -657,8 +660,6 @@ var
   end;
 
 begin
-  if (ALine.Count = 0) or ((ALine.Count = 1) and (ALine[0] = '')) then exit;
-
   for index := 0 to ALine.Count-1 do
     if CompareText(ALine[index],'Present') = 0 then
     begin
@@ -676,6 +677,11 @@ begin
     end;
 
   index := 0;
+  if PeekToken(ALine,index,'Sub') or PeekToken(ALine,index,'Function') then
+    raise exception.Create('Nested procedures or functions not allowed');
+  if PeekToken(ALine,index,'On') then
+    raise exception.Create('Nested events not allowed');
+
   if TryToken(ALine,index,'Return') then
   begin
     if AProcId <> -1 then
@@ -854,63 +860,80 @@ begin
 
     end;
 
-    idxSound := SoundIndexOf(AScope,ALine[0]);
-    if idxSound <> -1 then
+    if not done then
     begin
-      index := 1;
-      ExpectToken(ALine,index,'.');
-      ExpectToken(ALine,index,'Play');
-      if TryToken(ALine,index,'(') then ExpectToken(ALine,index,')');
-
-      AProg.Add(TPlayWAVInstruction.Create(SoundVars[idxSound].Filename, SoundVars[idxSound].DurationMs));
-      done := true;
-    end;
-
-    idxArr := IntArrayIndexOf(AScope,ALine[0]);
-    if idxArr <> -1 then
-    begin
-      index := 1;
-      If TryToken(ALine,index,'+') or TryToken(ALine,index,'-') then
-        assignOp := ALine[index-1] else assignOp := '';
-
-      if TryToken(ALine,index,'=') then
+      idxSound := TrySoundVariable(AScope,ALine,index);
+      if idxSound <> -1 then
       begin
-        done := true;
-        if IntArrays[idxArr].Constant then raise exception.Create('Constant cannot be assigned to');
+        ExpectToken(ALine,index,'.');
+        ExpectToken(ALine,index,'Play');
+        if TryToken(ALine,index,'(') then ExpectToken(ALine,index,')');
 
-        ints := ParseIntArray(AScope,ALine,index);
-        if length(ints) <> IntArrays[idxArr].Size then
-          raise exception.Create('Array size mismatch');
-        CheckEndOfLine;
-        if assignOp = '+' then sim := simAdd
-        else if assignOp = '-' then sim := simSubtract
-        else sim := simSetTo;
-        for i := 0 to high(ints) do
-          with IntVars[IntArrays[idxArr].Vars[i]] do
-          AProg.Add(CreateSetIntegerInstruction(Player, UnitType, sim, ints[i]));
+        AProg.Add(TPlayWAVInstruction.Create(SoundVars[idxSound].Filename, SoundVars[idxSound].DurationMs));
+        done := true;
       end;
     end;
 
-    idxArr := BoolArrayIndexOf(AScope,ALine[0]);
-    isPresent := CompareText(ALine[0],'Present')=0;
-    if (idxArr <> -1) or isPresent then
+    if not done then
     begin
-      index := 1;
-      if TryToken(ALine,index,'=') then
+      idxArr := TryIntegerArray(AScope,ALine,index);
+      if idxArr <> -1 then
       begin
-        done := true;
-        if isPresent then raise exception.Create('Array is readonly');
+        If TryToken(ALine,index,'+') or TryToken(ALine,index,'-') then
+          assignOp := ALine[index-1] else assignOp := '';
 
-        if BoolArrays[idxArr].Constant then raise exception.Create('Constant cannot be assigned to');
-        if BoolArrays[idxArr].ReadOnly then raise exception.Create('Array is readonly');
+        if TryToken(ALine,index,'=') then
+        begin
+          done := true;
+          if IntArrays[idxArr].Constant then raise exception.Create('Constant cannot be assigned to');
 
-        bools := ParseBoolArray(AScope,ALine,index);
-        if length(bools) <> BoolArrays[idxArr].Size then
-          raise exception.Create('Array size mismatch');
-        CheckEndOfLine;
-        for i := 0 to high(bools) do
-          with BoolVars[BoolArrays[idxArr].Vars[i]] do
-            AProg.Add(TSetSwitchInstruction.Create(Switch, bools[i]));
+          ints := ParseIntArray(AScope,ALine,index);
+          if length(ints) <> IntArrays[idxArr].Size then
+            raise exception.Create('Array size mismatch');
+          CheckEndOfLine;
+          if assignOp = '+' then sim := simAdd
+          else if assignOp = '-' then sim := simSubtract
+          else sim := simSetTo;
+          for i := 0 to high(ints) do
+            with IntVars[IntArrays[idxArr].Vars[i]] do
+            AProg.Add(CreateSetIntegerInstruction(Player, UnitType, sim, ints[i]));
+        end else
+        begin
+          if assignOp = '' then
+            raise exception.Create('Expecting index with "(" or assignment')
+            else raise exception.Create('Expecting "="');
+        end;
+      end;
+    end;
+
+    if not done and TryToken(ALine,index,'Present') then
+    begin
+      if TryToken(ALine,index,'=') then
+        raise exception.Create('Array is readonly')
+      else
+        dec(index);
+    end else
+    if not done then
+    begin
+      idxArr := TryBooleanArray(AScope,ALine,index);
+      if idxArr <> -1 then
+      begin
+        if TryToken(ALine,index,'=') then
+        begin
+          done := true;
+
+          if BoolArrays[idxArr].Constant then raise exception.Create('Constant cannot be assigned to');
+          if BoolArrays[idxArr].ReadOnly then raise exception.Create('Array is readonly');
+
+          bools := ParseBoolArray(AScope,ALine,index);
+          if length(bools) <> BoolArrays[idxArr].Size then
+            raise exception.Create('Array size mismatch');
+          CheckEndOfLine;
+          for i := 0 to high(bools) do
+            with BoolVars[BoolArrays[idxArr].Vars[i]] do
+              AProg.Add(TSetSwitchInstruction.Create(Switch, bools[i]));
+        end else
+          dec(index);
       end;
     end;
 
@@ -923,8 +946,6 @@ begin
         done := true;
 
         ExpectToken(ALine,index,'.');
-        if index >= ALine.Count then
-          raise exception.Create('Expecting action but end of line found');
 
         if (pl <> plCurrentPlayer) and TryToken(ALine,index,'Print') then
         begin
@@ -939,7 +960,12 @@ begin
 
         end else
         if not TryPlayerAction(AScope,AProg,ALine,index,pl, AThreads) then
-          raise exception.Create('Expecting action but "' + ALine[index] + '" found');
+        begin
+          if index >= ALine.Count then
+            raise exception.Create('Expecting action but end of line found')
+          else
+            raise exception.Create('Expecting action but "' + ALine[index] + '" found');
+        end;
         CheckEndOfLine;
       end;
     end;
@@ -971,8 +997,12 @@ begin
         inc(index);
       end;
 
-      if (index = ALine.Count) or
-        ((index < ALine.Count) and (ALine[index] = '(')) then
+      if IsReservedWord(name) then
+        raise exception.Create('Unexpected reserved word');
+
+      if (name <> '') and
+        ((index = ALine.Count) or
+         PeekToken(ALine, index, '(')) then
       begin
         params := TStringList.Create;
         try
@@ -1001,8 +1031,8 @@ begin
       end else
       if scalar.VarType = svtNone then
       begin
-        if name = '' then raise exception.Create('Expecting identifier')
-        else raise exception.Create('Unknown variable "' + name + '"')
+        if name <> '' then
+          raise exception.Create('Unknown variable "' + name + '"')
       end
       else
         raise exception.Create('Expecting assignment');

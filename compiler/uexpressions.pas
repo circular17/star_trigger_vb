@@ -203,7 +203,7 @@ begin
   exit(true);
 end;
 
-function ExpectIntegerConstantImplementation(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function ExpectIntegerConstantImplementation(AScope: integer; ALine: TStringList; var AIndex: integer; AAcceptNegative: boolean): integer;
 var
   expr: TExpression;
 begin
@@ -220,7 +220,7 @@ begin
     expr.Free;
     raise exception.Create('Expression is not constant');
   end;
-  if expr.ConstElement < 0 then
+  if not AAcceptNegative and (expr.ConstElement < 0) then
   begin
     expr.Free;
     raise exception.Create('Expression is negative');
@@ -253,8 +253,12 @@ var
         if ARaiseException then raise exception.Create('Expecting integer value');
         exit;
       end;
-      ExpectToken(ALine,idx,')');
-      result := TSubExpression.Create(expr);
+      if not TryToken(ALine,idx,')') then
+      begin
+        expr.free;
+        raise exception.Create('Expecting closing bracket ")"');
+      end else
+        result := TSubExpression.Create(expr);
     end else
     if TryInteger(AScope, ALine,idx,intValue) then
     begin
@@ -279,30 +283,28 @@ var
             if TryToken(ALine,idx,'CountIf') then
             begin
               ExpectToken(ALine,idx,'(');
-              if not TryIdentifier(ALine,idx,name, false) then
-                raise exception.Create('Array identifier expected');
-              ExpectToken(ALine,idx,',');
-
-              if name = 'Present' then
-                idxVar := GetPlayerPresentArray
-              else
-                idxVar := BoolArrayIndexOf(AScope, name);
-
+              idxVar := TryBooleanArray(AScope,ALine,idx);
               if idxVar <> -1 then
               begin
+                ExpectToken(ALine,idx,',');
                 if not TryBoolean(AScope, ALine,idx, boolVal) then
                   raise exception.Create('Boolean constant expected');
                 result := TCountIfBoolNode.Create(neg, idxVar, boolVal);
               end else
               begin
-                idxVar := IntArrayIndexOf(AScope, name);
+                idxVar := TryIntegerArray(AScope,ALine,idx);
                 if idxVar <> -1 then
                 begin
+                  ExpectToken(ALine,idx,',');
                   if not TryIntegerConstant(AScope, ALine,idx, intVal) then
                     raise exception.Create('Integer constant expected');
                   result := TCountIfIntNode.Create(neg, idxVar, intVal);
                 end else
-                  raise exception.Create('Unknown array variable "' + name + '"');
+                begin
+                  if not TryIdentifier(ALine,idx,name, false) then
+                    raise exception.Create('Array identifier expected')
+                    else raise exception.Create('Unknown array variable "' + name + '"');
+                end;
               end;
               ExpectToken(ALine,idx,')');
             end else
@@ -399,7 +401,7 @@ begin
       if node = nil then
       begin
         if ARaiseException then
-          raise exception.Create('Expression expected');
+          raise exception.Create('Integer expression expected');
         FreeAndNil(result);
         exit;
       end;
@@ -1275,7 +1277,7 @@ begin
   begin
     if TryToken(ALine,idx,'(') then
     begin
-      numPlayer := ExpectIntegerConstant(AScope, ALine,idx);
+      numPlayer := ExpectIntegerConstant(AScope, ALine,idx,true);
       ExpectToken(ALine,idx,')');
       if (numPlayer < 1) or (numPlayer > 12) then
         raise exception.Create('Player index out of bounds');

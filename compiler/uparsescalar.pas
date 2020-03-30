@@ -24,11 +24,19 @@ function ExpectUnitType({%H-}AScope: integer; ALine: TStringList; var AIndex: in
 function IsUnitType(AName: string): boolean;
 function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string; AcceptsReservedWords: boolean): boolean;
 function TryInteger(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
+function TryIntegerVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function TryIntegerConstantVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function TryIntegerArray(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function TryPredefinedIntegerArray(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 function ExpectInteger(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 function TryBoolean(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;
+function TryBooleanVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function TryBooleanArray(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function TryStringArray(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function TrySoundVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 
 type
-  TExpectIntegerConstantFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+  TExpectIntegerConstantFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer; AAcceptNegative: boolean): integer;
   TTryIntegerConstantFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
   TExpectStringConstantFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): string;
 
@@ -48,10 +56,11 @@ var
 begin
   if TryToken(ALine,AIndex,'Unit') then
     ExpectToken(ALine,AIndex,'.');
-  if not TryIdentifier(ALine, AIndex, ident, false) then raise exception.Create('Expecting identifier');
   for u := low(TStarcraftUnit) to suFactories do
-    if CompareText(StarcraftUnitIdentifier[u],ident)=0 then exit(u);
-  raise exception.Create('Unknown unit type');
+    if TryToken(ALine, AIndex, StarcraftUnitIdentifier[u]) then exit(u);
+  if not TryIdentifier(ALine, AIndex, ident, false) then
+    raise exception.Create('Expecting identifier')
+    else raise exception.Create('Unknown unit type "' + ident + '"');
 end;
 
 function IsUnitType(AName: string): boolean;
@@ -109,54 +118,53 @@ begin
       if TryToken(ALine,AIndex,'LBound') then
       begin
         ExpectToken(ALine,AIndex,'(');
+        if TryToken(ALine,AIndex,'Present') or
+           (TryBooleanArray(AScope, ALine, AIndex) <> -1) or
+           (TryIntegerArray(AScope, ALine, AIndex) <> -1) or
+           (TryStringArray(AScope, ALine, AIndex) <> -1) then
+        begin
+          AValue := 1;
+          ExpectToken(ALine,AIndex,')');
+          exit(true);
+        end;
         if not TryIdentifier(ALine,AIndex,ident, false) then
-          raise exception.Create('Identifier expected');
-        ExpectToken(ALine,AIndex,')');
-        idxVar := IntArrayIndexOf(AScope, ident);
-        if idxVar <> -1 then
-        begin
-          AValue := 1;
-          exit(true);
-        end;
-        idxVar := BoolArrayIndexOf(AScope, ident);
-        if idxVar <> -1 then
-        begin
-          AValue := 1;
-          exit(true);
-        end;
-        idxVar := StringArrayIndexOf(AScope, ident);
-        if idxVar <> -1 then
-        begin
-          AValue := 1;
-          exit(true);
-        end;
-
+          raise exception.Create('Identifier expected')
+          else raise exception.Create('Unknown array "' + ident + '"');
       end;
 
       if TryToken(ALine,AIndex,'UBound') then
       begin
         ExpectToken(ALine,AIndex,'(');
-        if not TryIdentifier(ALine,AIndex,ident, false) then
-          raise exception.Create('Identifier expected');
-        ExpectToken(ALine,AIndex,')');
-        idxVar := IntArrayIndexOf(AScope, ident);
-        if idxVar <> -1 then
+        if TryToken(ALine,AIndex,'Present') then
         begin
-          AValue := IntArrays[idxVar].Size;
+          AValue := MaxTriggerPlayers;
+          ExpectToken(ALine,AIndex,')');
           exit(true);
         end;
-        idxVar := BoolArrayIndexOf(AScope, ident);
+        idxVar := TryBooleanArray(AScope, ALine, AIndex);
         if idxVar <> -1 then
         begin
           AValue := BoolArrays[idxVar].Size;
+          ExpectToken(ALine,AIndex,')');
           exit(true);
         end;
-        idxVar := StringArrayIndexOf(AScope, ident);
+        idxVar := TryIntegerArray(AScope, ALine, AIndex);
+        if idxVar <> -1 then
+        begin
+          AValue := IntArrays[idxVar].Size;
+          ExpectToken(ALine,AIndex,')');
+          exit(true);
+        end;
+        idxVar :=TryStringArray(AScope, ALine, AIndex);
         if idxVar <> -1 then
         begin
           AValue := StringArrays[idxVar].Size;
+          ExpectToken(ALine,AIndex,')');
           exit(true);
         end;
+        if not TryIdentifier(ALine,AIndex,ident, false) then
+          raise exception.Create('Identifier expected')
+          else raise exception.Create('Unknown array "' + ident + '"');
       end;
 
       if TryToken(ALine,AIndex,'Len') then
@@ -168,17 +176,62 @@ begin
         exit(true);
       end;
 
-      idxVar := IntVarIndexOf(AScope, ALine[AIndex]);
-      if (idxVar<>-1) and IntVars[idxVar].Constant then
+      idxVar := TryIntegerConstantVariable(AScope, ALine, AIndex);
+      if idxVar<>-1 then
       begin
         AValue := IntVars[idxVar].Value;
-        inc(AIndex);
         exit(true);
       end;
       exit(false);
     end;
   end
   else exit(false);
+end;
+
+function TryIntegerVariable(AScope: integer; ALine: TStringList;
+  var AIndex: integer): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to IntVarCount-1 do
+    if ((IntVars[i].Scope = AScope) or (IntVars[i].Scope = GlobalScope)) and
+      (IntVars[i].IntArray = -1) and
+      TryToken(ALine, AIndex, IntVars[i].Name) then exit(i);
+  result := -1;
+end;
+
+function TryIntegerConstantVariable(AScope: integer; ALine: TStringList;
+  var AIndex: integer): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to IntVarCount-1 do
+    if ((IntVars[i].Scope = AScope) or (IntVars[i].Scope = GlobalScope)) and
+      IntVars[i].Constant and
+      TryToken(ALine, AIndex, IntVars[i].Name) then exit(i);
+  result := -1;
+end;
+
+function TryIntegerArray(AScope: integer; ALine: TStringList;
+  var AIndex: integer): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to IntArrayCount-1 do
+    if ((IntArrays[i].Scope = AScope) or (IntArrays[i].Scope = GlobalScope)) and
+      TryToken(ALine, AIndex, IntArrays[i].Name) then exit(i);
+  result := -1;
+end;
+
+function TryPredefinedIntegerArray(AScope: integer; ALine: TStringList;
+  var AIndex: integer): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to IntArrayCount-1 do
+    if ((IntArrays[i].Scope = AScope) or (IntArrays[i].Scope = GlobalScope)) and
+       IntArrays[i].Predefined and TryToken(ALine, AIndex, IntArrays[i].Name) then exit(i);
+  result := -1;
 end;
 
 function ExpectInteger(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
@@ -219,7 +272,7 @@ begin
         idx := AIndex+1;
         if TryToken(ALine,idx,'(') then
         begin
-          arrIndex := ExpectIntegerConstant(AScope, ALine,idx);
+          arrIndex := ExpectIntegerConstant(AScope, ALine,idx,true);
           if (arrIndex < 1) or (arrIndex > BoolArrays[idxVar].Size) then
             raise exception.Create('Index out of bounds');
           AValue := BoolArrays[idxVar].Values[arrIndex-1] = svSet;
@@ -233,164 +286,223 @@ begin
   end;
 end;
 
+function TryBooleanVariable(AScope: integer; ALine: TStringList;
+  var AIndex: integer): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to BoolVarCount-1 do
+    if ((BoolVars[i].Scope = AScope) or (BoolVars[i].Scope = GlobalScope)) and
+      (BoolVars[i].BoolArray = -1) and
+      TryToken(ALine, AIndex, BoolVars[i].Name) then exit(i);
+  result := -1;
+end;
+
+function TryBooleanArray(AScope: integer; ALine: TStringList;
+  var AIndex: integer): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to BoolArrayCount-1 do
+    if ((BoolArrays[i].Scope = AScope) or (BoolArrays[i].Scope = GlobalScope)) and
+      TryToken(ALine, AIndex, BoolArrays[i].Name) then exit(i);
+  if TryToken(ALine,AIndex,'Present') then
+    exit(GetPlayerPresentArray);
+  result := -1;
+end;
+
+function TryStringArray(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to StringArrayCount-1 do
+    if ((StringArrays[i].Scope = AScope) or (StringArrays[i].Scope = GlobalScope)) and
+      TryToken(ALine, AIndex, StringArrays[i].Name) then exit(i);
+  result := -1;
+end;
+
+function TrySoundVariable(AScope: integer; ALine: TStringList;
+  var AIndex: integer): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to SoundCount-1 do
+    if ((SoundVars[i].Scope = AScope) or (SoundVars[i].Scope = GlobalScope)) and
+      TryToken(ALine, AIndex, SoundVars[i].Name) then exit(i);
+  result := -1;
+end;
+
 function TryScalarVariable(AScope: integer; ALine: TStringList; var AIndex: integer): TScalarVariable;
 var varIdx, arrayIndex, idx: integer;
   pl: TPlayer;
   unitType: TStarcraftUnit;
 begin
   result.VarType := svtNone;
-  if (AIndex < ALine.Count) and IsValidVariableName(ALine[AIndex]) then
+  varIdx := TryIntegerVariable(AScope, ALine, AIndex);
+  if varIdx <> -1 then
   begin
-    varIdx := IntVarIndexOf(AScope, ALine[AIndex]);
-    if varIdx <> -1 then
-    begin
-      inc(AIndex);
-      result.VarType := svtInteger;
-      result.Player := IntVars[varIdx].Player;
-      result.UnitType := IntVars[varIdx].UnitType;
-      result.Switch := -1;
-      result.Constant:= IntVars[varIdx].Constant;
-      result.ReadOnly := result.Constant;
-      result.IntValue:= IntVars[varIdx].Value;
-      result.BoolValue:= IntVars[varIdx].Value<>0;
-      exit;
-    end;
+    result.VarType := svtInteger;
+    result.Player := IntVars[varIdx].Player;
+    result.UnitType := IntVars[varIdx].UnitType;
+    result.Switch := -1;
+    result.Constant:= IntVars[varIdx].Constant;
+    result.ReadOnly := result.Constant;
+    result.IntValue:= IntVars[varIdx].Value;
+    result.BoolValue:= IntVars[varIdx].Value<>0;
+    exit;
+  end;
 
-    varIdx := BoolVarIndexOf(AScope, ALine[AIndex]);
-    if varIdx <> -1 then
+  varIdx := TryBooleanVariable(AScope, ALine, AIndex);
+  if varIdx <> -1 then
+  begin
+    result.VarType := svtSwitch;
+    result.Player := plNone;
+    result.UnitType := suSwitch;
+    result.Switch := BoolVars[varIdx].Switch;
+    result.Constant:= BoolVars[varIdx].Constant;
+    result.ReadOnly := result.Constant;
+    result.BoolValue:= BoolVars[varIdx].Value = svSet;
+    result.IntValue := integer(result.BoolValue);
+    exit;
+  end;
+
+  if TryToken(ALine,AIndex,'Switch') then
+  begin
+    ExpectToken(ALine,AIndex,'(');
+    result.VarType := svtSwitch;
+    result.Player := plNone;
+    result.UnitType := suSwitch;
+    result.Switch := ExpectIntegerConstant(AScope,ALine,AIndex,true);
+    if (result.Switch < 1) or (result.Switch > 256) then raise exception.Create('Switch index out of bounds (1 to 256)');
+    result.Constant:= False;
+    result.ReadOnly := False;
+    result.BoolValue:= false;
+    result.IntValue := 0;
+    ExpectToken(ALine,AIndex,')');
+    exit;
+  end;
+
+  if TryToken(ALine,AIndex,'Present') then
+  begin
+    if TryToken(ALine,AIndex,'(') then
     begin
-      inc(AIndex);
+      arrayIndex := ExpectIntegerConstant(AScope, ALine,AIndex,true);
+      if (arrayIndex < 1) or (arrayIndex > MaxTriggerPlayers) then
+        raise exception.Create('Array index out of bounds');
+      ExpectToken(ALine, AIndex, ')');
+
       result.VarType := svtSwitch;
       result.Player := plNone;
       result.UnitType := suSwitch;
+      varIdx := GetPlayerPresenceBoolVar(TPlayer(ord(plPlayer1)+arrayIndex-1));
       result.Switch := BoolVars[varIdx].Switch;
-      result.Constant:= BoolVars[varIdx].Constant;
-      result.ReadOnly := result.Constant;
-      result.BoolValue:= BoolVars[varIdx].Value = svSet;
-      result.IntValue := integer(result.BoolValue);
-      exit;
-    end;
-
-    if CompareText(ALine[AIndex],'Switch')=0 then
-    begin
-      inc(AIndex);
-      ExpectToken(ALine,AIndex,'(');
-      result.VarType := svtSwitch;
-      result.Player := plNone;
-      result.UnitType := suSwitch;
-      result.Switch := ExpectIntegerConstant(AScope,ALine,AIndex);
-      if (result.Switch < 1) or (result.Switch > 256) then raise exception.Create('Switch index out of bounds (1 to 256)');
-      result.Constant:= False;
-      result.ReadOnly := False;
+      result.Constant:= false;
+      result.ReadOnly := true;
       result.BoolValue:= false;
       result.IntValue := 0;
-      ExpectToken(ALine,AIndex,')');
       exit;
-    end;
-
-    varIdx := BoolArrayIndexOf(AScope, ALine[AIndex]);
-    if varIdx <> -1 then
-    begin
-      inc(AIndex);
-      if TryToken(ALine,AIndex,'(') then
-      begin
-        arrayIndex := ExpectIntegerConstant(AScope, ALine,AIndex);
-        if (arrayIndex < 1) or (arrayIndex > BoolArrays[varIdx].Size) then
-          raise exception.Create('Array index out of bounds');
-        ExpectToken(ALine, AIndex, ')');
-
-        result.VarType := svtSwitch;
-        result.Player := plNone;
-        result.UnitType := suSwitch;
-        result.Switch := BoolVars[BoolArrays[varIdx].Vars[arrayIndex-1]].Switch;
-        result.Constant:= BoolArrays[varIdx].Constant;
-        result.ReadOnly := result.Constant;
-        result.BoolValue:= BoolArrays[varIdx].Values[arrayIndex-1] = svSet;
-        result.IntValue := integer(result.BoolValue);
-        exit;
-      end else
-        Dec(AIndex);
     end else
-    if (CompareText(ALine[AIndex],'Present')=0) then
+      Dec(AIndex);
+  end;
+
+  varIdx := TryBooleanArray(AScope, ALine, AIndex);
+  if varIdx <> -1 then
+  begin
+    if TryToken(ALine,AIndex,'(') then
     begin
-      Inc(AIndex);
-      if TryToken(ALine,AIndex,'(') then
+      arrayIndex := ExpectIntegerConstant(AScope, ALine,AIndex,true);
+      if (arrayIndex < 1) or (arrayIndex > BoolArrays[varIdx].Size) then
+        raise exception.Create('Array index out of bounds');
+      ExpectToken(ALine, AIndex, ')');
+
+      result.VarType := svtSwitch;
+      result.Player := plNone;
+      result.UnitType := suSwitch;
+      result.Switch := BoolVars[BoolArrays[varIdx].Vars[arrayIndex-1]].Switch;
+      result.Constant:= BoolArrays[varIdx].Constant;
+      result.ReadOnly := result.Constant;
+      result.BoolValue:= BoolArrays[varIdx].Values[arrayIndex-1] = svSet;
+      result.IntValue := integer(result.BoolValue);
+      exit;
+    end else
+      Dec(AIndex);
+  end;
+
+  varIdx := TryIntegerArray(AScope, ALine, AIndex);
+  if varIdx <> -1 then
+  begin
+    if TryToken(ALine,AIndex,'(') then
+    begin
+      if TryToken(ALine,AIndex,'Me') then
       begin
-        arrayIndex := ExpectIntegerConstant(AScope, ALine,AIndex);
-        if (arrayIndex < 1) or (arrayIndex > MaxTriggerPlayers) then
+        if IntArrays[varIdx].Constant then
+          raise exception.Create('Constant arrays cannot be indexed by "Me"');
+        result.IntValue:= 0;
+        result.UnitType := IntArrays[varIdx].UnitType;
+        result.Player := plCurrentPlayer;
+      end
+      else
+      begin
+        arrayIndex := ExpectIntegerConstant(AScope, ALine, AIndex,true);
+        if (arrayIndex < 1) or (arrayIndex > IntArrays[varIdx].Size) then
           raise exception.Create('Array index out of bounds');
-        ExpectToken(ALine, AIndex, ')');
-
-        result.VarType := svtSwitch;
-        result.Player := plNone;
-        result.UnitType := suSwitch;
-        varIdx := GetPlayerPresenceBoolVar(TPlayer(ord(plPlayer1)+arrayIndex-1));
-        result.Switch := BoolVars[varIdx].Switch;
-        result.Constant:= false;
-        result.ReadOnly := true;
-        result.BoolValue:= false;
-        result.IntValue := 0;
-        exit;
-      end else
-        Dec(AIndex);
-    end;
-
-    varIdx := IntArrayIndexOf(AScope, ALine[AIndex]);
-    if varIdx <> -1 then
-    begin
-      Inc(AIndex);
-      if TryToken(ALine,AIndex,'(') then
-      begin
-        if TryToken(ALine,AIndex,'Me') then
+        pl := IntToPlayer(arrayIndex);
+        result.IntValue:= IntArrays[varIdx].Values[arrayIndex-1];
+        with IntVars[IntArrays[varIdx].Vars[arrayIndex-1]] do
         begin
-          if IntArrays[varIdx].Constant then
-            raise exception.Create('Constant arrays cannot be indexed by "Me"');
-          result.IntValue:= 0;
-          result.UnitType := IntArrays[varIdx].UnitType;
-          result.Player := plCurrentPlayer;
-        end
-        else
-        begin
-          arrayIndex := ExpectIntegerConstant(AScope, ALine, AIndex);
-          if (arrayIndex < 1) or (arrayIndex > IntArrays[varIdx].Size) then
-            raise exception.Create('Array index out of bounds');
-          pl := IntToPlayer(arrayIndex);
-          result.IntValue:= IntArrays[varIdx].Values[arrayIndex-1];
-          with IntVars[IntArrays[varIdx].Vars[arrayIndex-1]] do
-          begin
-            result.Player := Player;
-            result.UnitType := UnitType;
-          end;
+          result.Player := Player;
+          result.UnitType := UnitType;
         end;
-        ExpectToken(ALine, AIndex, ')');
+      end;
+      ExpectToken(ALine, AIndex, ')');
+      result.VarType := svtInteger;
+      result.Switch := -1;
+      result.Constant:= IntArrays[varIdx].Constant;
+      result.ReadOnly := result.Constant;
+      result.BoolValue:= result.IntValue<>0;
+      exit;
+    end else
+      Dec(AIndex);
+  end;
+
+  idx := AIndex;
+  pl := TryParsePlayer(AScope, ALine,idx);
+  if pl <> plNone then
+  begin
+    if TryToken(ALine,idx,'.') then
+    begin
+      if TryToken(ALine,idx,'DeathCount') then
+      begin
+        if TryToken(ALine,idx,'(') then
+        begin
+          unitType := ExpectUnitType(AScope, ALine,idx);
+          ExpectToken(ALine,idx,')');
+        end else
+          unitType := suAnyUnit;
+
         result.VarType := svtInteger;
+        result.Player := pl;
+        result.UnitType := unitType;
         result.Switch := -1;
-        result.Constant:= IntArrays[varIdx].Constant;
+        result.Constant:= False;
         result.ReadOnly := result.Constant;
-        result.BoolValue:= result.IntValue<>0;
+        result.IntValue:= 0;
+        result.BoolValue:= false;
+
+        AIndex := idx;
         exit;
       end else
-        Dec(AIndex);
-    end;
-
-    idx := AIndex;
-    pl := TryParsePlayer(AScope, ALine,idx);
-    if pl <> plNone then
-    begin
-      if TryToken(ALine,idx,'.') then
+      if idx < ALine.Count then
       begin
-        if TryToken(ALine,idx,'DeathCount') then
+        varIdx := TryPredefinedIntegerArray(AScope, ALine, idx);
+        if (varIdx <> -1) and IntArrays[varIdx].Predefined then
         begin
-          if TryToken(ALine,idx,'(') then
-          begin
-            unitType := ExpectUnitType(AScope, ALine,idx);
-            ExpectToken(ALine,idx,')');
-          end else
-            unitType := suAnyUnit;
-
           result.VarType := svtInteger;
+          if (pl in[plPlayer1..plPlayer8]) and
+            (ord(pl) - ord(plPlayer1) + 1 > IntArrays[varIdx].Size) then
+              raise exception.Create('This player is not included in this array. Index is out of bounds');
           result.Player := pl;
-          result.UnitType := unitType;
+          result.UnitType := IntArrays[varIdx].UnitType;
           result.Switch := -1;
           result.Constant:= False;
           result.ReadOnly := result.Constant;
@@ -400,31 +512,9 @@ begin
           AIndex := idx;
           exit;
         end else
-        if idx < ALine.Count then
-        begin
-          varIdx := IntArrayIndexOf(AScope, ALine[idx]);
-          if (varIdx <> -1) and IntArrays[varIdx].Predefined then
-          begin
-            inc(idx);
-
-            result.VarType := svtInteger;
-            if (pl in[plPlayer1..plPlayer8]) and
-              (ord(pl) - ord(plPlayer1) + 1 > IntArrays[varIdx].Size) then
-                raise exception.Create('This player is not included in this array. Index is out of bounds');
-            result.Player := pl;
-            result.UnitType := IntArrays[varIdx].UnitType;
-            result.Switch := -1;
-            result.Constant:= False;
-            result.ReadOnly := result.Constant;
-            result.IntValue:= 0;
-            result.BoolValue:= false;
-
-            AIndex := idx;
-            exit;
-          end;
-        end;
-
+          dec(varIdx);
       end;
+
     end;
   end;
 end;

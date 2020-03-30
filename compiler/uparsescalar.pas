@@ -52,12 +52,27 @@ uses uparsevb, uvariables;
 function ExpectUnitType(AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
 var
   u: TStarcraftUnit;
-  ident: string;
+  ident, partialName: string;
+  i: Integer;
 begin
   if TryToken(ALine,AIndex,'Unit') then
     ExpectToken(ALine,AIndex,'.');
+
+  for i := 0 to StarcraftUnitPrefixes.Count-1 do
+    if TryToken(ALine, AIndex, StarcraftUnitPrefixes[i]) then
+    begin
+      ExpectToken(ALine,AIndex,'.');
+      for u := low(TStarcraftUnit) to suFactories do
+        if (StarcraftUnitSplitIdentifier[u].Prefix = StarcraftUnitPrefixes[i]) and
+          TryToken(ALine, AIndex, StarcraftUnitSplitIdentifier[u].PartialName) then
+            exit(u);
+    end;
+
   for u := low(TStarcraftUnit) to suFactories do
-    if TryToken(ALine, AIndex, StarcraftUnitIdentifier[u]) then exit(u);
+    if (StarcraftUnitSplitIdentifier[u].Prefix = '') and
+      TryToken(ALine, AIndex, StarcraftUnitIdentifier[u]) then
+        exit(u);
+
   if not TryIdentifier(ALine, AIndex, ident, false) then
     raise exception.Create('Expecting identifier')
     else raise exception.Create('Unknown unit type "' + ident + '"');
@@ -66,9 +81,22 @@ end;
 function IsUnitType(AName: string): boolean;
 var
   u: TStarcraftUnit;
+  posDot, i: integer;
+  partialName: String;
 begin
+  for i := 0 to StarcraftUnitPrefixes.Count-1 do
+    if CompareText(StarcraftUnitPrefixes[i],AName)=0 then exit(true);
+
   for u := low(TStarcraftUnit) to suFactories do
-    if CompareText(StarcraftUnitIdentifier[u],AName)=0 then exit(true);
+  begin
+    posDot := pos('.',StarcraftUnitIdentifier[u]);
+    if posDot <> 0 then
+    begin
+      partialName := copy(StarcraftUnitIdentifier[u], posDot+1,
+                      length(StarcraftUnitIdentifier[u]) - posDot);
+      if CompareText(partialName,AName)=0 then exit(true);
+    end;
+  end;
   exit(false);
 end;
 

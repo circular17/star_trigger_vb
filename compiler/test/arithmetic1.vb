@@ -2,6 +2,7 @@ Option Hyper On
 
 As Player1
 Sub New()
+
   Dim a As Byte = 250
   dim b As Byte = 20
   dim c As UInt16
@@ -10,7 +11,7 @@ Sub New()
     Print("OK")
   Else
     Print("Error")
-  EndIf
+  End If
 
   a = 250
   b = 20
@@ -19,7 +20,7 @@ Sub New()
     Print("OK")
   Else
     Print("Error")
-  EndIf  
+  End If
 
   c = 16384
   a = c
@@ -27,7 +28,7 @@ Sub New()
     Print("OK")
   Else
     Print("Error")
-  EndIf
+  End If
 
   c = 120
   a = c + 10
@@ -35,7 +36,7 @@ Sub New()
     Print("OK")
   Else
     Print("Error")
-  EndIf
+  End If
 End Sub
 
 

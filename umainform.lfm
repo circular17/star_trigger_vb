@@ -1,12 +1,12 @@
 object FMain: TFMain
-  Left = 464
+  Left = 0
   Height = 674
-  Top = 160
-  Width = 1426
+  Top = 115
+  Width = 1418
   BorderIcons = [biSystemMenu, biMaximize]
   Caption = 'BroodBasic program'
   ClientHeight = 674
-  ClientWidth = 1426
+  ClientWidth = 1418
   DesignTimePPI = 144
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
@@ -17,7 +17,7 @@ object FMain: TFMain
     Left = 0
     Height = 56
     Top = 0
-    Width = 1426
+    Width = 1418
     HelpType = htKeyword
     HelpKeyword = '0'
     AutoSize = True
@@ -55,18 +55,18 @@ object FMain: TFMain
     Left = 0
     Height = 618
     Top = 56
-    Width = 1163
+    Width = 1155
     Align = alClient
     BevelOuter = bvNone
     ClientHeight = 618
-    ClientWidth = 1163
+    ClientWidth = 1155
     ParentFont = False
     TabOrder = 1
     inline SynEdit1: TSynEdit
       Left = 0
       Height = 493
       Top = 0
-      Width = 1163
+      Width = 1155
       Align = alClient
       Color = 14206148
       Font.Height = -13
@@ -576,7 +576,7 @@ object FMain: TFMain
       Left = 0
       Height = 8
       Top = 493
-      Width = 1163
+      Width = 1155
       Align = alBottom
       ResizeAnchor = akBottom
     end
@@ -584,18 +584,18 @@ object FMain: TFMain
       Left = 0
       Height = 117
       Top = 501
-      Width = 1163
+      Width = 1155
       Align = alBottom
       BevelOuter = bvNone
       ClientHeight = 117
-      ClientWidth = 1163
+      ClientWidth = 1155
       ParentFont = False
       TabOrder = 2
       object Errors: TLabel
         Left = 0
         Height = 25
         Top = 0
-        Width = 1163
+        Width = 1155
         Align = alTop
         Caption = 'Errors'
         ParentColor = False
@@ -605,7 +605,7 @@ object FMain: TFMain
         Left = 0
         Height = 92
         Top = 25
-        Width = 1163
+        Width = 1155
         Align = alClient
         ItemHeight = 0
         OnDblClick = ListBox_ErrorsDblClick
@@ -615,7 +615,7 @@ object FMain: TFMain
     end
   end
   object Splitter2: TSplitter
-    Left = 1163
+    Left = 1155
     Height = 618
     Top = 56
     Width = 8
@@ -623,7 +623,7 @@ object FMain: TFMain
     ResizeAnchor = akRight
   end
   object Panel_Utils: TPanel
-    Left = 1171
+    Left = 1163
     Height = 618
     Top = 56
     Width = 255

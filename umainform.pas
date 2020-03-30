@@ -195,10 +195,7 @@ procedure TFMain.UpdateAutoCompleteList;
 var
   programUpToCursor: TStringList;
   i, LastScope: Integer;
-  MainThread, pl: TPlayer;
-  u: TStarcraftUnit;
-  prevLine, lineUpToCursor: TStringList;
-  isBeginLine: boolean;
+  MainThread: TPlayer;
   lastLineStr: String;
 
 begin
@@ -219,30 +216,8 @@ begin
   ureadprog.ReadProg(programUpToCursor, MainThread, LastScope);
   programUpToCursor.Free;
 
-  lineUpToCursor := nil;
-  prevLine := nil;
-  try
-    if SynEdit1.CaretY <= SynEdit1.Lines.Count then
-      lineUpToCursor := ParseLine(copy(SynEdit1.Lines[SynEdit1.CaretY-1],1,SynEdit1.CaretX-1))
-    else
-      lineUpToCursor := TStringList.Create;
-    if (SynEdit1.CaretY-1 >= 0) and (SynEdit1.CaretY-1 <= SynEdit1.Lines.Count) then
-      prevLine := ParseLine(SynEdit1.Lines[SynEdit1.CaretY-2])
-    else
-      prevLine := TStringList.Create;
-  except
-    if lineUpToCursor = nil then lineUpToCursor := TStringList.Create;
-    if prevLine = nil then prevLine := TStringList.Create;
-  end;
-  if (lineUpToCursor.Count > 0) and IsValidVariableName(lineUpToCursor[lineUpToCursor.Count-1]) then
-    lineUpToCursor.delete(lineUpToCursor.Count-1);
-  isBeginLine:= (lineUpToCursor.Count = 0) and not ((prevLine.Count > 0) and IsTokenOverEndOfLine(prevLine[prevLine.Count-1]));
-
   AllCompletion.Clear;
   AllCompletion.AddStrings(uparsevb.ParseCompletionList);
-
-  prevLine.Free;
-  lineUpToCursor.Free;
   AllCompletion.Sort;
 end;
 

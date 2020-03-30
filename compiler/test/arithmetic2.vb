@@ -14,19 +14,19 @@ Sub New()
     Print("0. correct result")
   Else
     Print("0. incorrect result")
-  endIf
+  End If
 
   if q + 4 < 5 Then
     Print("0b. correct result")
   Else
     Print("0b. incorrect result")
-  endIf
+  End If
 
   if q + 6 > 5 Then
     Print("0c. correct result")
   Else
     Print("0c. incorrect result")
-  endIf
+  End If
 
   Dim x As Byte = CONSTANT_A
   Dim y As Byte = x + CONSTANT_B
@@ -35,7 +35,7 @@ Sub New()
     Print("1. correct result")
   Else
     Print("1. incorrect result :(")
-  EndIf
+  End If
  
   Dim z As Byte = y + CONSTANT_C
  
@@ -43,7 +43,7 @@ Sub New()
     print("2. correct result")
   Else
     print("2. incorrect result :(")
-  EndIf
+  End If
 
   x = 3
   y = 6
@@ -55,7 +55,7 @@ Sub New()
     print("3. correct result")
   Else
     print("3. incorrect result :(")
-  EndIf  
+  End If
 
   While x+y > 0
     x-= 1
@@ -67,7 +67,7 @@ Sub New()
     print("4. correct result")
   Else
     print("4. incorrect result :(")
-  EndIf
+  End If
 
 
 End Sub

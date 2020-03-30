@@ -24,7 +24,8 @@ procedure ProcessDim(AScope: integer; ALine: TStringList; AProg: TInstructionLis
 
 implementation
 
-uses uparsevb, uparsescalar, uexpressions, utriggerinstructions, uprocedures;
+uses uparsevb, uparsescalar, uexpressions, utriggerinstructions, uprocedures,
+  umapinfo;
 
 function TryUnitProperties(AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
 var intVal, oldIndex: integer;
@@ -373,7 +374,7 @@ var
   varName, varType, filename, text: String;
   arraySize, bitCount: integer;
   isArray: boolean;
-  timeMs, intVal: integer;
+  timeMs, intVal, i: integer;
   arrValues: ArrayOfInteger;
   boolVal: boolean;
   prop: TUnitProperties;
@@ -592,6 +593,11 @@ begin
           if TryToken(ALine,index,'Filename') then
           begin
             ExpectToken(ALine,index,'=');
+            if index >= ALine.Count then
+            begin
+              for i := WavMinIndex to WavMaxIndex do
+                AddToCompletionList(StrToBasic(MapInfo.WavName[i]));
+            end;
             filename := ExpectStringConstant(AScope,ALine,index);
           end else
           if TryToken(ALine,index,'Duration') then

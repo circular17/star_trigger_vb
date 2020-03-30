@@ -548,16 +548,14 @@ begin
     if TryToken(ALine,AIndex,'Alliance') then
     begin
       CheckCurrentPlayer;
-      ExpectToken(ALine,AIndex,'(');
-      players := ExpectPlayers(AScope,ALine,AIndex);
-      ExpectToken(ALine,AIndex,')');
-      ExpectToken(ALine,AIndex,'=');
-      ExpectToken(ALine,AIndex,'Alliance');
       ExpectToken(ALine,AIndex,'.');
       if TryToken(ALine,AIndex,'Ennemy') then alliance := asEnnemy
       else if TryToken(ALine,AIndex,'Ally') then alliance := asAlly
       else if TryToken(ALine,AIndex,'AlliedVictory') then alliance := asAlliedVictory
       else raise exception.Create('Expecting alliance status (Ennemy, Ally, AlliedVictory)');
+      ExpectToken(ALine,AIndex,'(');
+      players := ExpectPlayers(AScope,ALine,AIndex);
+      ExpectToken(ALine,AIndex,')');
 
       for pl := low(TPlayer) to high(TPlayer) do
         if pl in players then AProg.Add(TSetAllianceStatus.Create(pl, alliance));

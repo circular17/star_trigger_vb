@@ -2507,12 +2507,13 @@ end;
 
 function TSetAllianceStatus.ToBasic: string;
 begin
-  Result:= 'Me.Alliance(' + PlayerIdentifiers[Player]+') = Alliance.';
+  Result:= 'Me.Alliance.';
   case Status of
   asEnnemy: result += 'Ennemy';
   asAlly: result += 'Ally';
   asAlliedVictory: result += 'AlliedVictory';
   end;
+  result += '(' + PlayerIdentifiers[Player]+')';
 end;
 
 function TSetAllianceStatus.ToTrigEdit: string;

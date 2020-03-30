@@ -1054,7 +1054,7 @@ begin
   result := PlayerIdentifiers[Player]+'.CreateUnit('+inttostr(Quantity)+', '+StarcraftUnitIdentifier[UnitType];
   if not MapInfo.IsAnywhere(Location) then result += ', ' + StrToBasic(Location);
   result += ')';
-  if Properties >= 0 then result += ' With UnitProperties' + inttostr(Properties+1);
+  if Properties >= 0 then result += ' With UnitProperties' + inttostr(Properties);
 end;
 
 function TCreateUnitInstruction.ToTrigEdit: string;

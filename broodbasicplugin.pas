@@ -59,7 +59,7 @@ begin
   Context.Triggers := Triggers;
   Context.MissionBriefing := MissionBriefing;
   Context.SwitchRenaming := SwitchRenaming;
-  Context.UnitProperties := UnitProperties;
+  Context.UnitPropertiesList := UnitProperties;
   Context.UnitPropUsage := UnitPropUsage;
   Context.AllocRam := scmd2_malloc;
   Context.DeAllocRam := scmd2_free;

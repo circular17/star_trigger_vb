@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, fgl, uscmdrafttypes, umapinfo, utriggercode, utriggerchunk, usctypes,
-  utriggerconditions, utriggerinstructions;
+  utriggerconditions, utriggerinstructions, uunitpropchunk;
 
 const
   PluginMenu = 'BroodBasic program';
@@ -20,11 +20,14 @@ type
   private
     function GetTrigger(AIndex: integer): PTriggerData;
     function GetTriggerCount: integer;
+    function GetUnitProperties(AIndex: integer): PUnitPropertiesData;
+    function GetUnitPropertiesUsed(AIndex: integer): boolean;
+    procedure SetUnitPropertiesUsed(AIndex: integer; AValue: boolean);
   public
     Section: TMenuSection;
     EngineData: PEngineData;
     Triggers, MissionBriefing, SwitchRenaming,
-    UnitProperties, UnitPropUsage: PChunkData;
+    UnitPropertiesList, UnitPropUsage: PChunkData;
     AllocRam: TAllocRamProc;
     DeAllocRam: TDeAllocRamProc;
     ReAllocRam: TReAllocRamProc;
@@ -45,6 +48,8 @@ type
     function GetSwitchIndex(AName: string): integer;
     property TriggerCount: integer read GetTriggerCount;
     property Trigger[AIndex: integer]: PTriggerData read GetTrigger;
+    property UnitProperties[AIndex: integer]: PUnitPropertiesData read GetUnitProperties;
+    property UnitPropertiesUsed[AIndex: integer]: boolean read GetUnitPropertiesUsed write SetUnitPropertiesUsed;
   end;
 
   { TPluginMapInfo }
@@ -86,6 +91,23 @@ end;
 function TPluginContext.GetTriggerCount: integer;
 begin
   result := Triggers^.Size div sizeof(TTriggerData);
+end;
+
+function TPluginContext.GetUnitProperties(AIndex: integer): PUnitPropertiesData;
+begin
+  if (AIndex < MIN_UNIT_PROPERTIES) or (AIndex > MAX_UNIT_PROPERTIES) then result := nil
+  else result := PUnitPropertiesData(UnitPropertiesList^.Data)+(AIndex-1);
+end;
+
+function TPluginContext.GetUnitPropertiesUsed(AIndex: integer): boolean;
+begin
+  if (AIndex < MIN_UNIT_PROPERTIES) or (AIndex > MAX_UNIT_PROPERTIES) then result := false
+  else result := (PByte(UnitPropUsage^.Data)+(AIndex-1))^ <> 0;
+end;
+
+procedure TPluginContext.SetUnitPropertiesUsed(AIndex: integer; AValue: boolean);
+begin
+  (PByte(UnitPropUsage^.Data)+AIndex)^ := byte(AValue);
 end;
 
 procedure TPluginContext.ClearTriggers;
@@ -201,6 +223,24 @@ begin
         if trigs[i].Action[j] is TPlayWAVInstruction then
         with TPlayWAVInstruction(trigs[i].Action[j]) do
           AddSoundInfo(Filename, DurationMs);
+    for i := MIN_UNIT_PROPERTIES to MAX_UNIT_PROPERTIES do
+      if UnitPropertiesUsed[i] then
+      with UnitProperties[i]^ do
+      begin
+        result += 'Const UnitProperties' + inttostr(i) + ' As UnitProperties = {';
+        if CloakValid and IsCloaked then result += '.Cloaked = True, ';
+        if BurrowValid and IsBurrowed then result += '.Burrowed = True, ';
+        if InTransitValid and IsInTransit then result += '.Lifted = True, ';
+        if HallucinateValid and IsHallucinated then result += '.Hallucinated = True, ';
+        if InvincibleValid and IsInvincible then result += '.Invincible = True, ';
+        if HitPointsValid and (HitPoints <> 100) then result += '.Life = ' + inttostr(HitPoints) + ', ';
+        if ShieldValid and (Shield <> 100) then result += '.Shield = ' + inttostr(Shield) + ', ';
+        if EnergyValid and (Energy <> 25) then result += '.Energy = ' + inttostr(Energy) + ', ';
+        if ResourceAmountValid and (ResourceAmount <> 0) then result += '.Resource = ' + inttostr(ResourceAmount) + ', ';
+        if HangarCountValid and (HangarCount <> 0) then result += '.HangarCount = ' + inttostr(HangarCount) + ', ';
+        if copy(result, length(result)-1, 2) = ', ' then delete(result, length(result)-1, 2);
+        result += '}' + LineEnding;
+      end;
     if result <> '' then result += LineEnding;
     for i := 0 to trigs.Count-1 do
       result += trigs[i].ToBasic+LineEnding+LineEnding;

@@ -12,7 +12,7 @@
       </SearchPaths>
     </CompilerOptions>
     <Version Minor="1"/>
-    <Files Count="19">
+    <Files Count="20">
       <Item1>
         <Filename Value="uarithmetic.pas"/>
         <UnitName Value="uarithmetic"/>
@@ -89,6 +89,10 @@
         <Filename Value="ureadinstruction.pas"/>
         <UnitName Value="ureadinstruction"/>
       </Item19>
+      <Item20>
+        <Filename Value="uunitpropchunk.pas"/>
+        <UnitName Value="uunitpropchunk"/>
+      </Item20>
     </Files>
     <RequiredPkgs Count="1">
       <Item1>

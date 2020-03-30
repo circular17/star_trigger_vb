@@ -50,7 +50,7 @@ begin
   if AContext.Section = SectionCodeToLongWord(PluginMenuSection) then
   begin
  {   DumpChunk(AContext.Triggers, 'triggers');
-    DumpChunk(AContext.UnitProperties, 'unitprop');
+    DumpChunk(AContext.UnitPropertiesList, 'unitprop');
     DumpChunk(AContext.UnitPropUsage, 'unitpropuse');   }
 
     MapInfo := TPluginMapInfo.Create(AContext);

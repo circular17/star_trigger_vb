@@ -1,4 +1,4 @@
-unit utriggerchunk;
+unit utriggerchunk;  //TRIG
 
 {$mode objfpc}{$H+}
 

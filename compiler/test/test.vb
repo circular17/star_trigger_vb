@@ -5,7 +5,7 @@ Const MAX_SWAPS = 3
 Dim AllowedSwaps As Byte = MAX_SWAPS
 
 As Player1
-Sub New()
+Sub Main()
     CreateUnit(1, Terran.Marine, "TestLocation")
 End Sub
 

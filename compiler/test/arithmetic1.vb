@@ -1,7 +1,7 @@
 Option Hyper On
 
 As Player1
-Sub New()
+Sub Main()
 
   Dim a As Byte = 250
   dim b As Byte = 20

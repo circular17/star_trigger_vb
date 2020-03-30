@@ -5,7 +5,7 @@ On Count = 1
   AllPlayers.Print("Finished countdown!")
 End On
 
-Sub New()
+Sub Main()
   Count = 50  
 End Sub
 

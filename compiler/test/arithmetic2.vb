@@ -5,7 +5,7 @@ const CONSTANT_B = 2
 Const CONSTANT_C = 8
 
 As Player1
-Sub New()
+Sub Main()
   
   Print("hello world")
 

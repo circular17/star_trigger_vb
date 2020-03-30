@@ -1,7 +1,7 @@
 Const Loc = "TestLocation"
 Const MarineProp As UnitProperties = {.Life = 50}
 
-Sub New()
+Sub Main()
 
     Player1.CreateUnit(1, Protoss.Probe, Loc)
     Player1.Units(1, Protoss.Probe, Loc).Shield = 0

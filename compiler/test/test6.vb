@@ -4,7 +4,7 @@ Function SpawnUnits() As Byte
 End Function
 
 As Player1
-Sub New()
+Sub Main()
     Dim foo as Byte, bar as Byte
     foo = SpawnUnits()
     bar = 5 + foo

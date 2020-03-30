@@ -1,4 +1,4 @@
-Sub New()
+Sub Main()
 
     AllPlayers.Print("Hello world")
 

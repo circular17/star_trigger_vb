@@ -7,7 +7,7 @@ interface
 uses
   Classes, SysUtils, usctypes, uinstructions;
 
-procedure ParseInstruction(AScope: integer; ALine: TStringList; AProg: TInstructionList; AThreads: TPlayers; AMainThread: TPlayer; AProcId: integer; AInSubNew: boolean);
+procedure ParseInstruction(AScope: integer; ALine: TStringList; AProg: TInstructionList; AThreads: TPlayers; AMainThread: TPlayer; AProcId: integer; AInSubMain: boolean);
 
 implementation
 
@@ -81,7 +81,7 @@ var
   intVal, propIndex, propVal, timeMs, tempInt, i: integer;
   unitType: TStarcraftUnit;
   locStr, destLocStr, orderStr, filename, text: String;
-  boolVal, textDefined: boolean;
+  textDefined: boolean;
   destPl: TPlayer;
   props: TUnitProperties;
   prop: TSetUnitProperty;
@@ -169,37 +169,6 @@ begin
       expr.Free;
     end;
   end else
-  if TryToken(ALine,AIndex,'KillUnit') or TryToken(ALine,AIndex,'RemoveUnit') then
-  begin
-    boolVal:= upcase(ALine[AIndex-1][1])='K';
-    ExpectToken(ALine,AIndex,'(');
-    intVal := ParseOptionalQuantity;
-    unitType := ExpectUnitType(AScope,ALine,AIndex);
-
-    if TryToken(ALine,AIndex,')') then
-      locStr:= ''
-    else
-    begin
-      ExpectToken(ALine,AIndex,',');
-      locStr := ExpectStringConstant(AScope,ALine,AIndex);
-      ExpectToken(ALine,AIndex,')');
-    end;
-    AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, boolVal));
-  end else
-  if TryToken(ALine,AIndex,'GiveUnit') then
-  begin
-    ExpectToken(ALine,AIndex,'(');
-    intVal := ParseOptionalQuantity;
-    unitType := ExpectUnitType(AScope,ALine,AIndex);
-    ExpectToken(ALine,AIndex,',');
-    locStr := ExpectStringConstant(AScope,ALine,AIndex);
-    ExpectToken(ALine,AIndex,',');
-    destPl := TryParsePlayer(AScope, ALine,AIndex);
-    if destPl = plNone then raise Exception.Create('Expecting player');
-    ExpectToken(ALine,AIndex,')');
-
-    AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
-  end else
   if TryToken(ALine,AIndex,'Location') then
   begin
     ExpectToken(ALine,AIndex,'(');
@@ -213,7 +182,7 @@ begin
        ExpectToken(ALine,AIndex,')');
        AProg.Add(TMoveLocationInstruction.Create(APlayer, suUnusedCaveIn, locStr, destLocStr));
     end else
-    if TryToken(ALine,AIndex,'Center') then
+    if TryToken(ALine,AIndex,'CenterOn') then
     begin
        ExpectToken(ALine,AIndex,'(');
        destLocStr := ExpectStringConstant(AScope,ALine,AIndex);
@@ -639,7 +608,7 @@ begin
   end;
 end;
 
-procedure ParseInstruction(AScope: integer; ALine: TStringList; AProg: TInstructionList; AThreads: TPlayers; AMainThread: TPlayer; AProcId: integer; AInSubNew: boolean);
+procedure ParseInstruction(AScope: integer; ALine: TStringList; AProg: TInstructionList; AThreads: TPlayers; AMainThread: TPlayer; AProcId: integer; AInSubMain: boolean);
 var
   index, intVal, idxArr, i, idxSound, sw, idxVar, idxMsg: integer;
   params: TStringList;
@@ -730,8 +699,8 @@ begin
   begin
     if TryToken(ALine,index,'Sub') then
     begin
-      if (AProcId = -1) and not AInSubNew then raise exception.Create('Not in a subroutine');
-      if not AInSubNew and (Procedures[AProcId].ReturnType <> 'Void') then raise exception.Create('Currently in a function, not a subroutine');
+      if (AProcId = -1) and not AInSubMain then raise exception.Create('Not in a subroutine');
+      if not AInSubMain and (Procedures[AProcId].ReturnType <> 'Void') then raise exception.Create('Currently in a function, not a subroutine');
       AProg.Add( TReturnInstruction.Create );
       CheckEndOfLine;
     end else

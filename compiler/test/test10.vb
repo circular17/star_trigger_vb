@@ -1,4 +1,4 @@
-Sub New()
+Sub Main()
     Do As {Player1,Player2}
         MissionObjectives = "Hello world!" & vbCrLf & 
                             "This is a multi-line string"

@@ -65,7 +65,7 @@ function ProcessEventStatement(ALine: TStringList; APlayers: TPlayers; ACheckSto
 procedure ClearProceduresAndEvents;
 
 const
-  SubNewScope = 1;
+  SubMainScope = 1;
 
 var
   MainProg: TInstructionList;
@@ -235,12 +235,12 @@ begin
   if index < ALine.Count then
     raise exception.Create('End of line expect but "' + ALine[index] + '" found');
 
-  if CompareText(name,'New')=0 then
+  if CompareText(name,'Main')=0 then
   begin
     if returnType <> 'Void' then
-      raise exception.Create('The sub New cannot have a return value');
+      raise exception.Create('The sub Main cannot have a return value');
     if paramCount <> 0 then
-      raise exception.Create('The sub New takes no parameter');
+      raise exception.Create('The sub Main takes no parameter');
     exit(-1);
   end else
     result := CreateProcedure(name,paramCount,returnType);
@@ -291,7 +291,7 @@ begin
 
   if Assigned(MainProg) then MainProg.FreeAll;
   MainProg := TInstructionList.Create;
-  MainProg.Add(TCommentInstruction.Create('Sub New'));
+  MainProg.Add(TCommentInstruction.Create('Sub Main'));
   if Assigned(MainCode) then MainCode.FreeAll;
   MainCode := TCodeLineList.Create;
 end;

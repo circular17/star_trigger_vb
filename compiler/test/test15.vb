@@ -6,7 +6,7 @@ On Player2.DeathCount(Terran.Marine) > 0
   PlayerScore(2) += 1
 End On
 
-Sub New()
+Sub Main()
   Dim foo(4) As Byte
   foo(1) = 15
   foo(2) = 42

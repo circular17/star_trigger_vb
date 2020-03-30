@@ -1,4 +1,4 @@
-Sub New()
+Sub Main()
   Player1.Minerals += 50
 End Sub
 

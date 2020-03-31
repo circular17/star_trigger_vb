@@ -280,6 +280,44 @@ begin
       ExpectToken(ALine,idx,')');
       AStr += chr(intVal);
     end else
+    if TryToken(ALine,idx,'Align') then
+    begin
+      ExpectToken(ALine,idx,'.');
+      if TryToken(ALine,idx,'Left') then AStr += '' else
+      if TryToken(ALine,idx,'Right') then AStr += #$12 else
+      if TryToken(ALine,idx,'Center') then AStr += #$13 else
+      if TryToken(ALine,idx,'Clear') then AStr += #$0C else
+        raise exception.Create('Expecting alignment identifier');
+    end else
+    if TryToken(ALine,idx,'Color') then
+    begin
+      ExpectToken(ALine,idx,'.');
+      if TryToken(ALine,idx,'PaleBlue') then AStr += #2 else
+      if TryToken(ALine,idx,'Yellow') then AStr += #3 else
+      if TryToken(ALine,idx,'White') then AStr += #4 else
+      if TryToken(ALine,idx,'Gray') then AStr += #5 else
+      if TryToken(ALine,idx,'Grey') then AStr += #5 else
+      if TryToken(ALine,idx,'Red') then AStr += #6 else
+      if TryToken(ALine,idx,'Green') then AStr += #7 else
+      if TryToken(ALine,idx,'RedPlayer') then AStr += #8 else
+      if TryToken(ALine,idx,'Invisible') then AStr += #$0B else
+      if TryToken(ALine,idx,'BluePlayer') then AStr += #$0E else
+      if TryToken(ALine,idx,'TealPlayer') then AStr += #$0F else
+      if TryToken(ALine,idx,'PurplePlayer') then AStr += #$10 else
+      if TryToken(ALine,idx,'OrangePlayer') then AStr += #$11 else
+      if TryToken(ALine,idx,'BrownPlayer') then AStr += #$15 else
+      if TryToken(ALine,idx,'WhitePlayer') then AStr += #$16 else
+      if TryToken(ALine,idx,'YellowPlayer') then AStr += #$17 else
+      if TryToken(ALine,idx,'GreenPlayer') then AStr += #$18 else
+      if TryToken(ALine,idx,'BrightYellowPlayer') then AStr += #$19 else
+      if TryToken(ALine,idx,'Cyan') then AStr += #$1A else
+      if TryToken(ALine,idx,'PinkPlayer') then AStr += #$1B else
+      if TryToken(ALine,idx,'DarkCyanPlayer') then AStr += #$1C else
+      if TryToken(ALine,idx,'GrayGreen') then AStr += #$1D else
+      if TryToken(ALine,idx,'BlueGray') then AStr += #$1E else
+      if TryToken(ALine,idx,'Turquoise') then AStr += #$1F else
+        raise exception.Create('Expecting color identifier');
+    end else
     if copy(ALine[idx],1,1) = '"' then
     begin
       AStr += RemoveQuotes(ALine[idx]);
@@ -398,7 +436,7 @@ begin
             (CompareText('AI',AName) = 0) or (CompareText('Present',AName) = 0) or
             (CompareText('CountIf',AName)=0) or IsUnitType(AName) or (CompareText('Alliance',AName) = 0) or
             (CompareText('Unit',AName) = 0) or (CompareText('Leaderboard',AName) = 0) or
-            (CompareText('Switch',AName) = 0);
+            (CompareText('Switch',AName) = 0) or (CompareText('Color',AName) = 0) or (CompareText('Align',AName) = 0);
 end;
 
 procedure ProcessDim(AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0: boolean; out AWarning: string);

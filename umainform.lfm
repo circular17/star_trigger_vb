@@ -1,7 +1,7 @@
 object FMain: TFMain
-  Left = 0
+  Left = 471
   Height = 674
-  Top = 115
+  Top = 200
   Width = 1418
   BorderIcons = [biSystemMenu, biMaximize]
   Caption = 'BroodBasic program'
@@ -49,6 +49,16 @@ object FMain: TFMain
       Left = 273
       Top = 2
       Action = Compile
+    end
+    object ToolButton1: TToolButton
+      Left = 347
+      Top = 2
+      Action = EditComment
+    end
+    object ToolButton2: TToolButton
+      Left = 434
+      Top = 2
+      Action = EditUncomment
     end
   end
   object Panel_Code: TPanel
@@ -983,6 +993,20 @@ object FMain: TFMain
       ImageIndex = 6
       OnExecute = EditPasteExecute
       ShortCut = 16470
+    end
+    object EditComment: TAction
+      Category = 'Edit'
+      Caption = 'Comment'
+      ImageIndex = 0
+      OnExecute = EditCommentExecute
+      ShortCut = 24665
+    end
+    object EditUncomment: TAction
+      Category = 'Edit'
+      Caption = 'Uncomment'
+      ImageIndex = 1
+      OnExecute = EditUncommentExecute
+      ShortCut = 24661
     end
   end
   object SynVBSyn1: TSynVBSyn

@@ -13,6 +13,8 @@ type
   { TFMain }
 
   TFMain = class(TForm)
+    EditUncomment: TAction;
+    EditComment: TAction;
     EditPaste: TAction;
     EditCopy: TAction;
     EditCut: TAction;
@@ -41,6 +43,8 @@ type
     SynEdit1: TSynEdit;
     SynVBSyn1: TSynVBSyn;
     Timer1: TTimer;
+    ToolButton1: TToolButton;
+    ToolButton2: TToolButton;
     ToolButton3: TToolButton;
     ToolButton4: TToolButton;
     ToolButton5: TToolButton;
@@ -49,9 +53,11 @@ type
     ImageList1: TImageList;
     ToolBar1: TToolBar;
     procedure CompileExecute(Sender: TObject);
+    procedure EditCommentExecute(Sender: TObject);
     procedure EditCopyExecute(Sender: TObject);
     procedure EditCutExecute(Sender: TObject);
     procedure EditPasteExecute(Sender: TObject);
+    procedure EditUncommentExecute(Sender: TObject);
     procedure FileOpenExecute(Sender: TObject);
     procedure FileSaveAsExecute(Sender: TObject);
     procedure FileSaveExecute(Sender: TObject);
@@ -90,7 +96,7 @@ var
 implementation
 
 uses ureadprog, uparsevb, uvariables, usctypes, umapinfo, uwritetriggers,
-  utrigeditoutput;
+  utrigeditoutput, math;
 
 {$R *.lfm}
 
@@ -275,6 +281,26 @@ begin
   end;
 end;
 
+procedure TFMain.EditCommentExecute(Sender: TObject);
+  procedure ApplyOnRow(AIndex: integer);
+  var
+    s: String;
+  begin
+    s := SynEdit1.Lines[AIndex-1];
+    if trim(s) <> '' then
+      SynEdit1.Lines[AIndex-1] := '''' + s;
+  end;
+var
+  i: Integer;
+begin
+  if not SynEdit1.SelAvail then
+    ApplyOnRow(SynEdit1.CaretY)
+  else
+    for i := min(SynEdit1.BlockBegin.y,SynEdit1.BlockEnd.y) to
+             max(SynEdit1.BlockBegin.y,SynEdit1.BlockEnd.y) do
+      ApplyOnRow(i);
+end;
+
 procedure TFMain.EditCopyExecute(Sender: TObject);
 begin
   SynEdit1.CopyToClipboard;
@@ -288,6 +314,32 @@ end;
 procedure TFMain.EditPasteExecute(Sender: TObject);
 begin
   SynEdit1.PasteFromClipboard;
+end;
+
+procedure TFMain.EditUncommentExecute(Sender: TObject);
+  procedure ApplyOnRow(AIndex: integer);
+  var
+    s: String;
+    p: Integer;
+  begin
+    s := SynEdit1.Lines[AIndex-1];
+    p := 1;
+    while (p <= length(s)) and (s[p] in[' ',#9]) do inc(p);
+    if (p <= length(s)) and (s[p] = '''') then
+    begin
+      delete(s, p, 1);
+      SynEdit1.Lines[AIndex-1] := s;
+    end;
+  end;
+var
+  i: Integer;
+begin
+  if not SynEdit1.SelAvail then
+    ApplyOnRow(SynEdit1.CaretY)
+  else
+    for i := min(SynEdit1.BlockBegin.y,SynEdit1.BlockEnd.y) to
+             max(SynEdit1.BlockBegin.y,SynEdit1.BlockEnd.y) do
+      ApplyOnRow(i);
 end;
 
 procedure TFMain.FileOpenExecute(Sender: TObject);

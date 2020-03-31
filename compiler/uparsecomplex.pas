@@ -215,13 +215,53 @@ begin
   setlength(result, count);
 end;
 
+function ExpectAIScript(ALine: TStringList; var AIndex: integer): integer;
+var
+  curIdent, nextIdent: String;
+  endIdentPos, startIdentPos, i: Integer;
+  found: Boolean;
+begin
+  curIdent := '';
+  repeat
+    found := false;
+    startIdentPos := length(curIdent);
+    for i := low(AIScripts) to high(AIScripts) do
+      if (curIdent = '') or AIScripts[i].Identifier.StartsWith(curIdent) then
+      begin
+        endIdentPos := AIScripts[i].Identifier.IndexOf('.', startIdentPos);
+        if endIdentPos = -1 then
+        begin
+          if TryToken(ALine,AIndex,AIScripts[i].Identifier.Substring(startIdentPos)) then
+            exit(i);
+        end else
+        begin
+          nextIdent := AIScripts[i].Identifier.Substring(startIdentPos, endIdentPos-startIdentPos);
+          if TryToken(ALine,AIndex,nextIdent) then
+          begin
+            ExpectToken(ALine,AIndex,'.');
+            curIdent := curIdent+nextIdent+'.';
+            found := true;
+            break;
+          end;
+        end;
+      end;
+    if not found then
+    begin
+      if not TryIdentifier(ALine, AIndex, curIdent, false) then
+        raise exception.Create('Expecting AI identifier')
+        else raise exception.Create('Unknown AI script');
+    end;
+  until false;
+  result := -1;
+end;
+
 function TryStringConstant(AScope: integer; ALine: TStringList; var AIndex: integer; out AStr: string; ARaiseException: boolean = false): boolean;
 var
   scalar: TScalarVariable;
   idxVar, intVal: Integer;
   boolVal: boolean;
-  idx, i: integer;
-  firstElem, found: boolean;
+  idx, aiIndex: integer;
+  firstElem: boolean;
 begin
   idx := AIndex;
   AStr := '';
@@ -268,15 +308,8 @@ begin
     if TryToken(ALine,idx,'AI') then
     begin
       ExpectToken(ALine,idx,'.');
-      found := false;
-      for i := low(AIScripts) to high(AIScripts) do
-        if TryToken(ALine,idx,AIScripts[i].Identifier) then
-        begin
-          AStr += AIScripts[i].Code;
-          found := true;
-          break;
-        end;
-      if not found then raise exception.Create('Unknown AI script');
+      aiIndex := ExpectAIScript(ALine,idx);
+      AStr += AIScripts[aiIndex].Code;
     end else
     begin
      idxVar := StringIndexOf(AScope, ALine[idx]);

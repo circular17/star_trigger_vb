@@ -254,6 +254,42 @@ begin
 
        AProg.Add(TTeleportUnitInstruction.Create(APlayer, intVal, unitType, locStr, destLocStr));
     end else
+    if TryToken(ALine,AIndex,'EnterTransport') then
+    begin
+       CheckCurrentPlayer;
+       if intVal <> -1 then
+         raise exception.Create('Cannot be applied to specific quantity of units');
+       if not (unitType in [suMen, suAnyUnit]) then
+         raise exception.Create('Available only for Men or AnyUnit');
+       if TryToken(ALine,AIndex,')') then
+         ExpectToken(ALine,AIndex,')');
+
+       AProg.Add(TRunAIScriptInstruction.Create('EnTr', locStr));
+    end else
+    if TryToken(ALine,AIndex,'ExitTransport') then
+    begin
+       CheckCurrentPlayer;
+       if intVal <> -1 then
+         raise exception.Create('Cannot be applied to specific quantity of units');
+       if not (unitType in [suMen, suAnyUnit]) then
+         raise exception.Create('Available only for Men or AnyUnit');
+       if TryToken(ALine,AIndex,')') then
+         ExpectToken(ALine,AIndex,')');
+
+       AProg.Add(TRunAIScriptInstruction.Create('ExTr', locStr));
+    end else
+    if TryToken(ALine,AIndex,'EnterClosestBunker') then
+    begin
+       CheckCurrentPlayer;
+       if intVal <> -1 then
+         raise exception.Create('Cannot be applied to specific quantity of units');
+       if not (unitType in [suMen, suAnyUnit]) then
+         raise exception.Create('Available only for Men or AnyUnit');
+       if TryToken(ALine,AIndex,')') then
+         ExpectToken(ALine,AIndex,')');
+
+       AProg.Add(TRunAIScriptInstruction.Create('EnBk', locStr));
+    end else
     if TryToken(ALine,AIndex,'AttractLocation') then
     begin
        ExpectToken(ALine,AIndex,'(');
@@ -559,6 +595,30 @@ begin
 
       for pl := low(TPlayer) to high(TPlayer) do
         if pl in players then AProg.Add(TSetAllianceStatus.Create(pl, alliance));
+    end else
+    if TryToken(ALine,AIndex,'SharedVision') then
+    begin
+      CheckCurrentPlayer;
+      ExpectToken(ALine,AIndex,'(');
+      pl := TryParsePlayer(AScope,ALine,AIndex);
+      if pl = plNone then
+      begin
+        if TryIntegerConstant(AScope, ALine, AIndex, intVal) then
+        begin
+          if (intVal < 1) or (intVal > 8) then
+            raise exception.Create('Player index out of bounds');
+          pl := TPlayer(ord(plPlayer1)+intVal-1);
+        end else
+          raise exception.Create('Expecting player index');
+      end;
+      if not (pl in[plPlayer1..plPlayer8]) then
+        raise exception.Create('Invalid player');
+      ExpectToken(ALine,AIndex,')');
+      ExpectToken(ALine,AIndex,'=');
+      conds := ExpectConditions(AScope,ALine,AIndex,AThreads);
+      AppendConditionalInstruction(AProg, conds,
+        TRunAIScriptInstruction.Create('+Vi'+inttostr(ord(pl)-ord(plPlayer1)), ''),
+        TRunAIScriptInstruction.Create('-Vi'+inttostr(ord(pl)-ord(plPlayer1)), ''));
     end else
     if TryToken(ALine,AIndex,'NextScenario') then
     begin

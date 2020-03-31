@@ -600,17 +600,18 @@ begin
 
           if TryToken(line,index,'Sub') or TryToken(line,index,'Function') then
           begin
-            inSub := ProcessSubStatement(line);
-            if inSub <> -1 then
-              raise exception.Create('You cannot specify the player for a sub or function except for Sub Main');
-            if subMainDeclared then raise exception.Create('Sub Main already declared');
-            inSubMain := true;
-            subMainDeclared:= true;
-            if not IsUniquePlayer(players) or (players = [plCurrentPlayer]) then
-              raise exception.Create('If you specify a player for Sub Main, it must be one specific player');
-            for pl := plPlayer1 to plPlayer8 do
-              if pl in players then AMainThread:= pl;
-            if AMainThread = plNone then raise exception.Create('This player can''t be used as a main thread');
+            inSub := ProcessSubStatement(line, players);
+            if inSub = -1 then
+            begin
+              if subMainDeclared then raise exception.Create('Sub Main already declared');
+              inSubMain := true;
+              subMainDeclared:= true;
+              if not IsUniquePlayer(players) or (players = [plCurrentPlayer]) then
+                raise exception.Create('If you specify a player for Sub Main, it must be one specific player');
+              for pl := plPlayer1 to plPlayer8 do
+                if pl in players then AMainThread:= pl;
+              if AMainThread = plNone then raise exception.Create('This player can''t be used as a main thread');
+            end;
           end else
             inEvent := ProcessEventStatement(line, players, true)
         end
@@ -649,7 +650,7 @@ begin
                 if Procedures[inSub].ReturnType <> 'Void' then raise exception.Create('Expecting "End Function"');
                 try
                   FillParseCompletionList := false;
-                  ParseCode([plAllPlayers], AMainThread, inSubMain, inSub, inEvent);
+                  ParseCode(Procedures[inSub].Players, AMainThread, inSubMain, inSub, inEvent);
                 finally
                   FillParseCompletionList := true;
                   with Procedures[inSub].Instructions do
@@ -668,7 +669,7 @@ begin
               if Procedures[inSub].ReturnType = 'Void' then raise exception.Create('Expecting "End Sub" instead');
               try
                 FillParseCompletionList := false;
-                ParseCode([plAllPlayers], AMainThread, inSubMain, inSub, inEvent);
+                ParseCode(Procedures[inSub].Players, AMainThread, inSubMain, inSub, inEvent);
               finally
                 FillParseCompletionList := true;
                 with Procedures[inSub].Instructions do
@@ -726,7 +727,7 @@ begin
       if inSub<>-1 then
       begin
         AddError(lineNumber, 'Sub or Function not finished');
-        ParseCode([plAllPlayers], AMainThread, inSubMain, inSub, inEvent);
+        ParseCode(Procedures[inSub].Players, AMainThread, inSubMain, inSub, inEvent);
         ALastScope:= Procedures[inSub].InnerScope;
       end;
 
@@ -739,7 +740,7 @@ begin
 
       if inSubMain then
       begin
-        AddError(lineNumber, 'Sub not finished');
+        AddError(lineNumber, 'Sub Main not finished');
         if AMainThread <> plNone then
           ParseCode([AMainThread], AMainThread, inSubMain, inSub, inEvent)
         else

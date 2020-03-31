@@ -39,14 +39,15 @@ var
     Calls: TIntegerList;
     ExprTempVarInt: integer;
     InnerScope: integer;
+    Players: TPlayers;
   end;
   ProcedureCount: integer;
 
-function CreateProcedure(AName: string; AParamCount: integer; AReturnType: string): integer;
+function CreateProcedure(AName: string; AParamCount: integer; AReturnType: string; APlayers: TPlayers): integer;
 function ProcedureIndexOf(AName: string; AParamCount: integer): integer;
 function GetProcedureExprTempVarInt(AProcId, ABitCount: integer): integer;
 function ProcedureReturnVar(AProcId: integer): integer;
-function ProcessSubStatement(ALine: TStringList): integer;
+function ProcessSubStatement(ALine: TStringList; APlayers: TPlayers = []): integer;
 
 var
   Events: array of record
@@ -104,11 +105,20 @@ begin
   end;
 end;
 
-function CreateProcedure(AName: string; AParamCount: integer; AReturnType: string): integer;
+function CreateProcedure(AName: string; AParamCount: integer; AReturnType: string; APlayers: TPlayers): integer;
 begin
   if ProcedureIndexOf(AName, AParamCount)<>-1 then
     raise exception.Create('Procedure already declared with this signature');
   CheckReservedWord(AName);
+
+  if plCurrentPlayer in APlayers then
+    raise exception.Create('Me cannot be used in Sub or Function definition');
+
+  if (APlayers = []) or (plAllPlayers in APlayers)
+    or ([plForce1,plForce2,plForce3,plForce4] <= APlayers)
+    or ([plNeutralPlayers,plAllies,plFoes] <= APlayers)
+    or ([plPlayer1,plPlayer2,plPlayer3,plPlayer4,plPlayer5,plPlayer6,plPlayer7,plPlayer8] <= APlayers)
+  then APlayers := [plAllPlayers];
 
   if ProcedureCount >= length(Procedures) then
     setlength(Procedures, ProcedureCount*2+4);
@@ -130,6 +140,7 @@ begin
     Calls := TIntegerList.Create;
     ExprTempVarInt := -1;
     InnerScope := result+2;
+    Players:= APlayers;
   end;
 end;
 
@@ -185,7 +196,7 @@ begin
   end;
 end;
 
-function ProcessSubStatement(ALine: TStringList): integer;
+function ProcessSubStatement(ALine: TStringList; APlayers: TPlayers): integer;
 var
   index: Integer;
   name: String;
@@ -243,7 +254,7 @@ begin
       raise exception.Create('The sub Main takes no parameter');
     exit(-1);
   end else
-    result := CreateProcedure(name,paramCount,returnType);
+    result := CreateProcedure(name,paramCount,returnType,APlayers);
 end;
 
 function ProcessEventStatement(ALine: TStringList; APlayers: TPlayers; ACheckStop: boolean): integer;

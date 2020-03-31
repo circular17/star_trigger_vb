@@ -416,6 +416,12 @@ begin
         break;
       end;
 
+      if Procedures[procIdx].Players <> [plAllPlayers] then
+      begin
+        if not (APlayers <= Procedures[procIdx].Players) then
+          raise exception.Create('The procedure "' + Procedures[procIdx].Name+'" is not available in this thread');
+      end;
+
       if (call.ReturnType <> 'Void') and not
       ((IsIntegerType(Procedures[procIdx].ReturnType) and IsIntegerType(call.ReturnType))
       or (Procedures[procIdx].ReturnType = call.ReturnType)) then

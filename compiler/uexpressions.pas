@@ -179,7 +179,9 @@ function TryIntegerConstantImplementation(AScope: integer; ALine: TStringList; v
   AValue: integer): boolean;
 var
   expr: TExpression;
+  oldIndex: integer;
 begin
+  oldIndex := AIndex;
   expr := TryExpression(AScope, ALine,AIndex,false,false);
   if expr = nil then
   begin
@@ -190,12 +192,14 @@ begin
   begin
     expr.Free;
     AValue := 0;
+    AIndex := oldIndex;
     exit(false);
   end;
   if expr.ConstElement < 0 then
   begin
     expr.Free;
     AValue := 0;
+    AIndex := oldIndex;
     exit(false);
   end;
   AValue := expr.ConstElement;
@@ -427,7 +431,7 @@ begin
           node := ParseSimpleNode;
           if node = nil then
           begin
-            result.Free;
+            FreeAndNil(result);
             raise exception.Create('Expecting second term of multiplication');
           end;
           if node is TConstantNode then

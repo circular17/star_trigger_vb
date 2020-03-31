@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, SynEdit, SynHighlighterVB, SynCompletion, Forms,
-  Controls, Graphics, Dialogs, StdCtrls, ComCtrls, ActnList, ExtCtrls, Menus;
+  Controls, Graphics, Dialogs, StdCtrls, ComCtrls, ActnList, ExtCtrls, Menus, LCLType;
 
 type
 
@@ -220,7 +220,11 @@ begin
       delete(lastLineStr, length(lastLineStr), 1);
     programUpToCursor.Add(lastLineStr);
   end;
-  ureadprog.ReadProg(programUpToCursor, MainThread, LastScope);
+  try
+    ureadprog.ReadProg(programUpToCursor, MainThread, LastScope);
+  except
+    //ignore
+  end;
   programUpToCursor.Free;
 
   AllCompletion.Clear;
@@ -472,6 +476,9 @@ begin
     if (CompareText(cur, copy(AllCompletion[i],1,length(cur)))= 0) or
       (pos(cur, AllCompletion[i])<>0) then
       SynCompletion1.ItemList.Add(AllCompletion[i]);
+  if ((SynCompletion1.Position < 0) or (SynCompletion1.Position >= SynCompletion1.ItemList.Count))
+     and (SynCompletion1.ItemList.Count > 0) then
+    SynCompletion1.Position := 0;
 end;
 
 procedure TFMain.SynEdit1Change(Sender: TObject);

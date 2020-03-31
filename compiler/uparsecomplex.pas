@@ -267,12 +267,6 @@ begin
   AStr := '';
   firstElem := true;
   repeat
-    if idx >= ALine.Count then
-    begin
-      if ARaiseException then raise exception.Create('Expecting string but end of line found');
-      exit(false);
-    end;
-
     if TryToken(ALine,idx,'Chr') then
     begin
       ExpectToken(ALine,idx,'(');
@@ -318,17 +312,17 @@ begin
       if TryToken(ALine,idx,'Turquoise') then AStr += #$1F else
         raise exception.Create('Expecting color identifier');
     end else
-    if copy(ALine[idx],1,1) = '"' then
+    if (idx < ALine.Count) and (copy(ALine[idx],1,1) = '"') then
     begin
       AStr += RemoveQuotes(ALine[idx]);
       Inc(idx);
     end else
-    if TryIntegerConstant(AScope, ALine,idx,intVal) then
+    if TryInteger(AScope, ALine,idx,intVal) then
     begin
       AStr += inttostr(intVal);
       if firstElem then
       begin
-        if not ((idx < ALine.Count) and (ALine[idx] = '&')) then exit(false);
+        if not TryToken(ALine, idx, '&') then exit(false);
         firstElem := false;
         continue;
       end;
@@ -338,7 +332,7 @@ begin
       AStr += BoolToStr(boolVal, 'True', 'False');
       if firstElem then
       begin
-        if not ((idx < ALine.Count) and (ALine[idx] = '&')) then exit(false);
+        if not TryToken(ALine, idx, '&') then exit(false);
         firstElem := false;
         continue;
       end;
@@ -350,11 +344,10 @@ begin
       AStr += AIScripts[aiIndex].Code;
     end else
     begin
-     idxVar := StringIndexOf(AScope, ALine[idx]);
+     idxVar := TryStringVariable(AScope, ALine, idx);
      if idxVar <> -1 then
      begin
        AStr += StringVars[idxVar].Value;
-       inc(idx);
      end else
      begin
        idxVar := TryStringArray(AScope, ALine, idx);
@@ -371,7 +364,7 @@ begin
          AStr += StringArrays[idxVar].Values[intVal-1];
        end else
        begin
-         scalar := TryScalarVariable(AScope, ALine,idx);
+         scalar := TryScalarVariable(AScope, ALine, idx, true);
          if scalar.VarType <> svtNone then
          begin
            if not scalar.Constant then
@@ -388,13 +381,18 @@ begin
 
            if firstElem then
            begin
-             if not ((idx < ALine.Count) and (ALine[idx] = '&')) then exit(false);
+             if not TryToken(ALine, idx, '&') then exit(false);
              firstElem := false;
              continue;
            end;
          end else
          begin
-           if ARaiseException then raise exception.Create('Expecting string but "' + ALine[idx] + '" found');
+           if ARaiseException then
+           begin
+             if idx >= ALine.Count then
+               raise exception.Create('Expecting string but end of line found')
+               else raise exception.Create('Expecting string but "' + ALine[idx] + '" found');
+           end;
            exit(false);
          end;
        end;

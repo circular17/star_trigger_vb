@@ -774,7 +774,7 @@ begin
     UnitPropertiesUsed := false
   else
   begin
-    GenericValue := GenericValue;
+    GenericValue := AValue;
     UnitPropertiesUsed:= true;
   end;
 end;

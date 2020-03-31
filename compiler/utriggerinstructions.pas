@@ -1064,7 +1064,7 @@ begin
 
   result += '("'+ PlayerToTrigEditStr(Player)+'", ' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
   result += inttostr(Quantity) + ', '+AddTrigEditQuotes(Location);
-  if Properties >=0 then result += ', ' + inttostr(Properties+1);
+  if Properties >= 0 then result += ', ' + inttostr(Properties);
 
   result += ')';
 end;

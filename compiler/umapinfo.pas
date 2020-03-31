@@ -30,6 +30,7 @@ type
     function StrictLocations: boolean; virtual; abstract;
     function RetrieveStoredProgram: string; virtual; abstract;
     procedure UpdateTriggers; virtual; abstract;
+    procedure UpdateUnitProperties; virtual; abstract;
     function IsAnywhere(ALocation: string): boolean;
     function LocationIndexOf(ALocation:string): integer; virtual; abstract;
     function LocationExists(AIndex: integer): boolean; virtual; abstract;
@@ -60,6 +61,7 @@ type
     function StrictLocations: boolean; override;
     function RetrieveStoredProgram: string; override;
     procedure UpdateTriggers; override;
+    procedure UpdateUnitProperties; override;
     function LocationExists(AIndex: integer): boolean; override;
     function LocationIndexOf(ALocation:string): integer; override;
     function TrigStringAllocate({%H-}AText: string): integer; override;
@@ -127,6 +129,11 @@ begin
 end;
 
 procedure TDefaultMapInfo.UpdateTriggers;
+begin
+  raise exception.Create('Not implemented');
+end;
+
+procedure TDefaultMapInfo.UpdateUnitProperties;
 begin
   raise exception.Create('Not implemented');
 end;

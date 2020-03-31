@@ -151,7 +151,7 @@ begin
       end;
 
       if expr.IsConstant then
-        AProg.Add(TCreateUnitInstruction.Create(APlayer, expr.ConstElement, unitType, locStr, propIndex))
+        AProg.Add(TCreateUnitInstruction.Create(APlayer, expr.ConstElement, unitType, locStr, propIndex+1))
       else
       begin
         tempInt := AllocateTempInt(8);
@@ -159,7 +159,7 @@ begin
         for i := 7 downto 0 do
         begin
           subInstr := TInstructionList.Create;
-          subInstr.Add( TCreateUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, propIndex) );
+          subInstr.Add( TCreateUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, propIndex+1) );
           subInstr.Add( CreateSetIntegerInstruction(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
           AProg.Add( TFastIfInstruction.Create( [CreateIntegerCondition( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i)], subInstr) );
         end;

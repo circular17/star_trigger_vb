@@ -145,7 +145,8 @@ begin
       if MapInfo.ProgramMapEmbedded then
         uwritetriggers.CreateTriggers(MainThread, SynEdit1.Text)
       else
-        uwritetriggers.CreateTriggers(MainThread, '')
+        uwritetriggers.CreateTriggers(MainThread, '');
+      uvariables.CompileUnitProperties;
     except on ex:exception do
       ReadProgErrors.Add(ex.Message);
     end;
@@ -262,6 +263,7 @@ begin
       try
         if CurFilename <> '' then FileSave.Execute;
         MapInfo.UpdateTriggers;
+        MapInfo.UpdateUnitProperties;
         if CurFilename = '' then Modified:= false; //stored in map
         ShowMessage('Triggers have been updated. The source code has been stored in the map so that it will be retrieved next time you open this editor.');
         Close;

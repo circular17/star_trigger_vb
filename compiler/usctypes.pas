@@ -49,10 +49,10 @@ const
     '', '', '', '', 'NonAlliedVictoryPlayers');
 
 type
-  TUnitProperties = record
-    Life, Shield, Energy: byte;
+  TUnitProperties = packed record
     Resource, HangarCount: integer;
-    Invincible, Burrowed, Lifted, Hallucinated, Cloaked: boolean;
+    Life, Shield, Energy: byte;
+    Invincible, Burrowed, Lifted, Hallucinated, Cloaked: ByteBool;
   end;
 
   TAIScript = record

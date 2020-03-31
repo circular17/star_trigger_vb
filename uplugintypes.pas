@@ -20,8 +20,9 @@ type
   private
     function GetTrigger(AIndex: integer): PTriggerData;
     function GetTriggerCount: integer;
-    function GetUnitProperties(AIndex: integer): PUnitPropertiesData;
+    function GetUnitProperties(AIndex: integer): TUnitPropertiesData;
     function GetUnitPropertiesUsed(AIndex: integer): boolean;
+    procedure SetUnitProperties(AIndex: integer; const AValue: TUnitPropertiesData);
     procedure SetUnitPropertiesUsed(AIndex: integer; AValue: boolean);
   public
     Section: TMenuSection;
@@ -33,6 +34,7 @@ type
     ReAllocRam: TReAllocRamProc;
     procedure ClearTriggers;
     procedure AddCompiledTriggers;
+    procedure UpdateCompiledUnitProperties;
     function RetrieveStoredTriggers: TTriggerList;
     function RetrieveStoredProgram: string;
     function UseWavFilename(AFilename: string): integer;
@@ -48,7 +50,7 @@ type
     function GetSwitchIndex(AName: string): integer;
     property TriggerCount: integer read GetTriggerCount;
     property Trigger[AIndex: integer]: PTriggerData read GetTrigger;
-    property UnitProperties[AIndex: integer]: PUnitPropertiesData read GetUnitProperties;
+    property UnitProperties[AIndex: integer]: TUnitPropertiesData read GetUnitProperties write SetUnitProperties;
     property UnitPropertiesUsed[AIndex: integer]: boolean read GetUnitPropertiesUsed write SetUnitPropertiesUsed;
   end;
 
@@ -67,6 +69,7 @@ type
     constructor Create(const AContext: TPluginContext);
     function RetrieveStoredProgram: string; override;
     procedure UpdateTriggers; override;
+    procedure UpdateUnitProperties; override;
     function StrictLocations: boolean; override;
     function LocationIndexOf(ALocation:string): integer; override;
     function TrigStringAllocate(AText: string): integer; override;
@@ -93,21 +96,35 @@ begin
   result := Triggers^.Size div sizeof(TTriggerData);
 end;
 
-function TPluginContext.GetUnitProperties(AIndex: integer): PUnitPropertiesData;
+function TPluginContext.GetUnitProperties(AIndex: integer): TUnitPropertiesData;
 begin
-  if (AIndex < MIN_UNIT_PROPERTIES) or (AIndex > MAX_UNIT_PROPERTIES) then result := nil
-  else result := PUnitPropertiesData(UnitPropertiesList^.Data)+(AIndex-1);
+  if (AIndex < MIN_UNIT_PROPERTIES) or
+     (dword(AIndex-MIN_UNIT_PROPERTIES) >= UnitPropertiesList^.Size div sizeof(TUnitPropertiesData)) then
+     raise exception.Create('Unit properties chunk out of bounds');
+  result := (PUnitPropertiesData(UnitPropertiesList^.Data)+(AIndex-MIN_UNIT_PROPERTIES))^;
 end;
 
 function TPluginContext.GetUnitPropertiesUsed(AIndex: integer): boolean;
 begin
-  if (AIndex < MIN_UNIT_PROPERTIES) or (AIndex > MAX_UNIT_PROPERTIES) then result := false
-  else result := (PByte(UnitPropUsage^.Data)+(AIndex-1))^ <> 0;
+  if (AIndex < MIN_UNIT_PROPERTIES) or
+     (dword(AIndex-MIN_UNIT_PROPERTIES) >= UnitPropUsage^.Size) then exit(false);
+  result := (PByte(UnitPropUsage^.Data)+(AIndex-MIN_UNIT_PROPERTIES))^ <> 0;
+end;
+
+procedure TPluginContext.SetUnitProperties(AIndex: integer;
+  const AValue: TUnitPropertiesData);
+begin
+  if (AIndex < MIN_UNIT_PROPERTIES) or
+     (dword(AIndex-MIN_UNIT_PROPERTIES) >= UnitPropertiesList^.Size div sizeof(TUnitPropertiesData)) then
+     raise exception.Create('Unit properties chunk out of bounds');
+  (PUnitPropertiesData(UnitPropertiesList^.Data)+(AIndex-MIN_UNIT_PROPERTIES))^ := AValue;
 end;
 
 procedure TPluginContext.SetUnitPropertiesUsed(AIndex: integer; AValue: boolean);
 begin
-  (PByte(UnitPropUsage^.Data)+AIndex)^ := byte(AValue);
+  if (AIndex < MIN_UNIT_PROPERTIES) or
+     (dword(AIndex-MIN_UNIT_PROPERTIES) >= UnitPropUsage^.Size) then raise exception.Create('Unit properties chunk out of bounds');
+  (PByte(UnitPropUsage^.Data)+AIndex-MIN_UNIT_PROPERTIES)^ := byte(AValue);
 end;
 
 procedure TPluginContext.ClearTriggers;
@@ -149,6 +166,18 @@ begin
     t := Trigger[from+i];
     fillchar(t^, sizeof(TTriggerData), 0);
     CompiledTriggers[i].WriteTriggerData(t^);
+  end;
+end;
+
+procedure TPluginContext.UpdateCompiledUnitProperties;
+var
+  i: Integer;
+begin
+  for i := MIN_UNIT_PROPERTIES to MAX_UNIT_PROPERTIES do
+  begin
+    UnitPropertiesUsed[i] := CompiledUnitProperties[i].Used;
+    if CompiledUnitProperties[i].Used then
+      UnitProperties[i] := CompiledUnitProperties[i].Data;
   end;
 end;
 
@@ -225,7 +254,7 @@ begin
           AddSoundInfo(Filename, DurationMs);
     for i := MIN_UNIT_PROPERTIES to MAX_UNIT_PROPERTIES do
       if UnitPropertiesUsed[i] then
-      with UnitProperties[i]^ do
+      with UnitProperties[i] do
       begin
         result += 'Const UnitProperties' + inttostr(i) + ' As UnitProperties = {';
         if CloakValid and IsCloaked then result += '.Cloaked = True, ';
@@ -360,6 +389,11 @@ procedure TPluginMapInfo.UpdateTriggers;
 begin
   FContext.ClearTriggers;
   FContext.AddCompiledTriggers;
+end;
+
+procedure TPluginMapInfo.UpdateUnitProperties;
+begin
+  FContext.UpdateCompiledUnitProperties;
 end;
 
 function TPluginMapInfo.StrictLocations: boolean;

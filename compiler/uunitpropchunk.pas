@@ -70,6 +70,12 @@ type
     property HangarCountValid: boolean read GetHangarCountValid;
   end;
 
+var
+  CompiledUnitProperties: array[MIN_UNIT_PROPERTIES..MAX_UNIT_PROPERTIES] of record
+    Data: TUnitPropertiesData;
+    Used: boolean;
+  end;
+
 implementation
 
 { TUnitPropertiesData }

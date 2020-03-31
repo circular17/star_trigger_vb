@@ -117,6 +117,7 @@ var
 function CreateUnitProp(AScope: integer; AName: string; AValue: TUnitProperties; AConstant: boolean): integer;
 function UnitPropIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean = true): integer;
 function FindOrCreateUnitProperty(AProp: TUnitProperties): integer;
+procedure CompileUnitProperties;
 
 var
   SoundVars: array of record
@@ -164,7 +165,7 @@ function FindOrCreateMessage(AText: string; APlayers: TPlayers): integer;
 
 implementation
 
-uses uparsevb;
+uses uparsevb, uunitpropchunk;
 
 var BoolResultVar: integer;
 
@@ -777,6 +778,34 @@ begin
   end;
   if result = -1 then
     result := CreateUnitProp(GlobalScope, '_prop'+inttostr(UnitPropCount+1), AProp, True);
+end;
+
+procedure CompileUnitProperties;
+var
+  i: Integer;
+begin
+  for i := 0 to UnitPropCount-1 do
+  with uunitpropchunk.CompiledUnitProperties[i+1] do
+  begin
+    Used := true;
+    Data.ValidFlags := FLAG_CLOAK or FLAG_BURROW or FLAG_IN_TRANSIT or
+                       FLAG_HALLUCINATE or FLAG_INVINCIBLE;
+    Data.ValidData:= FLAG_HITPOINTS or FLAG_SHIELD or FLAG_ENERGY or
+                     FLAG_RESOURCE_AMOUNT or FLAG_HANGAR_COUNT;
+    Data.Flags := 0;
+    if UnitPropVars[i].Value.Cloaked then inc(Data.Flags, FLAG_CLOAK);
+    if UnitPropVars[i].Value.Burrowed then inc(Data.Flags, FLAG_BURROW);
+    if UnitPropVars[i].Value.Lifted then inc(Data.Flags, FLAG_IN_TRANSIT);
+    if UnitPropVars[i].Value.Hallucinated then inc(Data.Flags, FLAG_HALLUCINATE);
+    if UnitPropVars[i].Value.Invincible then inc(Data.Flags, FLAG_INVINCIBLE);
+    Data.HitPoints:= UnitPropVars[i].Value.Life;
+    Data.Shield:= UnitPropVars[i].Value.Shield;
+    Data.Energy:= UnitPropVars[i].Value.Energy;
+    Data.ResourceAmount:= UnitPropVars[i].Value.Resource;
+    Data.HangarCount:= UnitPropVars[i].Value.HangarCount;
+  end;
+  for i := UnitPropCount to MaxUnitProperties-1 do
+    uunitpropchunk.CompiledUnitProperties[i+1].Used := false;
 end;
 
 function CreateSound(AScope: integer; AName: string; AFilename: string;

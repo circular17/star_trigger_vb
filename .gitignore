@@ -25,3 +25,5 @@ lib/i386-win32/
 
 compiler/lib/x86_64-linux/
 /compiler/output
+*.res
+ppas.bat

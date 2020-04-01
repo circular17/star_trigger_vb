@@ -57,6 +57,12 @@ var
   t: TextFile;
   i: Integer;
 begin
+  if UnitPropCount = 0 then
+  begin
+    if FileExists(AFilename) then
+      DeleteFile(AFilename);
+    exit;
+  end;
   AssignFile(t, AFilename);
   Rewrite(t);
   for i := 0 to UnitPropCount-1 do

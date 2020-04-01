@@ -74,7 +74,7 @@ begin
   proc.FreeAll;
 end;
 
-procedure ExpandInstructions(AProg: TInstructionList; AInProc: integer; APlayers: TPlayers; AExpanded: TInstructionList; AEndIP: integer);
+procedure ExpandInstructions(AProg: TInstructionList; AInProc: integer; AIsMain: boolean; APlayers: TPlayers; AExpanded: TInstructionList; AEndIP: integer);
 
   function AddWaitCondition(AConditions: TConditionList; ANextIP: integer): TWaitConditionInstruction;
   var
@@ -89,7 +89,7 @@ procedure ExpandInstructions(AProg: TInstructionList; AInProc: integer; APlayers
       begin
         tempExpand := TInstructionList.Create;
         arithm.Expression.AddToProgramInAccumulator(tempExpand);
-        ExpandInstructions(tempExpand, AInProc, APlayers, AExpanded, -1);
+        ExpandInstructions(tempExpand, AInProc, AIsMain, APlayers, AExpanded, -1);
         tempExpand.FreeAll;
 
         result := TWaitConditionInstruction.Create(CompareAccumulator(arithm.CompareMode,arithm.CompareValue), ANextIP);
@@ -103,7 +103,7 @@ procedure ExpandInstructions(AProg: TInstructionList; AInProc: integer; APlayers
           tempInt := GetProcedureExprTempVarInt(AInProc, arithm.GetBitCount);
         tempExpand := TInstructionList.Create;
         arithm.Expression.AddToProgram(tempExpand, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
-        ExpandInstructions(tempExpand, AInProc, APlayers, AExpanded, -1);
+        ExpandInstructions(tempExpand, AInProc, AIsMain, APlayers, AExpanded, -1);
         tempExpand.FreeAll;
         result := TWaitConditionInstruction.Create(CreateIntegerCondition(IntVars[tempInt].Player,IntVars[tempInt].UnitType, arithm.CompareMode,arithm.CompareValue), ANextIP);
         AExpanded.Add(result);
@@ -123,7 +123,7 @@ procedure ExpandInstructions(AProg: TInstructionList; AInProc: integer; APlayers
           tempInt := GetProcedureExprTempVarInt(AInProc, 8);
         tempExpand := TInstructionList.Create;
         AConditions.Compute(tempExpand, IntVars[tempInt].Player,IntVars[tempInt].UnitType);
-        ExpandInstructions(tempExpand, AInProc, APlayers, AExpanded, -1);
+        ExpandInstructions(tempExpand, AInProc, AIsMain, APlayers, AExpanded, -1);
         tempExpand.FreeAll;
         result := TWaitConditionInstruction.Create(CreateIntegerCondition(IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1), ANextIP);
         AExpanded.Add(result);
@@ -166,7 +166,7 @@ begin
     begin
       tempExpand := TInstructionList.Create;
       ExpandIntegerTransfer(TTransferIntegerInstruction(AProg[i]), tempExpand);
-      ExpandInstructions(tempExpand, AInProc, APlayers, AExpanded, -1);
+      ExpandInstructions(tempExpand, AInProc, AIsMain, APlayers, AExpanded, -1);
       tempExpand.FreeAll;
       Continue;
     end else
@@ -190,8 +190,9 @@ begin
       if doAs.Players - APlayers <> [] then
       begin
         varIdx := GetRunEventBoolVar;
-        AExpanded.Add( TSetSwitchInstruction.Create(BoolVars[varIdx].Switch, svClear) );
-        AExpanded.Add( TWaitForPlayersInstruction.Create( doAs.Players - APlayers, False ) );
+        if not AIsMain then
+          AExpanded.Add( TSetSwitchInstruction.Create(BoolVars[varIdx].Switch, svClear) );
+        AExpanded.Add( TWaitForPlayersInstruction.Create( doAs.Players - APlayers ) );
       end;
       nextIP := NewIP;
       for pl := low(TPlayer) to high(TPlayer) do
@@ -210,9 +211,10 @@ begin
       endDoAs := TEndDoAsInstruction(AProg[i]);
       if endDoAs.Players - APlayers <> [] then
       begin
-        AExpanded.Add( TDropThreadInstruction.Create(0, EndDoIP, endDoAs.Players - APlayers, APlayers) );
-        AExpanded.Add( TWaitForPlayersInstruction.Create( endDoAs.Players - APlayers, True ) );
-        AExpanded.Add( TSetSwitchInstruction.Create(BoolVars[GetRunEventBoolVar].Switch, svSet) );
+        AExpanded.Add( TDropThreadInstruction.Create(InitialIP, EndDoIP, endDoAs.Players - APlayers, APlayers) );
+        AExpanded.Add( TWaitForPlayersInstruction.Create( endDoAs.Players - APlayers ) );
+        if not AIsMain then
+          AExpanded.Add( TSetSwitchInstruction.Create(BoolVars[GetRunEventBoolVar].Switch, svSet) );
       end;
       continue;
     end else
@@ -255,7 +257,7 @@ begin
             tempExpand := TInstructionList.Create;
             for k := i+1 to j-1 do
               tempExpand.Add(AProg[k].Duplicate);
-            ExpandInstructions(tempExpand, AInProc, APlayers, AExpanded, startWhileIP);
+            ExpandInstructions(tempExpand, AInProc, AIsMain, APlayers, AExpanded, startWhileIP);
             tempExpand.FreeAll;
 
             splitInstr := TSplitInstruction.Create(waitInstr.IP, startWhileIP);
@@ -338,7 +340,7 @@ begin
             else
               AddWaitCondition(ifInstr.Conditions, nextIP);
 
-            ExpandInstructions(thenPart, AInProc, APlayers, AExpanded, -1);
+            ExpandInstructions(thenPart, AInProc, AIsMain, APlayers, AExpanded, -1);
             thenPart.FreeAll;
 
             splitInstr := TSplitInstruction.Create(nextIP,-1);
@@ -347,14 +349,14 @@ begin
             if (j = AProg.Count-1) and (AEndIP <> -1) then
             begin
               splitInstr.EndIP:= AEndIP;
-              ExpandInstructions(elsePart, AInProc, APlayers, AExpanded, AEndIP);
+              ExpandInstructions(elsePart, AInProc, AIsMain, APlayers, AExpanded, AEndIP);
               elsePart.FreeAll;
             end
             else
             begin
               nextIP := NewIP;
               splitInstr.EndIP:= nextIP;
-              ExpandInstructions(elsePart, AInProc, APlayers, AExpanded, nextIP);
+              ExpandInstructions(elsePart, AInProc, AIsMain, APlayers, AExpanded, nextIP);
               elsePart.FreeAll;
               AExpanded.Add(TChangeIPInstruction.Create(nextIP, 0));
             end;
@@ -475,36 +477,73 @@ begin
   for i := 0 to high(actions) do actions[i].Free;
 end;
 
-procedure WritePlayerPresenceTopTrigger({%H-}AMainThread: TPlayer);
+procedure WritePlayerPresenceTopTrigger({%H-}AMainThread: TPlayer; AMainExpanded: TInstructionList; AProceduresExpanded: array of TInstructionList);
+
+  procedure CheckProcedure(AProc: TInstructionList);
+  var
+    j: Integer;
+    pl: TPlayer;
+  begin
+    for j := 0 to AProc.Count-1 do
+      if AProc[j] is TWaitForPlayersInstruction then
+      begin
+        for pl := plPlayer1 to plPlayer8 do
+          if pl in TWaitForPlayersInstruction(AProc[j]).Players then
+            GetPlayerPresenceBoolVar(pl);
+      end;
+  end;
+
 var
   proc: TInstructionList;
   pl: TPlayer;
+  i: Integer;
+
 begin
   //at the begining of the cycle, set presence
-  proc := TInstructionList.Create;
+  CheckProcedure(AMainExpanded);
+  for i := 0 to high(AProceduresExpanded) do
+    CheckProcedure(AProceduresExpanded[i]);
   for pl := plPlayer1 to plPlayer8 do
     if IsPlayerPresenceUsed(pl) then
     begin
+      proc := TInstructionList.Create;
+      proc.Add(TCommentInstruction.Create(PlayerIdentifiers[pl]+'.Present = True'));
       proc.Add(TSetSwitchInstruction.Create(BoolVars[GetPlayerPresenceBoolVar(pl)].Switch, svSet));
       WriteProg([pl], [], proc, -1, -1, true);
-      proc[0].Free;
-      proc.Clear;
+      proc.FreeAll;
     end;
-  proc.Free;
 end;
 
 procedure WritePlayerPresenceBottomTrigger(AMainThread: TPlayer);
 var
   proc: TInstructionList;
   pl: TPlayer;
+  switch: Integer;
+  cond: TSwitchCondition;
+  setIP: TTriggerInstruction;
+  comment: TCommentInstruction;
 begin
   //at the end of main thread cycle, clear presence flags (they will be set until next main thread cycle)
   proc := TInstructionList.Create;
   for pl := plPlayer1 to plPlayer8 do
     if IsPlayerPresenceUsed(pl) then
-      proc.Add(TSetSwitchInstruction.Create(BoolVars[GetPlayerPresenceBoolVar(pl)].Switch, svClear));
+    begin
+      if not IPUnused then
+      begin
+        switch := BoolVars[GetPlayerPresenceBoolVar(pl)].Switch;
+        cond := TSwitchCondition.Create(switch, True);
+        setIP := SetNextIP(InitialIP, pl);
+        comment := TCommentInstruction.Create('Reset IP');
+        WriteTrigger([AMainThread], [cond], [comment, setIP], -1, true);
+        setIP.Free;
+        cond.Free;
+        comment.Free;
+      end;
+      proc.Add(TSetSwitchInstruction.Create(switch, svClear));
+    end;
   if proc.Count > 0 then
   begin
+    proc.Insert(0, TCommentInstruction.Create('Reset presence'));
     proc.Add(TSetSwitchInstruction.Create(BoolVars[GetPlayerPresenceDefinedVar].Switch, svSet)); //will be until next cycle
     WriteProg([AMainThread], [], proc, -1, -1, true);
   end;
@@ -526,7 +565,7 @@ var
   allProcDone, mainEmpty: Boolean;
   players, allEventPlayers: TPlayers;
   noSysIP: TCondition;
-  proc : TInstructionList;
+  computeConditionProc, computeConditionProcExpanded : TInstructionList;
   computedConds, nonComputedConds: TConditionList;
   tempCond: TCondition;
   MainProgExpanded: TInstructionList;
@@ -554,12 +593,12 @@ begin
   try
     MainProgExpanded := TInstructionList.Create;
     if not mainEmpty then
-      ExpandInstructions(MainProg, -1, [AMainThread], MainProgExpanded, EndIP);
+      ExpandInstructions(MainProg, -1, true, [AMainThread], MainProgExpanded, EndIP);
 
     for i := 0 to EventCount-1 do
     begin
       EventsExpanded[i] := TInstructionList.Create;
-      ExpandInstructions(Events[i].Instructions, -1, Events[i].Players, EventsExpanded[i], EndIP);
+      ExpandInstructions(Events[i].Instructions, -1, false, Events[i].Players, EventsExpanded[i], EndIP);
     end;
 
     repeat
@@ -569,7 +608,7 @@ begin
         begin
           allProcDone:= false;
           ProceduresExpanded[i] := TInstructionList.Create;
-          ExpandInstructions(Procedures[i].Instructions, i, [plAllPlayers], ProceduresExpanded[i], -1);
+          ExpandInstructions(Procedures[i].Instructions, i, false, [plAllPlayers], ProceduresExpanded[i], -1);
           Procedures[i].Expanded := true;
         end;
     until allProcDone;
@@ -577,11 +616,12 @@ begin
     if ASourceCode <> '' then
       WriteTriggerForSourceCode(ASourceCode);
 
-    WritePlayerPresenceTopTrigger(AMainThread);
+    WritePlayerPresenceTopTrigger(AMainThread, MainProgExpanded, ProceduresExpanded);
     WriteMessageTriggers(AMainThread);
 
     if not mainEmpty or RunEventBoolVarUsed then
     begin
+      MainProgExpanded.Insert(0, TCommentInstruction.Create('Sub Main'));
       if RunEventBoolVarUsed then
         MainProgExpanded.Add(TSetSwitchInstruction.Create(BoolVars[GetRunEventBoolVar].Switch, svSet));
       WriteProg([AMainThread], [], MainProgExpanded, -1, EndIP, False);
@@ -592,7 +632,12 @@ begin
       noSysIP := CheckSysIP(0);
       for i := 0 to ProcedureCount-1 do
         if Procedures[i].StartIP <> -1 then
+        begin
+          if Procedures[i].ReturnType <> 'Void' then
+            MainProgExpanded.Insert(0, TCommentInstruction.Create('Function '+Procedures[i].Name+' As '+Procedures[i].ReturnType))
+            else MainProgExpanded.Insert(0, TCommentInstruction.Create('Sub '+Procedures[i].Name));
           WriteProg([plAllPlayers], [noSysIP], ProceduresExpanded[i], Procedures[i].StartIP, EndIP, true);
+        end;
       noSysIP.Free;
     end;
 
@@ -607,37 +652,59 @@ begin
       if Events[i].Conditions.IsComputed then
       begin
         tempInt := GetGlobalExprTempVarInt(8);
-        proc := TInstructionList.Create;
         nonComputedConds := TConditionList.Create;
-
-        computedConds := TConditionList.Create;
-        for j := 0 to Events[i].Conditions.Count-1 do
-          if Events[i].Conditions[j].IsComputed then
-            computedConds.Add(Events[i].Conditions[j])
-          else
-            nonComputedConds.Add(Events[i].Conditions[j]);
-        computedConds.Compute(proc, IntVars[tempInt].Player, IntVars[tempInt].UnitType);
-        WriteProg(players, [], proc, EndIP, EndIP, Events[i].Preserve);
-        computedConds.Free;
-        proc.Free;
-
-        tempCond := CreateIntegerCondition(IntVars[tempInt].Player, IntVars[tempInt].UnitType, icmAtLeast, 1);
-        nonComputedConds.Add(tempCond);
-        WriteProg(players, nonComputedConds, EventsExpanded[i], EndIP, EndIP, Events[i].Preserve);
-        tempCond.Free;
-        nonComputedConds.Free;
+        try
+          computeConditionProc := TInstructionList.Create;
+          computeConditionProcExpanded := TInstructionList.Create;
+          try
+            computedConds := TConditionList.Create;
+            try
+              for j := 0 to Events[i].Conditions.Count-1 do
+                if Events[i].Conditions[j].IsComputed then
+                  computedConds.Add(Events[i].Conditions[j])
+                else
+                  nonComputedConds.Add(Events[i].Conditions[j]);
+              computedConds.Compute(computeConditionProc, IntVars[tempInt].Player, IntVars[tempInt].UnitType);
+              ExpandInstructions(computeConditionProc, -1, false, players, computeConditionProcExpanded, EndIP);
+              computeConditionProcExpanded.Insert(0, TCommentInstruction.Create('On '+ Events[i].Conditions.ToBasic(True)));
+              if (players <> [AMainThread]) and RunEventBoolVarUsed then
+              begin
+                tempCond := TSwitchCondition.Create(BoolVars[GetRunEventBoolVar].Switch,True);
+                WriteProg(players, [tempCond], computeConditionProcExpanded, EndIP, EndIP, Events[i].Preserve);
+                tempCond.Free;
+              end else
+              begin
+                WriteProg(players, [], computeConditionProcExpanded, EndIP, EndIP, Events[i].Preserve);
+              end;
+            finally
+              computedConds.Free;
+            end;
+          finally
+            computeConditionProcExpanded.FreeAll;
+            computeConditionProc.FreeAll;
+          end;
+          tempCond := CreateIntegerCondition(IntVars[tempInt].Player, IntVars[tempInt].UnitType, icmAtLeast, 1);
+          nonComputedConds.Add(tempCond);
+          WriteProg(players, nonComputedConds, EventsExpanded[i], EndIP, EndIP, Events[i].Preserve);
+          tempCond.Free;
+        finally
+          nonComputedConds.Free;
+        end;
       end else
+      begin
+        EventsExpanded[i].Insert(0, TCommentInstruction.Create('On '+ Events[i].Conditions.ToBasic(True)));
         WriteProg(players, Events[i].Conditions, EventsExpanded[i], EndIP, EndIP, Events[i].Preserve);
+      end;
     end;
 
     //write generated code at the end of the file
     WriteStackTriggers;
     WriteArithmeticTriggers;
+    RemoveIPIfUnused;
     WritePlayerPresenceBottomTrigger(AMainThread);
 
     //it is recommended to put hyper CompiledTriggers at the end
     WriteHyperTriggers;
-    RemoveIPIfUnused;
 
   finally
     MainProgExpanded.FreeAll;

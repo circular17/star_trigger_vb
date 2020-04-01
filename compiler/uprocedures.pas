@@ -130,7 +130,6 @@ begin
     Name := AName;
     ParamCount:= AParamCount;
     Instructions := TInstructionList.Create;
-    Instructions.Add(TCommentInstruction.Create('Sub '+AName));
     Code := TCodeLineList.Create;
     StartIP := -1;
     ReturnType := AReturnType;
@@ -189,7 +188,6 @@ begin
     Players := APlayers;
     Conditions := AConditions;
     Instructions := TInstructionList.Create;
-    Instructions.Add(TCommentInstruction.Create('On '+AConditions.ToBasic(True)));
     Code := TCodeLineList.Create;
     Preserve := APreserve;
     InnerScope := -1-result;
@@ -298,7 +296,6 @@ begin
 
   if Assigned(MainProg) then MainProg.FreeAll;
   MainProg := TInstructionList.Create;
-  MainProg.Add(TCommentInstruction.Create('Sub Main'));
   if Assigned(MainCode) then MainCode.FreeAll;
   MainCode := TCodeLineList.Create;
 end;

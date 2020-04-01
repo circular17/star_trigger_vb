@@ -73,6 +73,7 @@ procedure WriteProg(APlayers: TPlayers; AConditions: TConditionList; AProg: TIns
 function NewIP: integer;
 function SetNextIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TTriggerInstruction;
 function CheckIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TTriggerCondition;
+function IPUnused: boolean;
 function RemoveIPIfUnused: boolean;
 
 function NewSysIP: integer;
@@ -402,7 +403,6 @@ var
   instrCount: integer;
 
   NextIP, whileIP, beforeIP: integer;
-  switchCheck: TSwitchCondition;
   dropThread: TDropThreadInstruction;
   waitCond: TWaitConditionInstruction;
   fastIf: TFastIfInstruction;
@@ -470,16 +470,21 @@ begin
 
         if dropThread.PlayersToResume <> [] then
         begin
-          NextIP := NewIP;
-          WriteTrigger(APlayers, finalConditions, slice(consecutiveInstructions, instrCount), nextIP, APreserve or (ATempPreserve > 0));
+          if APlayers <= dropThread.PlayersToDrop then
+            WriteTrigger(APlayers, finalConditions, slice(consecutiveInstructions, instrCount), dropThread.DropIP, APreserve or (ATempPreserve > 0))
+          else
+          begin
+            NextIP := NewIP;
+            WriteTrigger(APlayers, finalConditions, slice(consecutiveInstructions, instrCount), nextIP, APreserve or (ATempPreserve > 0));
 
-          proc := TInstructionList.Create;
-          if APlayers * (dropThread.PlayersToResume - dropThread.PlayersToDrop) <> [] then
-            WriteProg(APlayers * (dropThread.PlayersToResume - dropThread.PlayersToDrop), [], proc, nextIP, dropThread.ResumeIP, APreserve or (ATempPreserve > 0));
+            proc := TInstructionList.Create;
+            if APlayers * (dropThread.PlayersToResume - dropThread.PlayersToDrop) <> [] then
+              WriteProg(APlayers * (dropThread.PlayersToResume - dropThread.PlayersToDrop), [], proc, nextIP, dropThread.ResumeIP, APreserve or (ATempPreserve > 0));
 
-          if APlayers * dropThread.PlayersToDrop <> [] then
-            WriteProg(APlayers * dropThread.PlayersToDrop, [], proc, nextIP, dropThread.DropIP, APreserve or (ATempPreserve > 0));
-          proc.Free;
+            if APlayers * dropThread.PlayersToDrop <> [] then
+              WriteProg(APlayers * dropThread.PlayersToDrop, [], proc, nextIP, dropThread.DropIP, APreserve or (ATempPreserve > 0));
+            proc.Free;
+          end;
 
           //carry on with the rest of the prog
           WriteProg(dropThread.PlayersToResume, [], AProg, dropThread.ResumeIP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
@@ -505,24 +510,14 @@ begin
         whileIP := NewIP;
         WriteProg(APlayers, [], proc, beforeIP,whileIP, true);
 
-        if waitFor.AwaitPresenceDefined then
-        begin
-          switchCheck := TSwitchCondition.Create( BoolVars[ GetPlayerPresenceDefinedVar() ].Switch, false);
-          WriteProg(APlayers, [switchCheck], proc, whileIP, beforeIP, true);
-          switchCheck.Free;
-        end;
-
-        switchCheck := TSwitchCondition.Create( -1, true);
         for pl := low(TPlayer) to high(TPlayer) do
           if pl in waitFor.Players then
           begin
-            switchCheck.Switch := BoolVars[ GetPlayerPresenceBoolVar(pl) ].Switch;
             ipCheck := CreateIntegerCondition(pl, IntArrays[GetIPVar].UnitType, icmAtLeast, 1);
-            WriteProg(APlayers, [switchCheck, ipCheck], proc, whileIP, beforeIP, true);
+            WriteProg(APlayers, [ipCheck], proc, whileIP, beforeIP, true);
             ipCheck.Free;
           end;
 
-        switchCheck.Free;
         proc.FreeAll;
 
         //carry on with the rest of the prog
@@ -583,7 +578,7 @@ begin
         break;
       end;
       if not (AProg[i] is TTriggerInstruction) then
-        raise exception.Create('Expecting trigger instruction')
+        raise exception.Create('Expecting trigger instruction but ' + AProg[i].Classname + ' found')
       else
         consecutiveInstructions[instrCount] := TTriggerInstruction(AProg[i]);
       inc(instrCount);
@@ -846,7 +841,7 @@ var
 begin
   if AInstruction is TEmptyInstruction then exit;
   if not (AInstruction is TTriggerInstruction) then
-    raise exception.Create('Expecting trigger instruction');
+    raise exception.Create('Expecting trigger instruction but ' +AInstruction.Classname + ' found');
   if ActionCount >= MAX_ACTIONS then
   begin
     //if too many actions, try to store the preserve trigger as a trigger flag

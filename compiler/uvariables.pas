@@ -103,7 +103,7 @@ function GetPlayerPresenceDefinedVar: integer;
 function GetPlayerPresentArray: integer;
 
 var
-  StopEventBoolVar: integer;
+  RunEventBoolVar: integer;
 
 function GetRunEventBoolVar: integer;
 function RunEventBoolVarUsed: boolean;
@@ -169,6 +169,23 @@ implementation
 
 uses uparsevb, uunitpropchunk;
 
+var
+  TempInts8: array of record
+    IntVar: integer;
+    Used: boolean;
+  end;
+  TempInt8Count: integer;
+  TempInts16: array of record
+    IntVar: integer;
+    Used: boolean;
+  end;
+  TempInt16Count: integer;
+  TempInts24: array of record
+    IntVar: integer;
+    Used: boolean;
+  end;
+  TempInt24Count: integer;
+
 var BoolResultVar: integer;
 
 procedure InitVariables;
@@ -187,8 +204,11 @@ begin
   for i := low(PlayerPresenceVar) to high(PlayerPresenceVar) do
     PlayerPresenceVar[i] := -1;
   PlayerPresenceDefinedVar := -1;
-  StopEventBoolVar := -1;
+  RunEventBoolVar := -1;
   MessageCount := 0;
+  TempInt8Count := 0;
+  TempInt16Count := 0;
+  TempInt24Count := 0;
   HyperTriggersOption := false;
 end;
 
@@ -423,23 +443,6 @@ begin
       if (IntVars[i].Scope = GlobalScope) and (CompareText(IntVars[i].Name, AName)=0) then exit(i);
   exit(-1);
 end;
-
-var
-  TempInts8: array of record
-    IntVar: integer;
-    Used: boolean;
-  end;
-  TempInt8Count: integer;
-  TempInts16: array of record
-    IntVar: integer;
-    Used: boolean;
-  end;
-  TempInt16Count: integer;
-  TempInts24: array of record
-    IntVar: integer;
-    Used: boolean;
-  end;
-  TempInt24Count: integer;
 
 function AllocateTempInt(ABitCount: integer): integer;
 var
@@ -722,18 +725,18 @@ end;
 
 function GetRunEventBoolVar: integer;
 begin
-  if StopEventBoolVar = -1 then
+  if RunEventBoolVar = -1 then
   begin
-    StopEventBoolVar := BoolVarIndexOf(GlobalScope, '_stopEvent');
-    if StopEventBoolVar = -1 then
-      StopEventBoolVar := CreateBoolVar(GlobalScope, '_stopEvent', svClear);
+    RunEventBoolVar := BoolVarIndexOf(GlobalScope, '_runEvent');
+    if RunEventBoolVar = -1 then
+      RunEventBoolVar := CreateBoolVar(GlobalScope, '_runEvent', svClear);
   end;
-  result := StopEventBoolVar;
+  result := RunEventBoolVar;
 end;
 
 function RunEventBoolVarUsed: boolean;
 begin
-  result := StopEventBoolVar <>-1;
+  result := RunEventBoolVar <>-1;
 end;
 
 function CreateUnitProp(AScope: integer; AName: string;

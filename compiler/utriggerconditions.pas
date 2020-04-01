@@ -23,7 +23,7 @@ type
   TAlwaysCondition = class(TTriggerCondition)
     function ToTrigEdit: string; override;
     function ToBasic({%H-}AUseVariables: boolean): string; override;
-    procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: TStarcraftUnit); override;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: Boolean); override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
     class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
@@ -34,7 +34,7 @@ type
   TNeverCondition = class(TTriggerCondition)
     function ToTrigEdit: string; override;
     function ToBasic({%H-}AUseVariables: boolean): string; override;
-    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit; {%H-}AFirst: boolean); override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
     class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
@@ -48,7 +48,7 @@ type
     constructor Create(ASwitch: integer; AValue: boolean);
     function ToBasic(AUseVariables: boolean): string; override;
     function ToTrigEdit: string; override;
-    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean); override;
     function Duplicate: TTriggerCondition; override;
     procedure WriteTriggerData(var AData: TTriggerConditionData); override;
     class function LoadFromData(const AData: TTriggerConditionData): TTriggerCondition; override;
@@ -484,9 +484,10 @@ var
   i: Integer;
 begin
   result := PlayerIdentifiers[Player]+'.DeathCount('+StarcraftUnitIdentifier[UnitType]+')';
-  for i := 0 to IntVarCount-1 do
-    if (IntVars[i].Player = Player) and (IntVars[i].UnitType = UnitType) then
-      result := IntVars[i].Name;
+  if AUseVariables then
+    for i := 0 to IntVarCount-1 do
+      if (IntVars[i].Player = Player) and (IntVars[i].UnitType = UnitType) then
+        result := IntVars[i].Name;
   result += ' '+IntConditionModeToBasic[Mode]+' ' +inttostr(Value);
 end;
 
@@ -619,9 +620,10 @@ begin
 end;
 
 procedure TAlwaysCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: TStarcraftUnit);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: Boolean);
 begin
-  //nothing
+  if AFirst then
+    AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,1));
 end;
 
 function TAlwaysCondition.Duplicate: TTriggerCondition;
@@ -655,7 +657,7 @@ begin
 end;
 
 procedure TNeverCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: TStarcraftUnit);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean);
 begin
   AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0));
 end;
@@ -709,8 +711,9 @@ begin
 end;
 
 procedure TSwitchCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: TStarcraftUnit);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean);
 begin
+  if AFirst then CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,1);
   AProg.Add(TFastIfInstruction.Create([TSwitchCondition.Create(Switch,not Value)], [CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0)]));
 end;
 

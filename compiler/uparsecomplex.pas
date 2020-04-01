@@ -541,6 +541,7 @@ begin
   while index < ALine.Count do
   begin
     if index > 1 then ExpectToken(ALine,index,',');
+    if index >= ALine.Count then break;
 
     isArray:= false;
     varName := ALine[index];

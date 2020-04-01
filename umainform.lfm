@@ -1,7 +1,7 @@
 object FMain: TFMain
-  Left = 471
+  Left = 368
   Height = 674
-  Top = 200
+  Top = 135
   Width = 1418
   BorderIcons = [biSystemMenu, biMaximize]
   Caption = 'BroodBasic program'

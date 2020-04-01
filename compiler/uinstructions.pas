@@ -34,7 +34,7 @@ type
   TCondition = class
     function IsArithmetic: boolean; virtual;
     function IsComputed: boolean; virtual;
-    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); virtual;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean); virtual;
     function ToBasic(AUseVariables: boolean): string; virtual; abstract;
     function Priority: integer; virtual; abstract;
     function Duplicate: TCondition; virtual; abstract;
@@ -111,8 +111,7 @@ type
 
   TWaitForPlayersInstruction = class(TInstruction)
     Players: TPlayers;
-    AwaitPresenceDefined: boolean;
-    constructor Create(APlayers: TPlayers; AAwaitPresenceDefined: boolean);
+    constructor Create(APlayers: TPlayers);
     function Duplicate: TInstruction; override;
   end;
 
@@ -250,7 +249,7 @@ type
     constructor Create(AConditions: TConditionList);
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
-    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean); override;
     function Priority: integer; override;
     function ToBasic(AUseVariables: boolean): string; override;
     function Duplicate: TCondition; override;
@@ -265,7 +264,7 @@ type
     constructor Create(AConditions: TConditionList);
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
-    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean); override;
     function Priority: integer; override;
     function ToBasic(AUseVariables: boolean): string; override;
     function Duplicate: TCondition; override;
@@ -280,7 +279,7 @@ type
     constructor Create(AConditions: TConditionList);
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
-    procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: TStarcraftUnit); override;
+    procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: TStarcraftUnit; {%H-}AFirst: boolean); override;
     function Priority: integer; override;
     function ToBasic(AUseVariables: boolean): string; override;
     function Duplicate: TCondition; override;
@@ -373,7 +372,7 @@ begin
 end;
 
 procedure TAndCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: TStarcraftUnit);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean);
 begin
   raise exception.Create('Not handled');
 end;
@@ -439,19 +438,24 @@ begin
 end;
 
 procedure TOrCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: TStarcraftUnit);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean);
 var
   i: Integer;
 begin
   if Conditions.Count > 0 then
   begin
-    AProg.Add(TIfInstruction.Create(CreateIntegerCondition(APlayer,AUnitType,icmAtLeast,1)));
+    if not AFirst then
+      AProg.Add(TIfInstruction.Create(CreateIntegerCondition(APlayer,AUnitType,icmAtLeast,1)));
     AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0));
     for i := 0 to Conditions.Count-1 do
     begin
       if not Conditions[i].IsComputed then
       begin
-        AProg.Add(TFastIfInstruction.Create(Conditions[i],[CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,1)]));
+        AProg.Add(TFastIfInstruction.Create(Conditions[i].Duplicate,[CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,1)]));
+      end else
+      if Conditions[i] is TAndCondition then
+      begin
+        AProg.Add(TFastIfInstruction.Create(TAndCondition(Conditions[i]).Conditions.Duplicate,[CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,1)]));
       end else
       begin
         AProg.Add(TIfInstruction.Create(Conditions[i].Duplicate));
@@ -459,8 +463,10 @@ begin
         AProg.Add(TEndIfInstruction.Create);
       end;
     end;
-    AProg.Add(TEndIfInstruction.Create);
-  end;
+    if not AFirst then
+      AProg.Add(TEndIfInstruction.Create);
+  end else
+    AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0));
 end;
 
 function TOrCondition.Priority: integer;
@@ -534,16 +540,14 @@ end;
 
 { TWaitForPlayersInstruction }
 
-constructor TWaitForPlayersInstruction.Create(APlayers: TPlayers;
-  AAwaitPresenceDefined: boolean);
+constructor TWaitForPlayersInstruction.Create(APlayers: TPlayers);
 begin
   Players:= APlayers;
-  AwaitPresenceDefined:= AAwaitPresenceDefined;
 end;
 
 function TWaitForPlayersInstruction.Duplicate: TInstruction;
 begin
-  result := TWaitForPlayersInstruction.Create(Players,AwaitPresenceDefined);
+  result := TWaitForPlayersInstruction.Create(Players);
 end;
 
 { TEndDoAsInstruction }
@@ -667,11 +671,16 @@ begin
 end;
 
 procedure TNotCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: TStarcraftUnit);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean);
 begin
+  if AFirst then AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,1));
   if not Conditions.IsComputed then
   begin
     AProg.Add(TFastIfInstruction.Create(Conditions.Duplicate,[CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0)]));
+  end else
+  if (Conditions.Count = 1) and (Conditions[0] is TAndCondition) then
+  begin
+    AProg.Add(TFastIfInstruction.Create(TAndCondition(Conditions[0]).Conditions.Duplicate,[CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0)]));
   end else
   begin
     AProg.Add(TIfInstruction.Create(Conditions.Duplicate));
@@ -788,9 +797,14 @@ procedure TConditionList.Compute(AProg: TInstructionList; APlayer: TPlayer;
 var
   i: Integer;
 begin
-  AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,1));
-  for i := 0 to Count-1 do
-    Items[i].AddToProgAsAndVar(AProg, APlayer, AUnitType);
+  if Count = 0 then
+    AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,1))
+  else
+  begin
+    Items[0].AddToProgAsAndVar(AProg, APlayer, AUnitType, True);
+    for i := 1 to Count-1 do
+      Items[i].AddToProgAsAndVar(AProg, APlayer, AUnitType, False);
+  end;
 end;
 
 procedure TConditionList.FreeAll;
@@ -807,14 +821,20 @@ function TConditionList.ToBasic(AUseVariables: boolean): string;
 var
   i: Integer;
 begin
-  if Count = 0 then exit('True');
-  result := '';
-  for i := 0 to Count-1 do
+  if Count = 0 then result := 'True'
+  else if Count = 1 then
   begin
-    if i > 0 then result += ' And ';
-    if Items[i].Priority < -5 then
-      result += '(' + Items[i].ToBasic(AUseVariables) + ')'
-      else result += Items[i].ToBasic(AUseVariables);
+    result := Items[0].ToBasic(AUseVariables);
+  end else
+  begin
+    result := '';
+    for i := 0 to Count-1 do
+    begin
+      if i > 0 then result += ' And ';
+      if Items[i].Priority < -5 then
+        result += '(' + Items[i].ToBasic(AUseVariables) + ')'
+        else result += Items[i].ToBasic(AUseVariables);
+    end;
   end;
 end;
 
@@ -1016,12 +1036,21 @@ begin
 end;
 
 procedure TCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: TStarcraftUnit);
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean);
 begin
-  AProg.Add(TIfInstruction.Create(self.Duplicate));
-  AProg.Add(TElseInstruction.Create);
-  AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0));
-  AProg.Add(TEndIfInstruction.Create);
+  if not self.IsComputed and AFirst then
+  begin
+    AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0) );
+    AProg.Add(TFastIfInstruction.Create([self.Duplicate],
+       [CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,1)]) );
+  end else
+  begin
+    AProg.Add(TIfInstruction.Create(self.Duplicate));
+    if AFirst then AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0));
+    AProg.Add(TElseInstruction.Create);
+    AProg.Add(CreateSetIntegerInstruction(APlayer,AUnitType,simSetTo,0));
+    AProg.Add(TEndIfInstruction.Create);
+  end;
 end;
 
 end.

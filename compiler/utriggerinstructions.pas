@@ -1136,7 +1136,7 @@ function TSetUnitPropertyInstruction.ToBasic: string;
 begin
   result := PlayerIdentifiers[Player]+'.Units(';
   if quantity <> -1 then result += inttostr(Quantity)+', ';
-  result += 'Unit.'+StarcraftUnitIdentifier[UnitType];
+  result += StarcraftUnitIdentifier[UnitType];
   if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
   result += ').';
   case UnitProperty of

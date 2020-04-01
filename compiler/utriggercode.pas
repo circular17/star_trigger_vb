@@ -35,7 +35,9 @@ type
     destructor Destroy; override;
     procedure Clear;
     procedure AddCondition(ACondition: TCondition);
+    procedure DeleteCondition(AIndex: integer);
     procedure AddAction(AInstruction: TInstruction);
+    procedure DeleteAction(AIndex: integer);
     function ToTrigEdit: string;
     procedure WriteTriggerData(var AData: TTriggerData);
     procedure ReadTriggerData(const AData: TTriggerData);
@@ -71,6 +73,7 @@ procedure WriteProg(APlayers: TPlayers; AConditions: TConditionList; AProg: TIns
 function NewIP: integer;
 function SetNextIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TTriggerInstruction;
 function CheckIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TTriggerCondition;
+function RemoveIPIfUnused: boolean;
 
 function NewSysIP: integer;
 function SetNextSysIP(AValue: integer; AMode: TSetIntegerMode = simSetTo): TInstruction;
@@ -84,15 +87,21 @@ procedure AddSysCall(AInstructions: TInstructionList; AReturnIP, ACalledIP: inte
 procedure AddSysReturn(AInstructions: TInstructionList);
 procedure WriteStackTriggers;
 
+const InitialIP = 0;
+
 implementation
 
 uses ureadprog, uvariables, utrigedittypes, uprocedures;
 
 // instruction pointer for regular blocks
-
 var
   IPVar, CurIPValue: integer;
-  BusyIP : integer;
+  BusyIPValue : integer;
+
+function IPUnused: boolean;
+begin
+  result := CurIPValue = InitialIP;
+end;
 
 function NewIP: integer;
 begin
@@ -100,14 +109,84 @@ begin
   result := CurIPValue;
 end;
 
+function BusyIP: integer;
+begin
+  if BusyIPValue = -1 then
+    BusyIPValue:= NewIP;
+  result := BusyIPValue;
+end;
+
+function GetIPVar: integer;
+begin
+  if IPVar = -1 then
+  begin
+    IPVar := IntArrayIndexOf(GlobalScope, '_ip');
+    if IPVar = -1 then
+      IPVar := CreateIntArray(GlobalScope, '_ip', MaxTriggerPlayers, [], 16);
+  end;
+  result := IPVar;
+end;
+
+procedure DeleteIPVar;
+begin
+  if IPVar <> -1 then
+  begin
+    IntArrays[IPVar].Deleted:= true;
+    IPVar := -1;
+  end;
+end;
+
 function SetNextIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TTriggerInstruction;
 begin
-  result := CreateSetIntegerInstruction(APlayer, IntArrays[IPVar].UnitType, simSetTo, AValue) as TTriggerInstruction;
+  result := CreateSetIntegerInstruction(APlayer, IntArrays[GetIPVar].UnitType, simSetTo, AValue) as TTriggerInstruction;
 end;
 
 function CheckIP(AValue: integer; APlayer: TPlayer = plCurrentPlayer): TTriggerCondition;
 begin
-  result := CreateIntegerCondition(APlayer, IntArrays[IPVar].UnitType, icmExactly, AValue) as TTriggerCondition;
+  result := CreateIntegerCondition(APlayer, IntArrays[GetIPVar].UnitType, icmExactly, AValue) as TTriggerCondition;
+end;
+
+function RemoveIPIfUnused: boolean;
+var
+  i, j: Integer;
+  t: TTrigger;
+  dc: TDeathCountCondition;
+  sd: TSetDeathInstruction;
+begin
+  if (IPVar <> -1) and IPUnused then
+  begin
+    result := true;
+    for i := 0 to CompiledTriggers.Count-1 do
+    begin
+      t := CompiledTriggers[i];
+      for j := 0 to t.ConditionCount-1 do
+        if t.Condition[j] is TDeathCountCondition then
+        begin
+          dc := TDeathCountCondition(t.Condition[j]);
+          if (dc.Player = plCurrentPlayer) and (dc.Mode = icmExactly) and
+            (dc.UnitType = IntArrays[IPVar].UnitType) then
+          begin
+            t.DeleteCondition(j);
+            if t.ConditionCount = 0 then
+              t.AddCondition(TAlwaysCondition.Create);
+            break;
+          end;
+        end;
+      for j := t.ActionCount-1 downto 0 do
+        if t.Action[j] is TSetDeathInstruction then
+        begin
+          sd := TSetDeathInstruction(t.Action[j]);
+          if (sd.Player = plCurrentPlayer) and (sd.Mode = simSetTo) and
+            (sd.UnitType = IntArrays[IPVar].UnitType) then
+          begin
+            t.DeleteAction(j);
+            break;
+          end;
+        end;
+    end;
+    DeleteIPVar;
+  end else
+    result := false;
 end;
 
 procedure WriteTrigger(APlayers: TPlayers;
@@ -438,7 +517,7 @@ begin
           if pl in waitFor.Players then
           begin
             switchCheck.Switch := BoolVars[ GetPlayerPresenceBoolVar(pl) ].Switch;
-            ipCheck := CreateIntegerCondition(pl, IntArrays[IPVar].UnitType, icmAtLeast, 1);
+            ipCheck := CreateIntegerCondition(pl, IntArrays[GetIPVar].UnitType, icmAtLeast, 1);
             WriteProg(APlayers, [switchCheck, ipCheck], proc, whileIP, beforeIP, true);
             ipCheck.Free;
           end;
@@ -612,7 +691,7 @@ begin
       valCond := CreateIntegerCondition(plCurrentPlayer, IntArrays[StackArrays[sp+1]].UnitType, icmAtLeast, 1 shl bit);
 
       subStackVal := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[StackArrays[sp+1]].UnitType, simSubtract, 1 shl bit);
-      addIP := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[IPVar].UnitType, simAdd, 1 shl bit);
+      addIP := CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[GetIPVar].UnitType, simAdd, 1 shl bit);
       proc.Add(subStackVal);
       proc.Add(addIP);
 
@@ -673,10 +752,8 @@ end;
 
 procedure InitTriggerCode;
 begin
-  IPVar := IntArrayIndexOf(GlobalScope, '_ip');
-  if IPVar = -1 then
-    IPVar := CreateIntArray(GlobalScope, '_ip', MaxTriggerPlayers, [], 16);
-  CurIPValue := 0;
+  IPVar := -1;
+  CurIPValue := InitialIP;
 
   //IntArrays[IPVar].UnitType:= 'Gas'; //debug
 
@@ -688,7 +765,7 @@ begin
   PushSysIP:= -1;
   SysParamArray := -1;
 
-  BusyIP := NewIP;
+  BusyIPValue := -1;
   CompiledTriggers.Clear;
 end;
 
@@ -758,6 +835,11 @@ begin
   FConditions.Add(TTriggerCondition(ACondition.Duplicate));
 end;
 
+procedure TTrigger.DeleteCondition(AIndex: integer);
+begin
+  FConditions.Delete(AIndex);
+end;
+
 procedure TTrigger.AddAction(AInstruction: TInstruction);
 var
   i: Integer;
@@ -787,6 +869,11 @@ begin
       raise exception.Create('Too many actions');
   end;
   FActions.Add(TTriggerInstruction(AInstruction).Duplicate as TTriggerInstruction);
+end;
+
+procedure TTrigger.DeleteAction(AIndex: integer);
+begin
+  FActions.Delete(AIndex);
 end;
 
 function TTrigger.ToTrigEdit: string;
@@ -867,7 +954,7 @@ begin
   for i := 0 to ConditionCount-1 do
   begin
     if i > 0 then result += ' And ';
-    result += Condition[i].ToBasic;
+    result += Condition[i].ToBasic(False);
   end;
   if ConditionCount = 0 then
     result += 'True';

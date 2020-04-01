@@ -59,6 +59,7 @@ begin
   for i := 0 to MessageCount-1 do
   begin
     proc := TInstructionList.Create;
+    proc.Add( TCommentInstruction.Create('Print(' + StrToBasic(Messages[i].Text) + ')') );
     proc.Add( TDisplayTextMessageInstruction.Create(True, Messages[i].Text) );
     condSysParam := CheckSysParam( i, AMainThread );
     WriteProg(Messages[i].Players, [condSysIP, condSysParam], proc, -1, -1, True);
@@ -188,8 +189,8 @@ begin
       doAs := TDoAsInstruction(AProg[i]);
       if doAs.Players - APlayers <> [] then
       begin
-        varIdx := GetStopEventBoolVar;
-        AExpanded.Add( TSetSwitchInstruction.Create(BoolVars[varIdx].Switch, svSet) );
+        varIdx := GetRunEventBoolVar;
+        AExpanded.Add( TSetSwitchInstruction.Create(BoolVars[varIdx].Switch, svClear) );
         AExpanded.Add( TWaitForPlayersInstruction.Create( doAs.Players - APlayers, False ) );
       end;
       nextIP := NewIP;
@@ -211,7 +212,7 @@ begin
       begin
         AExpanded.Add( TDropThreadInstruction.Create(0, EndDoIP, endDoAs.Players - APlayers, APlayers) );
         AExpanded.Add( TWaitForPlayersInstruction.Create( endDoAs.Players - APlayers, True ) );
-        AExpanded.Add( TSetSwitchInstruction.Create(BoolVars[GetStopEventBoolVar].Switch, svClear) );
+        AExpanded.Add( TSetSwitchInstruction.Create(BoolVars[GetRunEventBoolVar].Switch, svSet) );
       end;
       continue;
     end else
@@ -522,8 +523,8 @@ end;
 procedure CreateTriggers(AMainThread: TPlayer; ASourceCode: string = '');
 var
   i, EndIP, tempInt, j: Integer;
-  allProcDone: Boolean;
-  players: TPlayers;
+  allProcDone, mainEmpty: Boolean;
+  players, allEventPlayers: TPlayers;
   noSysIP: TCondition;
   proc : TInstructionList;
   computedConds, nonComputedConds: TConditionList;
@@ -538,15 +539,22 @@ begin
   HyperWaitVar := -1;
   MessageSysIP := -1;
   GlobalExprTempVarInt:= -1;
-  EndIP := 0;
+
+  mainEmpty := true;
+  for i := 0 to MainProg.Count-1 do
+    if not (MainProg[i] is TCommentInstruction) then
+      mainEmpty := false;
+  EndIP := InitialIP;
 
   MainProgExpanded := nil;
   setlength(EventsExpanded, EventCount);
   setlength(ProceduresExpanded, ProcedureCount);
+  allEventPlayers:= [];
 
   try
     MainProgExpanded := TInstructionList.Create;
-    ExpandInstructions(MainProg, -1, [AMainThread], MainProgExpanded, EndIP);
+    if not mainEmpty then
+      ExpandInstructions(MainProg, -1, [AMainThread], MainProgExpanded, EndIP);
 
     for i := 0 to EventCount-1 do
     begin
@@ -572,18 +580,29 @@ begin
     WritePlayerPresenceTopTrigger(AMainThread);
     WriteMessageTriggers(AMainThread);
 
-    WriteProg([AMainThread], [], MainProgExpanded, -1, EndIP, False);
+    if not mainEmpty or RunEventBoolVarUsed then
+    begin
+      if RunEventBoolVarUsed then
+        MainProgExpanded.Add(TSetSwitchInstruction.Create(BoolVars[GetRunEventBoolVar].Switch, svSet));
+      WriteProg([AMainThread], [], MainProgExpanded, -1, EndIP, False);
+    end;
 
-    noSysIP := CheckSysIP(0);
-    for i := 0 to ProcedureCount-1 do
-      if Procedures[i].StartIP <> -1 then
-        WriteProg([plAllPlayers], [noSysIP], ProceduresExpanded[i], Procedures[i].StartIP, EndIP, true);
-    noSysIP.Free;
+    if ProcedureCount > 0 then
+    begin
+      noSysIP := CheckSysIP(0);
+      for i := 0 to ProcedureCount-1 do
+        if Procedures[i].StartIP <> -1 then
+          WriteProg([plAllPlayers], [noSysIP], ProceduresExpanded[i], Procedures[i].StartIP, EndIP, true);
+      noSysIP.Free;
+    end;
 
     for i := 0 to EventCount-1 do
     begin
       players := Events[i].Players;
       if players = [] then players := [AMainThread];
+      if (players <> [AMainThread]) and RunEventBoolVarUsed then
+        Events[i].Conditions.Add(TSwitchCondition.Create(BoolVars[GetRunEventBoolVar].Switch,True));
+      allEventPlayers += players;
 
       if Events[i].Conditions.IsComputed then
       begin
@@ -618,6 +637,7 @@ begin
 
     //it is recommended to put hyper CompiledTriggers at the end
     WriteHyperTriggers;
+    RemoveIPIfUnused;
 
   finally
     MainProgExpanded.FreeAll;

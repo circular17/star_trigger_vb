@@ -613,11 +613,12 @@ begin
               if AMainThread = plNone then raise exception.Create('This player can''t be used as a main thread');
             end;
           end else
-            inEvent := ProcessEventStatement(line, players, true)
+            inEvent := ProcessEventStatement(line, players)
         end
-        else if (inSub = -1) and (inEvent = -1) and not inSubMain and TryToken(line,index,'On') then
+        else if (inSub = -1) and (inEvent = -1) and not inSubMain and
+          TryToken(line,index,'On') then
         begin
-          inEvent := ProcessEventStatement(line, [], false)
+          inEvent := ProcessEventStatement(line, [])
         end else
         begin
           done := false;

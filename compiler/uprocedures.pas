@@ -61,7 +61,7 @@ var
   EventCount: integer;
 
 function CreateEvent(APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
-function ProcessEventStatement(ALine: TStringList; APlayers: TPlayers; ACheckStop: boolean): integer;
+function ProcessEventStatement(ALine: TStringList; APlayers: TPlayers): integer;
 
 procedure ClearProceduresAndEvents;
 
@@ -189,7 +189,7 @@ begin
     Players := APlayers;
     Conditions := AConditions;
     Instructions := TInstructionList.Create;
-    Instructions.Add(TCommentInstruction.Create('Event'));
+    Instructions.Add(TCommentInstruction.Create('On '+AConditions.ToBasic(True)));
     Code := TCodeLineList.Create;
     Preserve := APreserve;
     InnerScope := -1-result;
@@ -257,22 +257,18 @@ begin
     result := CreateProcedure(name,paramCount,returnType,APlayers);
 end;
 
-function ProcessEventStatement(ALine: TStringList; APlayers: TPlayers; ACheckStop: boolean): integer;
+function ProcessEventStatement(ALine: TStringList; APlayers: TPlayers): integer;
 var
-  index, varIdx: Integer;
+  index: Integer;
   conds: TConditionList;
+  preserve: Boolean;
 begin
   index := 0;
+  preserve := true;
   ExpectToken(ALine,index,'On');
 
   conds := ExpectConditions(GlobalScope, ALine,index,APlayers);
-  if ACheckStop then
-  begin
-    varIdx := GetStopEventBoolVar;
-    conds.Add( TSwitchCondition.Create(BoolVars[varIdx].Switch,False) );
-  end;
-
-  result := CreateEvent(APlayers, conds, not TryToken(ALine,index,'Once'));
+  result := CreateEvent(APlayers, conds, preserve);
 
   if index < ALine.Count then
     raise exception.Create('End of line expected');

@@ -35,6 +35,8 @@ type
     function IsArithmetic: boolean; virtual;
     function IsComputed: boolean; virtual;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); virtual;
+    function ToBasic(AUseVariables: boolean): string; virtual; abstract;
+    function Priority: integer; virtual; abstract;
     function Duplicate: TCondition; virtual; abstract;
   end;
 
@@ -47,6 +49,7 @@ type
     function IsArithmetic: boolean;
     procedure Compute(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit);
     procedure FreeAll;
+    function ToBasic(AUseVariables: boolean): string;
     function Duplicate: TConditionList;
   end;
 
@@ -248,6 +251,8 @@ type
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
+    function Priority: integer; override;
+    function ToBasic(AUseVariables: boolean): string; override;
     function Duplicate: TCondition; override;
   end;
 
@@ -261,6 +266,8 @@ type
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit); override;
+    function Priority: integer; override;
+    function ToBasic(AUseVariables: boolean): string; override;
     function Duplicate: TCondition; override;
   end;
 
@@ -274,6 +281,8 @@ type
     function IsArithmetic: boolean; override;
     function IsComputed: boolean; override;
     procedure AddToProgAsAndVar({%H-}AProg: TInstructionList; {%H-}APlayer: TPlayer; {%H-}AUnitType: TStarcraftUnit); override;
+    function Priority: integer; override;
+    function ToBasic(AUseVariables: boolean): string; override;
     function Duplicate: TCondition; override;
   end;
 
@@ -369,6 +378,25 @@ begin
   raise exception.Create('Not handled');
 end;
 
+function TAndCondition.Priority: integer;
+begin
+  result := -5;
+end;
+
+function TAndCondition.ToBasic(AUseVariables: boolean): string;
+var
+  i: Integer;
+begin
+  result := '';
+  for i := 0 to Conditions.Count-1 do
+  begin
+    if i > 0 then result += ' And ';
+    if Conditions[i].Priority < self.Priority then
+      result += '('+Conditions[i].ToBasic(AUseVariables)+')' else
+      result += Conditions[i].ToBasic(AUseVariables);
+  end;
+end;
+
 function TAndCondition.Duplicate: TCondition;
 begin
   result := TAndCondition.Create(Conditions.Duplicate);
@@ -432,6 +460,25 @@ begin
       end;
     end;
     AProg.Add(TEndIfInstruction.Create);
+  end;
+end;
+
+function TOrCondition.Priority: integer;
+begin
+  result := -10;
+end;
+
+function TOrCondition.ToBasic(AUseVariables: boolean): string;
+var
+  i: Integer;
+begin
+  result := '';
+  for i := 0 to Conditions.Count-1 do
+  begin
+    if i > 0 then result += ' Or ';
+    if Conditions[0].Priority < self.Priority then
+      result += '('+Conditions[i].ToBasic(AUseVariables)+')' else
+      result += Conditions[i].ToBasic(AUseVariables);
   end;
 end;
 
@@ -633,6 +680,19 @@ begin
   end;
 end;
 
+function TNotCondition.Priority: integer;
+begin
+  result := 0;
+end;
+
+function TNotCondition.ToBasic(AUseVariables: boolean): string;
+begin
+  if (Conditions.Count <> 1) or
+    (Conditions[0].Priority < self.Priority) then
+    result := 'Not ('+Conditions.ToBasic(AUseVariables)+')'
+    else result := 'Not '+Conditions.ToBasic(AUseVariables);
+end;
+
 function TNotCondition.Duplicate: TCondition;
 begin
   result := TNotCondition.Create(Conditions.Duplicate);
@@ -741,6 +801,21 @@ begin
   for i := 0 to Count-1 do
     Items[i].Free;
   Free;
+end;
+
+function TConditionList.ToBasic(AUseVariables: boolean): string;
+var
+  i: Integer;
+begin
+  if Count = 0 then exit('True');
+  result := '';
+  for i := 0 to Count-1 do
+  begin
+    if i > 0 then result += ' And ';
+    if Items[i].Priority < -5 then
+      result += '(' + Items[i].ToBasic(AUseVariables) + ')'
+      else result += Items[i].ToBasic(AUseVariables);
+  end;
 end;
 
 function TConditionList.Duplicate: TConditionList;

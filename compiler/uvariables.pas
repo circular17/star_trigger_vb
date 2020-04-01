@@ -29,6 +29,7 @@ var
     Vars: array of integer;
     BitCount: integer;
     Scope: integer;
+    Deleted: boolean;
   end;
   IntArrayCount: integer;
   CurIntArrayUnitNameIndex: integer;
@@ -104,7 +105,8 @@ function GetPlayerPresentArray: integer;
 var
   StopEventBoolVar: integer;
 
-function GetStopEventBoolVar: integer;
+function GetRunEventBoolVar: integer;
+function RunEventBoolVarUsed: boolean;
 
 var
   UnitPropVars: array of record
@@ -227,6 +229,7 @@ begin
     Scope := AScope;
     Constant := AConstant;
     Predefined := false;
+    Deleted := false;
     Name := AName;
     Size:= ASize;
     if AConstant then UnitType := suConst
@@ -303,10 +306,12 @@ var
   i: Integer;
 begin
   for i := 0 to IntArrayCount-1 do
-    if (IntArrays[i].Scope = AScope) and (CompareText(IntArrays[i].Name, AName)=0) then exit(i);
+    if not IntArrays[i].Deleted and (IntArrays[i].Scope = AScope)
+       and (CompareText(IntArrays[i].Name, AName)=0) then exit(i);
   if ACheckGlobal then
     for i := 0 to IntArrayCount-1 do
-      if (IntArrays[i].Scope = GlobalScope) and (CompareText(IntArrays[i].Name, AName)=0) then exit(i);
+      if not IntArrays[i].Deleted and (IntArrays[i].Scope = GlobalScope)
+         and (CompareText(IntArrays[i].Name, AName)=0) then exit(i);
   exit(-1);
 end;
 
@@ -715,7 +720,7 @@ begin
   end;
 end;
 
-function GetStopEventBoolVar: integer;
+function GetRunEventBoolVar: integer;
 begin
   if StopEventBoolVar = -1 then
   begin
@@ -724,6 +729,11 @@ begin
       StopEventBoolVar := CreateBoolVar(GlobalScope, '_stopEvent', svClear);
   end;
   result := StopEventBoolVar;
+end;
+
+function RunEventBoolVarUsed: boolean;
+begin
+  result := StopEventBoolVar <>-1;
 end;
 
 function CreateUnitProp(AScope: integer; AName: string;

@@ -17,6 +17,7 @@ type
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); virtual; abstract;
     function AlwaysClearAccumulator: boolean; virtual; abstract;
     function BitCount: integer; virtual; abstract;
+    function ToBasic(AUseVariables: boolean): string; virtual; abstract;
     function Duplicate: TExpressionNode; virtual; abstract;
   end;
 
@@ -31,6 +32,7 @@ type
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
+    function ToBasic({%H-}AUseVariables: boolean): string; override;
     function Duplicate: TExpressionNode; override;
   end;
 
@@ -45,6 +47,7 @@ type
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
+    function ToBasic(AUseVariables: boolean): string; override;
     function Duplicate: TExpressionNode; override;
   end;
 
@@ -57,6 +60,7 @@ type
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
+    function ToBasic({%H-}AUseVariables: boolean): string; override;
     function Duplicate: TExpressionNode; override;
   end;
 
@@ -70,6 +74,7 @@ type
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
+    function ToBasic({%H-}AUseVariables: boolean): string; override;
     function Duplicate: TExpressionNode; override;
   end;
 
@@ -83,6 +88,7 @@ type
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
+    function ToBasic({%H-}AUseVariables: boolean): string; override;
     function Duplicate: TExpressionNode; override;
   end;
 
@@ -95,6 +101,7 @@ type
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
+    function ToBasic({%H-}AUseVariables: boolean): string; override;
     function Duplicate: TExpressionNode; override;
   end;
 
@@ -124,6 +131,7 @@ type
     property PositiveCount: integer read GetPositiveCount;
     property IsConstant: boolean read GetIsConstant;
     property MaxBitCount: integer read GetMaxBitCount;
+    function ToBasic(AUseVariables: boolean): string;
     function Duplicate: TExpression;
   end;
 
@@ -140,6 +148,7 @@ type
     function IsFewTimesVar: boolean;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
+    function ToBasic(AUseVariables: boolean): string; override;
     function Duplicate: TExpressionNode; override;
   end;
 
@@ -153,6 +162,7 @@ type
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
     function BitCount: integer; override;
+    function ToBasic(AUseVariables: boolean): string; override;
     function Duplicate: TExpressionNode; override;
   end;
 
@@ -166,6 +176,8 @@ type
     constructor Create(AExpression: TExpression; ACompareMode: TIntegerConditionMode; ACompareValue: integer);
     function IsArithmetic: Boolean; override;
     function GetBitCount: integer;
+    function ToBasic(AUseVariables: boolean): string; override;
+    function Priority: integer; override;
     function Duplicate: TCondition; override;
   end;
 
@@ -542,6 +554,11 @@ begin
   result := Expr.MaxBitCount;
 end;
 
+function TSubExpression.ToBasic(AUseVariables: boolean): string;
+begin
+  result := '(' + Expr.ToBasic(AUseVariables) + ')';
+end;
+
 function TSubExpression.Duplicate: TExpressionNode;
 begin
   result := TSubExpression.Create(Expr.Duplicate);
@@ -656,6 +673,11 @@ begin
   if result > 24 then result := 24;
 end;
 
+function TMultiplyNode.ToBasic(AUseVariables: boolean): string;
+begin
+  result := '(' + Expr.ToBasic(AUseVariables) + ') * '+inttostr(Factor);
+end;
+
 function TMultiplyNode.Duplicate: TExpressionNode;
 begin
   result := TMultiplyNode.Create(Expr.Duplicate,Factor);
@@ -699,6 +721,11 @@ begin
   else result := 8;
 end;
 
+function TConstantNode.ToBasic(AUseVariables: boolean): string;
+begin
+  result := IntToStr(Value);
+end;
+
 function TConstantNode.Duplicate: TExpressionNode;
 begin
   result := TConstantNode.Create(Negative, Value);
@@ -728,6 +755,16 @@ end;
 function TArithmeticCondition.GetBitCount: integer;
 begin
   result := Expression.MaxBitCount;
+end;
+
+function TArithmeticCondition.ToBasic(AUseVariables: boolean): string;
+begin
+  result := Expression.ToBasic(AUseVariables) + ' ' + IntConditionModeToBasic[CompareMode] + ' ' + IntToStr(CompareValue);
+end;
+
+function TArithmeticCondition.Priority: integer;
+begin
+  result := 5;
 end;
 
 function TArithmeticCondition.Duplicate: TCondition;
@@ -791,6 +828,11 @@ begin
   result := 8;
 end;
 
+function TCountIfIntNode.ToBasic(AUseVariables: boolean): string;
+begin
+  result := 'CountIf(' + IntArrays[IntArray].Name + ', '+ inttostr(TestValue)+')';
+end;
+
 function TCountIfIntNode.Duplicate: TExpressionNode;
 begin
   result := TCountIfIntNode.Create(Negative,IntArray,TestValue);
@@ -850,6 +892,11 @@ end;
 function TCountIfBoolNode.BitCount: integer;
 begin
   result := 8;
+end;
+
+function TCountIfBoolNode.ToBasic(AUseVariables: boolean): string;
+begin
+  result := 'CountIf(' + BoolArrays[BoolArray].Name + ', '+ BoolToStr(TestValue,'True','False')+')';
 end;
 
 function TCountIfBoolNode.Duplicate: TExpressionNode;
@@ -1117,6 +1164,23 @@ begin
     AProg.Add( TTransferIntegerInstruction.Create( ConstElement, itAddIntoAccumulator) );
 end;
 
+function TExpression.ToBasic(AUseVariables: boolean): string;
+var
+  i: Integer;
+begin
+  result := '';
+  for i := 0 to Elements.Count-1 do
+  begin
+    if Elements[i].Negative then
+    begin
+      if i > 0 then result += ' ';
+      result += '- ';
+    end
+    else if i > 0 then result += ' + ';
+    result += Elements[i].ToBasic(AUseVariables);
+  end;
+end;
+
 function TExpression.Duplicate: TExpression;
 var
   i: Integer;
@@ -1169,6 +1233,11 @@ begin
   else result := 8;
 end;
 
+function TRandomNode.ToBasic(AUseVariables: boolean): string;
+begin
+  result := 'Rnd * '+inttostr(Range);
+end;
+
 function TRandomNode.Duplicate: TExpressionNode;
 begin
   result := TRandomNode.Create(Negative,Range);
@@ -1207,6 +1276,11 @@ end;
 function TFunctionCallNode.BitCount: integer;
 begin
   result := 24;
+end;
+
+function TFunctionCallNode.ToBasic(AUseVariables: boolean): string;
+begin
+  result := Name + '()';
 end;
 
 function TFunctionCallNode.Duplicate: TExpressionNode;
@@ -1256,6 +1330,17 @@ begin
     if (IntVars[i].Player = Player) and (IntVars[i].UnitType = UnitType) then
       exit(IntVars[i].BitCount);
   result := 8;
+end;
+
+function TVariableNode.ToBasic(AUseVariables: boolean): string;
+var
+  i: Integer;
+begin
+  if AUseVariables then
+    for i := 0 to IntVarCount-1 do
+      if (IntVars[i].Player = Player) and (IntVars[i].UnitType = UnitType) then
+        exit(IntVars[i].Name);
+  result := PlayerIdentifiers[Player]+'.DeathCount('+StarcraftUnitIdentifier[UnitType]+')';
 end;
 
 function TVariableNode.Duplicate: TExpressionNode;

@@ -100,6 +100,9 @@ uses ureadprog, uparsevb, uvariables, usctypes, umapinfo, uwritetriggers,
 
 {$R *.lfm}
 
+const
+  DefaultMainThread = plPlayer8;
+
 { TFMain }
 function TFMain.GetModified: boolean;
 begin
@@ -142,11 +145,10 @@ begin
   ErrorsToUpdate := false;
 
   //full program for validation
-  success := ureadprog.ReadProg(SynEdit1.Lines, MainThread, LastScope);
+  success := ureadprog.ReadProg(SynEdit1.Lines, MainThread, LastScope, DefaultMainThread);
 
   if success then
   begin
-    if MainThread = plNone then MainThread := plPlayer8;
     try
       if MapInfo.ProgramMapEmbedded then
         uwritetriggers.CreateTriggers(MainThread, SynEdit1.Text)
@@ -163,8 +165,12 @@ begin
   for i := 0 to ReadProgErrors.Count-1 do
     if ListBox_Errors.Items.IndexOf(ReadProgErrors[i])=-1 then
       ListBox_Errors.Items.Add(ReadProgErrors[i]);
+  for i := 0 to ReadProgWarnings.Count-1 do
+    if ListBox_Errors.Items.IndexOf(ReadProgWarnings[i])=-1 then
+      ListBox_Errors.Items.Add(ReadProgWarnings[i]);
   for i := ListBox_Errors.Items.Count-1 downto 0 do
-    if ReadProgErrors.IndexOf(ListBox_Errors.Items[i])=-1 then
+    if (ReadProgErrors.IndexOf(ListBox_Errors.Items[i])=-1) and
+       (ReadProgWarnings.IndexOf(ListBox_Errors.Items[i])=-1) then
       ListBox_Errors.Items.Delete(i);
   ListBox_Errors.Items.EndUpdate;
 
@@ -221,7 +227,7 @@ begin
     programUpToCursor.Add(lastLineStr);
   end;
   try
-    ureadprog.ReadProg(programUpToCursor, MainThread, LastScope);
+    ureadprog.ReadProg(programUpToCursor, MainThread, LastScope, DefaultMainThread);
   except
     //ignore
   end;
@@ -415,12 +421,9 @@ begin
   Modified := false;
 
   if MapInfo.ProgramMapEmbedded then
-  begin
     SynEdit1.Text := MapInfo.RetrieveStoredProgram;
-    UpdateErrors;
-  end;
 
-  ErrorsToUpdate:= false; //true;
+  UpdateErrors;
 end;
 
 procedure TFMain.FormDestroy(Sender: TObject);

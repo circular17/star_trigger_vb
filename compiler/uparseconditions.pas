@@ -14,11 +14,11 @@ implementation
 uses
   uvariables, utriggerconditions, uparsescalar;
 
-function ExpectBooleanConstantImplementation(AScope: integer; ALine: TStringList; var AIndex: integer): boolean;
+function ExpectBooleanConstantImplementation(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): boolean;
 var
   cond: TConditionList;
 begin
-  cond := ExpectConditions(AScope, ALine, AIndex, [], true);
+  cond := ExpectConditions(AScope, ALine, AIndex, AThreads, true);
   if (cond.Count = 1) and (cond[0] is TAlwaysCondition) then result := true
   else if (cond.Count = 1) and (cond[0] is TNeverCondition) then result := false
   else
@@ -29,7 +29,7 @@ begin
   cond.FreeAll;
 end;
 
-function TryNeutralConditionFunction(AScope: integer; ALine: TStringList; var AIndex: Integer; ANegation: boolean): TCondition;
+function TryNeutralConditionFunction(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: Integer; ANegation: boolean): TCondition;
 var
   op: TConditionOperator;
   intVal: Integer;
@@ -43,7 +43,7 @@ begin
 
     if ANegation then op := NotConditionOperator[op];
 
-    intVal := ExpectIntegerConstant(AScope, ALine,AIndex,false);
+    intVal := ExpectIntegerConstant(AThreads, AScope, ALine,AIndex,false);
     case op of
     coEqual: result := TElapsedTimeCondition.Create(icmExactly, intVal);
     coGreaterThanOrEqual: result := TElapsedTimeCondition.Create(icmAtLeast, intVal);
@@ -64,7 +64,7 @@ begin
   end;
 end;
 
-function TryPlayerConditionFunction(AScope: integer; ALine: TStringList; var AIndex: Integer; APlayer: TPlayer; ANegation: boolean): TCondition;
+function TryPlayerConditionFunction(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: Integer; APlayer: TPlayer; ANegation: boolean): TCondition;
 var
   unitType: TStarcraftUnit;
   locStr: String;
@@ -83,7 +83,7 @@ begin
     begin
       unitType := ExpectUnitType(AScope, ALine,AIndex);
       if TryToken(ALine,AIndex,',') then
-        locStr := ExpectStringConstant(AScope, ALine,AIndex)
+        locStr := ExpectStringConstant(AThreads, AScope, ALine,AIndex)
       else
         locStr := '';
       ExpectToken(ALine,AIndex,')');
@@ -133,7 +133,7 @@ begin
     end
     else
     begin
-      intVal := ExpectIntegerConstant(AScope, ALine,AIndex,false);
+      intVal := ExpectIntegerConstant(AThreads, AScope, ALine,AIndex,false);
       case op of
       coEqual: result := TBringCondition.Create(APlayer, unitType, locStr, icmExactly, intVal);
       coGreaterThanOrEqual: result := TBringCondition.Create(APlayer, unitType, locStr, icmAtLeast, intVal);
@@ -205,7 +205,7 @@ begin
     end
     else
     begin
-      intVal := ExpectIntegerConstant(AScope, ALine,AIndex,false);
+      intVal := ExpectIntegerConstant(AThreads, AScope, ALine,AIndex,false);
       case op of
       coEqual: result := TKillCountCondition.Create(APlayer, unitType, icmExactly, intVal);
       coGreaterThanOrEqual: result := TKillCountCondition.Create(APlayer, unitType, icmAtLeast, intVal);
@@ -241,7 +241,7 @@ begin
 
     if ANegation then op := NotConditionOperator[op];
 
-    intVal := ExpectIntegerConstant(AScope, ALine,AIndex,false);
+    intVal := ExpectIntegerConstant(AThreads, AScope, ALine,AIndex,false);
     case op of
     coEqual: result := CreateIntegerCondition(APlayer, unitType, icmExactly, intVal);
     coGreaterThanOrEqual: result := CreateIntegerCondition(APlayer, unitType, icmAtLeast, intVal);
@@ -268,7 +268,7 @@ begin
 
     if ANegation then op := NotConditionOperator[op];
 
-    intVal := ExpectIntegerConstant(AScope, ALine,AIndex,false);
+    intVal := ExpectIntegerConstant(AThreads, AScope, ALine,AIndex,false);
     case op of
     coEqual: result := TOpponentCountCondition.Create(APlayer, icmExactly, intVal);
     coGreaterThanOrEqual: result := TOpponentCountCondition.Create(APlayer, icmAtLeast, intVal);
@@ -296,7 +296,7 @@ begin
     result := nil;
 end;
 
-function TryArithmeticCondition(AScope: integer; ALine: TStringList; var AIndex: integer; ANot: boolean): TCondition;
+function TryArithmeticCondition(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; ANot: boolean): TCondition;
 var
   op: TConditionOperator;
   merged, secondExpr, firstExpr: TExpression;
@@ -325,7 +325,7 @@ var
 
 begin
   oldIndex := AIndex;
-  firstExpr := TryExpression(AScope, ALine,AIndex,false);
+  firstExpr := TryExpression(AThreads, AScope, ALine,AIndex,false);
   if firstExpr = nil then exit(nil);
   op := TryConditionOperator(ALine,AIndex);
   if op = coNone then
@@ -336,7 +336,7 @@ begin
   end;
   secondExpr := nil;
   try
-    secondExpr := TryExpression(AScope, ALine,AIndex,True);
+    secondExpr := TryExpression(AThreads, AScope, ALine,AIndex,True);
     if ANot then
     begin
       op := NotConditionOperator[op];
@@ -398,7 +398,7 @@ var
   boolVal: boolean;
   pl: TPlayer;
 begin
-  if TryBoolean(AScope, ALine,AIndex,boolVal) then
+  if TryBoolean(AThreads, AScope, ALine,AIndex,boolVal) then
   begin
     if boolVal then
       result := TAlwaysCondition.Create
@@ -409,22 +409,22 @@ begin
     boolNot := TryToken(ALine,AIndex,'Not');
 
     afterNotIndex := AIndex;
-    scalar := TryScalarVariable(AScope, ALine,AIndex);
+    scalar := TryScalarVariable(AThreads, AScope, ALine,AIndex);
     if scalar.VarType = svtNone then
     begin
-      pl := TryParsePlayer(AScope, ALine,AIndex);
+      pl := TryParsePlayer(AThreads, AScope, ALine,AIndex);
       if pl <> plNone then
       begin
         ExpectToken(ALine,AIndex,'.');
-        result := TryPlayerConditionFunction(AScope, ALine, AIndex, pl, boolNot);
+        result := TryPlayerConditionFunction(AThreads, AScope, ALine, AIndex, pl, boolNot);
         if result = nil then raise exception.Create('Expecting player condition');
         exit;
       end;
 
-      result := TryNeutralConditionFunction(AScope, ALine, AIndex, boolNot);
+      result := TryNeutralConditionFunction(AThreads, AScope, ALine, AIndex, boolNot);
       if result <> nil then exit;
 
-      if TryBoolean(AScope, ALine,AIndex,boolVal) then
+      if TryBoolean(AThreads, AScope, ALine,AIndex,boolVal) then
       begin
         if boolVal xor boolNot then
           result := TAlwaysCondition.Create
@@ -433,7 +433,7 @@ begin
         exit;
       end else
       begin
-        result := TryPlayerConditionFunction(AScope, ALine, AIndex, plCurrentPlayer, boolNot);
+        result := TryPlayerConditionFunction(AThreads, AScope, ALine, AIndex, plCurrentPlayer, boolNot);
         if (result <> nil) and (not IsUniquePlayer(AThreads) or (AThreads = [])) then
         begin
           result.Free;
@@ -443,7 +443,7 @@ begin
             raise exception.Create('You need to specify the player to which it applies ("Me" for each player)');
         end else
         begin
-          if result = nil then result := TryArithmeticCondition(AScope, ALine, AIndex, boolNot);
+          if result = nil then result := TryArithmeticCondition(AThreads, AScope, ALine, AIndex, boolNot);
           if result = nil then
           begin
             if AIndex >= ALine.Count then
@@ -459,7 +459,7 @@ begin
     if scalar.Constant then
     begin
       AIndex := afterNotIndex;
-      result := TryArithmeticCondition(AScope, ALine, AIndex, boolNot);
+      result := TryArithmeticCondition(AThreads, AScope, ALine, AIndex, boolNot);
       if result = nil then raise exception.Create('Expecting condition');
       exit;
     end;
@@ -471,7 +471,7 @@ begin
       if op = coNone then
       begin
         AIndex := afterNotIndex;
-        result := TryArithmeticCondition(AScope, ALine, AIndex, boolNot);
+        result := TryArithmeticCondition(AThreads, AScope, ALine, AIndex, boolNot);
         if result = nil then raise exception.Create('Expecting condition');
       end
       else
@@ -511,10 +511,10 @@ begin
         end
         else
         begin
-          if not TryIntegerConstant(AScope, ALine,AIndex,intVal) then
+          if not TryIntegerConstant(AThreads, AScope, ALine, AIndex, intVal) then
           begin
             AIndex := afterNotIndex;
-            result := TryArithmeticCondition(AScope, ALine, AIndex, boolNot);
+            result := TryArithmeticCondition(AThreads, AScope, ALine, AIndex, boolNot);
             if result = nil then raise exception.Create('Expecting condition');
             exit;
           end;

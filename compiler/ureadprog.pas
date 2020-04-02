@@ -7,8 +7,8 @@ interface
 uses
   Classes, SysUtils, uinstructions, fgl, usctypes, uprocedures;
 
-function ReadProg(AFilename: string; out AMainThread: TPlayer; out ALastScope: integer): boolean;
-function ReadProg(ALines: TStrings; out AMainThread: TPlayer; out ALastScope: integer): boolean;
+function ReadProg(AFilename: string; out AMainThread: TPlayer; out ALastScope: integer; ADefaultMainThread: TPlayer): boolean;
+function ReadProg(ALines: TStrings; out AMainThread: TPlayer; out ALastScope: integer; ADefaultMainThread: TPlayer): boolean;
 
 var
   ReadProgErrors, ReadProgWarnings: TStringList;
@@ -75,14 +75,14 @@ begin
   exit(AText);
 end;
 
-function ReadProg(AFilename: string; out AMainThread: TPlayer; out ALastScope: integer): boolean;
+function ReadProg(AFilename: string; out AMainThread: TPlayer; out ALastScope: integer; ADefaultMainThread: TPlayer): boolean;
 var
   lines: TStringList;
 begin
   lines := TStringList.Create;
   lines.LoadFromFile(AFilename);
   try
-    result := ReadProg(lines, AMainThread, ALastScope);
+    result := ReadProg(lines, AMainThread, ALastScope, ADefaultMainThread);
   finally
     lines.free;
   end;
@@ -215,14 +215,14 @@ var
         raise exception.Create('The name "'+loopVar+'" is already in use');
       ParseLoopVarType(False,False);
       ExpectToken(line,index,'=');
-      fromValue := ExpectIntegerConstant(scope, line,index,true);
+      fromValue := ExpectIntegerConstant(AThreads, scope, line, index, true);
       CheckIntBounds(fromValue);
       ExpectToken(line,index,'To');
-      toValue := ExpectIntegerConstant(scope, line,index,true);
+      toValue := ExpectIntegerConstant(AThreads, scope, line, index, true);
       CheckIntBounds(toValue);
       if TryToken(line,index,'Step') then
       begin
-        stepValue := ExpectIntegerConstant(scope, line,index,true);
+        stepValue := ExpectIntegerConstant(AThreads, scope, line, index, true);
         if stepValue = 0 then raise exception.Create('Zero is not allowed as a step value');
       end
       else
@@ -250,7 +250,7 @@ var
         ExpectToken(line,index,'In');
         if bitCount > 0 then
         begin
-          intValues := ParseIntArray(scope, line, index);
+          intValues := ParseIntArray(AThreads, scope, line, index);
           CheckLoopCount(length(intValues));
           if bitCount <> 0 then
             for j := 0 to high(intValues) do
@@ -262,14 +262,14 @@ var
         end else
         if isString then
         begin
-          loopValues := ParseStringArray(scope, line, index);
+          loopValues := ParseStringArray(AThreads, scope, line, index);
           CheckLoopCount(length(loopValues));
           for j := 0 to high(loopValues) do
             loopValues[j] := '"'+stringreplace(loopValues[j],'"','""',[rfReplaceAll])+'"';
         end else
         if isBoolean then
         begin
-          boolValues := ParseBoolArray(scope, line, index);
+          boolValues := ParseBoolArray(AThreads, scope, line, index);
           CheckLoopCount(length(boolValues));
           setlength(loopValues, length(boolValues));
           for j := 0 to high(loopValues) do
@@ -381,11 +381,11 @@ begin
       if TryToken(line,index,'Dim') or TryToken(line,index,'Const') then
       begin
         if inEvent <> -1 then
-          ProcessDim(scope, line, Events[inEvent].Instructions, true, warning)
+          ProcessDim(AThreads, scope, line, Events[inEvent].Instructions, true, warning)
         else if inSub <> -1 then
-          ProcessDim(scope, line, Procedures[inSub].Instructions, true, warning)
+          ProcessDim(AThreads, scope, line, Procedures[inSub].Instructions, true, warning)
         else
-          ProcessDim(scope, line, MainProg, false, warning);
+          ProcessDim(AThreads, scope, line, MainProg, false, warning);
 
         if warning<>'' then AddWarning(lineNumber, warning);
       end
@@ -403,7 +403,7 @@ begin
           raise exception.Create('Nested multi-thread instruction not allowed');
         if not inDoAs and TryToken(line,index,'As') then
         begin
-          doPlayers := ExpectPlayers(scope,line,index);
+          doPlayers := ExpectPlayers(AThreads, scope, line, index);
           if (plAllPlayers in doPlayers) or ([plForce1,plForce2,plForce3,plForce4] <= doPlayers) then
             doPlayers := [plPlayer1,plPlayer2,plPlayer3,plPlayer4,
                       plPlayer5,plPlayer6,plPlayer7,plPlayer8];
@@ -454,7 +454,8 @@ begin
   if inDoAs then raise exception.Create('Multi-thread instruction not finished');
 end;
 
-function ReadProg(ALines: TStrings; out AMainThread: TPlayer; out ALastScope: integer): boolean;
+function ReadProg(ALines: TStrings; out AMainThread: TPlayer;
+  out ALastScope: integer; ADefaultMainThread: TPlayer): boolean;
 var
   line: TStringList;
   index: integer;
@@ -515,6 +516,9 @@ var
   pl: TPlayer;
   warning: string;
 begin
+  if not (ADefaultMainThread in[plPlayer1..plPlayer8]) then
+    raise exception.Create('This player can''t be used as a main thread');
+
   ReadProgErrors.Clear;
   ReadProgWarnings.Clear;
   ClearParseCompletionList;
@@ -569,7 +573,7 @@ begin
           else if inSubMain then MainCode.Add(TCodeLine.Create(line, lineNumber))
           else
           begin
-            ProcessDim(GlobalScope, line, MainProg, false, warning);
+            ProcessDim([], GlobalScope, line, MainProg, false, warning);
             if warning <> '' then AddWarning(lineNumber, warning);
           end;
         end
@@ -582,11 +586,16 @@ begin
             if subMainDeclared then raise exception.Create('Sub Main already declared');
             inSubMain:= true;
             subMainDeclared := true;
+            if AMainThread = plNone then
+            begin
+              AMainThread:= ADefaultMainThread;
+              AddWarning(lineNumber, 'Main thread implicitely defined to '+PlayerIdentifiers[ADefaultMainThread]);
+            end;
           end;
         end
         else if (inSub = -1) and (inEvent = -1) and not inSubMain and TryToken(line,index,'As') then
         begin
-          players := ExpectPlayers(GlobalScope,line,index);
+          players := ExpectPlayers([], GlobalScope, line, index);
           if index < line.Count then
           begin
             for i := index-1 downto 0 do
@@ -608,17 +617,23 @@ begin
               subMainDeclared:= true;
               if not IsUniquePlayer(players) or (players = [plCurrentPlayer]) then
                 raise exception.Create('If you specify a player for Sub Main, it must be one specific player');
-              for pl := plPlayer1 to plPlayer8 do
-                if pl in players then AMainThread:= pl;
-              if AMainThread = plNone then raise exception.Create('This player can''t be used as a main thread');
+              pl := GetUniquePlayer(players);
+              if not (pl in[plPlayer1..plPlayer8]) then raise exception.Create('The player '+ PlayerIdentifiers[pl]+' can''t be used as a main thread');
+              if AMainThread = plNone then AMainThread := pl else
+              if pl <> AMainThread then raise exception.Create('Main thread already defined to be ' + PlayerIdentifiers[AMainThread]);
             end;
           end else
-            inEvent := ProcessEventStatement(line, players)
+            inEvent := ProcessEventStatement(line, players);
         end
         else if (inSub = -1) and (inEvent = -1) and not inSubMain and
           TryToken(line,index,'On') then
         begin
-          inEvent := ProcessEventStatement(line, [])
+          if AMainThread = plNone then
+          begin
+            AMainThread:= ADefaultMainThread;
+            AddWarning(lineNumber, 'Main thread implicitely defined to '+PlayerIdentifiers[ADefaultMainThread]);
+          end;
+          inEvent := ProcessEventStatement(line, [AMainThread])
         end else
         begin
           done := false;

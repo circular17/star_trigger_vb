@@ -181,23 +181,23 @@ type
     function Duplicate: TCondition; override;
   end;
 
-function TryExpression(AScope: integer; ALine: TStringList; var AIndex: integer; ARaiseException: boolean; AAcceptCalls: boolean = true): TExpression;
+function TryExpression(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; ARaiseException: boolean; AAcceptCalls: boolean = true): TExpression;
 
 implementation
 
 uses uparsevb, uvariables, uarithmetic, utriggerconditions, uparsescalar;
 
-function TryIntegerConstantImplementation(AScope: integer; ALine: TStringList; var AIndex: integer; out
+function TryIntegerConstantImplementation(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out
   AValue: integer): boolean;
 var
   expr: TExpression;
   oldIndex: integer;
 begin
   oldIndex := AIndex;
-  expr := TryExpression(AScope, ALine,AIndex,false,false);
+  expr := TryExpression(AThreads, AScope, ALine,AIndex,false,false);
   if expr = nil then
   begin
-    result := TryInteger(AScope, ALine,AIndex,AValue);
+    result := TryInteger(AThreads, AScope, ALine,AIndex,AValue);
     exit;
   end;
   if expr.Elements.Count > 0 then
@@ -219,11 +219,11 @@ begin
   exit(true);
 end;
 
-function ExpectIntegerConstantImplementation(AScope: integer; ALine: TStringList; var AIndex: integer; AAcceptNegative: boolean): integer;
+function ExpectIntegerConstantImplementation(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AAcceptNegative: boolean): integer;
 var
   expr: TExpression;
 begin
-  expr := TryExpression(AScope, ALine,AIndex,false,false);
+  expr := TryExpression(AThreads, AScope, ALine,AIndex,false,false);
   if expr = nil then
   begin
      if AIndex >= ALine.Count then
@@ -245,7 +245,7 @@ begin
   expr.Free;
 end;
 
-function TryExpression(AScope: integer; ALine: TStringList; var AIndex: integer; ARaiseException: boolean; AAcceptCalls: boolean): TExpression;
+function TryExpression(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; ARaiseException: boolean; AAcceptCalls: boolean): TExpression;
 var
   intValue: integer;
   neg, boolVal: boolean;
@@ -263,7 +263,7 @@ var
     result := nil;
     if TryToken(ALine,idx,'(') then
     begin
-      expr := TryExpression(AScope, ALine,idx, ARaiseException, AAcceptCalls);
+      expr := TryExpression(AThreads, AScope, ALine,idx, ARaiseException, AAcceptCalls);
       if expr = nil then
       begin
         if ARaiseException then raise exception.Create('Expecting integer value');
@@ -276,7 +276,7 @@ var
       end else
         result := TSubExpression.Create(expr);
     end else
-    if TryInteger(AScope, ALine,idx,intValue) then
+    if TryInteger(AThreads, AScope, ALine,idx,intValue) then
     begin
       result := TConstantNode.Create(neg, intValue);
     end else
@@ -285,7 +285,7 @@ var
       if rnd <> -1 then
         result := TRandomNode.Create(neg, rnd) else
       begin
-        scalar:= TryScalarVariable(AScope, ALine,idx);
+        scalar:= TryScalarVariable(AThreads, AScope, ALine,idx);
         case scalar.VarType of
         svtInteger: result := TVariableNode.Create(neg,scalar.Player,scalar.UnitType);
         svtSwitch:
@@ -303,7 +303,7 @@ var
               if idxVar <> -1 then
               begin
                 ExpectToken(ALine,idx,',');
-                boolVal := ExpectBooleanConstant(AScope, ALine, idx);
+                boolVal := ExpectBooleanConstant(AThreads, AScope, ALine, idx);
                 result := TCountIfBoolNode.Create(neg, idxVar, boolVal);
               end else
               begin
@@ -311,7 +311,7 @@ var
                 if idxVar <> -1 then
                 begin
                   ExpectToken(ALine,idx,',');
-                  if not TryIntegerConstant(AScope, ALine,idx, intVal) then
+                  if not TryIntegerConstant(AThreads, AScope, ALine,idx, intVal) then
                     raise exception.Create('Integer constant expected');
                   result := TCountIfIntNode.Create(neg, idxVar, intVal);
                 end else
@@ -426,7 +426,7 @@ begin
       begin
         if TryToken(ALine,idx,'(') then
         begin
-          subExpr := TryExpression(AScope, ALine,idx,ARaiseException,AAcceptCalls);
+          subExpr := TryExpression(AThreads, AScope, ALine,idx,ARaiseException,AAcceptCalls);
           ExpectToken(ALine,idx,')');
           if subExpr.IsConstant then
           begin
@@ -1355,7 +1355,7 @@ begin
   Negative:= ANegative;
 end;
 
-function TryParsePlayerExpressionImplementation(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
+function TryParsePlayerExpressionImplementation(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
 var
   idx, numPlayer: Integer;
 begin
@@ -1365,7 +1365,7 @@ begin
   begin
     if TryToken(ALine,idx,'(') then
     begin
-      numPlayer := ExpectIntegerConstant(AScope, ALine,idx,true);
+      numPlayer := ExpectConstantIndex(AThreads, AScope, ALine,idx,true);
       ExpectToken(ALine,idx,')');
       if (numPlayer < 1) or (numPlayer > 12) then
         raise exception.Create('Player index out of bounds');

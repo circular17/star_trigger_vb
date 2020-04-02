@@ -9,7 +9,7 @@ uses
 
 type
   TConditionOperator = (coNone, coEqual, coGreaterThan, coLowerThan, coGreaterThanOrEqual, coLowerThanOrEqual, coNotEqual);
-  TTryParsePlayerFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
+  TTryParsePlayerFunc = function(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
 
 var
   TryParsePlayerExpression: TTryParsePlayerFunc;
@@ -33,8 +33,8 @@ function PeekToken(ALine: TStringList; var AIndex: integer; AToken: string): boo
 procedure ExpectToken(ALine: TStringList; var AIndex: integer; AToken: string);
 function TryConditionOperator(ALine: TStringList; var AIndex: integer): TConditionOperator;
 function ParseRandom(ALine: TStringList; var AIndex: integer): integer;
-function TryParsePlayer(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
-function ExpectPlayers(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayers;
+function TryParsePlayer(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
+function ExpectPlayers(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TPlayers;
 function GetBitCountOfType(AName: string): integer;
 function IsIntegerType(AName: string): boolean;
 function TryUnsignedIntegerType(ALine: TStringList; var AIndex: integer): boolean;
@@ -334,7 +334,7 @@ begin
     exit(-1);
 end;
 
-function TryParsePlayer(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
+function TryParsePlayer(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
 var
   pl: TPlayer;
 begin
@@ -342,12 +342,12 @@ begin
     if TryToken(ALine, AIndex, PlayerIdentifiers[pl]) then
       exit(pl);
   If Assigned(TryParsePlayerExpression) then
-    result := TryParsePlayerExpression(AScope, ALine,AIndex)
+    result := TryParsePlayerExpression(AThreads, AScope, ALine,AIndex)
   else
     result := plNone;
 end;
 
-function ExpectPlayers(AScope: integer; ALine: TStringList; var AIndex: integer): TPlayers;
+function ExpectPlayers(AThreads: TPlayers;AScope: integer; ALine: TStringList; var AIndex: integer): TPlayers;
 var
   pl: TPlayer;
 begin
@@ -355,7 +355,7 @@ begin
   if TryToken(ALine, AIndex, '{') then
   begin
     repeat
-      pl := TryParsePlayer(AScope, ALine,AIndex);
+      pl := TryParsePlayer(AThreads, AScope, ALine,AIndex);
       if pl = plNone then
       begin
         if AIndex >= ALine.Count then
@@ -373,7 +373,7 @@ begin
     if result = [] then raise exception.Create('No player specified');
   end else
   begin
-    pl := TryParsePlayer(AScope, ALine,AIndex);
+    pl := TryParsePlayer(AThreads, AScope, ALine,AIndex);
     if pl = plNone then
     begin
       if AIndex >= ALine.Count then

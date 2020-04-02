@@ -54,7 +54,7 @@ begin
     if FindFirst(testPath+'*.vb', faAnyFile, search) = 0 then
     repeat
       writeln('Reading ',search.name);
-      success := ureadprog.ReadProg(testPath+search.Name, MainThread, lastScope);
+      success := ureadprog.ReadProg(testPath+search.Name, MainThread, lastScope, plPlayer8);
       for i := 0 to ReadProgErrors.Count-1 do
         writeln('Error: ', ReadProgErrors[i]);
       for i := 0 to ReadProgWarnings.Count-1 do
@@ -63,7 +63,6 @@ begin
       if success then
       begin
         writeln('Writing output');
-        if MainThread = plNone then MainThread := plPlayer8;
 
         CreateTriggers(MainThread);
         if not DirectoryExists(outputPath) then

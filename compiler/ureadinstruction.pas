@@ -64,13 +64,13 @@ begin
   if TryToken(ALine,AIndex,'NextScenario') then
   begin
     ExpectToken(ALine,AIndex,'=');
-    scenario := ExpectStringConstant(AScope, ALine,AIndex);
+    scenario := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
     AProg.Add(TSetNextScenarioInstruction.Create(scenario));
   end else
   if TryToken(ALine,AIndex,'Wait') then
   begin
     ExpectToken(ALine,AIndex,'(');
-    AProg.Add(TWaitInstruction.Create(ExpectIntegerConstant(AScope, ALine,AIndex,false)));
+    AProg.Add(TWaitInstruction.Create(ExpectIntegerConstant(AThreads, AScope, ALine, AIndex, false)));
     ExpectToken(ALine,AIndex,')');
   end else
     result := false;
@@ -106,7 +106,7 @@ var
       result := -1;
       if ACommaAfter then ExpectToken(ALine,AIndex,',');
     end else
-    if TryIntegerConstant(AScope, ALine,AIndex,result) then
+    if TryIntegerConstant(AThreads, AScope, ALine, AIndex, result) then
     begin
       if ACommaAfter then ExpectToken(ALine,AIndex,',');
     end else
@@ -118,7 +118,7 @@ begin
   if TryToken(ALine,AIndex,'CreateUnit') then
   begin
     ExpectToken(ALine,AIndex,'(');
-    expr := TryExpression(AScope,ALine,AIndex,True);
+    expr := TryExpression(AThreads, AScope, ALine, AIndex, True);
     if expr.IsConstant and (expr.ConstElement < 1) then
     begin
       expr.Free;
@@ -128,12 +128,12 @@ begin
       ExpectToken(ALine,AIndex,',');
       unitType := ExpectUnitType(AScope,ALine,AIndex);
       if TryToken(ALine,AIndex,',') then
-        locStr := ExpectStringConstant(AScope,ALine,AIndex)
+        locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex)
       else
         locStr := MapInfo.AnywhereLocationName;
       if TryToken(ALine,AIndex,',') then
       begin
-        propIndex := TryUnitPropertiesVariableOrDefinition(AScope,ALine,AIndex);
+        propIndex := TryUnitPropertiesVariableOrDefinition(AThreads, AScope, ALine, AIndex);
         if propIndex = -1 then
           raise exception.Create('Unit properties expected');
       end else
@@ -144,7 +144,7 @@ begin
       begin
         if TryToken(ALine,AIndex,'With') then
         begin
-          propIndex := TryUnitPropertiesVariableOrDefinition(AScope,ALine,AIndex);
+          propIndex := TryUnitPropertiesVariableOrDefinition(AThreads, AScope, ALine, AIndex);
           if propIndex = -1 then
             raise exception.Create('Unit properties expected');
         end;
@@ -172,20 +172,20 @@ begin
   if TryToken(ALine,AIndex,'Location') then
   begin
     ExpectToken(ALine,AIndex,'(');
-    locStr := ExpectStringConstant(AScope,ALine,AIndex);
+    locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
     ExpectToken(ALine,AIndex,')');
     ExpectToken(ALine,AIndex,'.');
     if TryToken(ALine,AIndex,'Attract') then
     begin
        ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectStringConstant(AScope,ALine,AIndex);
+       destLocStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
        ExpectToken(ALine,AIndex,')');
        AProg.Add(TMoveLocationInstruction.Create(APlayer, suUnusedCaveIn, locStr, destLocStr));
     end else
     if TryToken(ALine,AIndex,'CenterOn') then
     begin
        ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectStringConstant(AScope,ALine,AIndex);
+       destLocStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
        ExpectToken(ALine,AIndex,')');
        AProg.Add(TMoveLocationInstruction.Create(APlayer, suUnusedCaveIn, destLocStr, locStr));
     end else
@@ -195,22 +195,22 @@ begin
   begin
     ExpectToken(ALine,AIndex,'(');
     intVal := ParseOptionalQuantity;
-    unitType := ExpectUnitType(AScope,ALine,AIndex);
+    unitType := ExpectUnitType(AScope, ALine, AIndex);
     if not TryToken(ALine,AIndex,',') then
       locStr := MapInfo.AnywhereLocationName
     else
-      locStr := ExpectStringConstant(AScope,ALine,AIndex);
+      locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
     ExpectToken(ALine,AIndex,')');
     ExpectToken(ALine,AIndex,'.');
 
     if TryToken(ALine,AIndex,'Properties') then
     begin
       ExpectToken(ALine,AIndex,'=');
-      if not TryUnitPropertiesDefinition(AScope,ALine,AIndex,props) then
+      if not TryUnitPropertiesDefinition(AThreads, AScope, ALine, AIndex, props) then
       begin
         if (AIndex < ALine.Count) and IsValidVariableName(ALine[AIndex]) then
         begin
-          propIndex:= UnitPropIndexOf(AScope,ALine[AIndex]);
+          propIndex:= UnitPropIndexOf(AScope, ALine[AIndex]);
           if propIndex = -1 then
             raise exception.Create('Expecting unit properties');
 
@@ -242,14 +242,14 @@ begin
     if TryToken(ALine,AIndex,'Location') then
     begin
        ExpectToken(ALine,AIndex,'=');
-       destLocStr := ExpectStringConstant(AScope,ALine,AIndex);
+       destLocStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
 
        AProg.Add(TTeleportUnitInstruction.Create(APlayer, intVal, unitType, locStr, destLocStr));
     end else
     if TryToken(ALine,AIndex,'Teleport') then
     begin
        ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectStringConstant(AScope,ALine,AIndex);
+       destLocStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
        ExpectToken(ALine,AIndex,')');
 
        AProg.Add(TTeleportUnitInstruction.Create(APlayer, intVal, unitType, locStr, destLocStr));
@@ -293,7 +293,7 @@ begin
     if TryToken(ALine,AIndex,'AttractLocation') then
     begin
        ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectStringConstant(AScope,ALine,AIndex);
+       destLocStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
        ExpectToken(ALine,AIndex,')');
        if intVal <> -1 then raise exception.Create('Cannot specify quantity for this action (use All quantity instead)');
        AProg.Add(TMoveLocationInstruction.Create(APlayer, unitType, locStr, destLocStr));
@@ -308,7 +308,7 @@ begin
       if intVal <> -1 then
         raise exception.Create('Cannot specify quantity for an order (use All quantity instead)');
       ExpectToken(ALine,AIndex,'(');
-      destLocStr := ExpectStringConstant(AScope,ALine,AIndex);
+      destLocStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TOrderUnitInstruction.Create(APlayer, unitType, locStr, destLocStr, unitOrder));
     end else
@@ -318,7 +318,7 @@ begin
       begin
         if not TryToken(ALine,AIndex,')') then
         begin
-          intVal := ExpectIntegerConstant(AScope, ALine, AIndex, false);
+          intVal := ExpectIntegerConstant(AThreads, AScope, ALine, AIndex, false);
           ExpectToken(ALine,AIndex,')');
         end;
       end;
@@ -330,7 +330,7 @@ begin
       begin
         if not TryToken(ALine,AIndex,')') then
         begin
-          intVal := ExpectIntegerConstant(AScope, ALine, AIndex, false);
+          intVal := ExpectIntegerConstant(AThreads, AScope, ALine, AIndex, false);
           ExpectToken(ALine,AIndex,')');
         end;
       end;
@@ -339,10 +339,10 @@ begin
     if TryToken(ALine,AIndex,'Give') then
     begin
       ExpectToken(ALine,AIndex,'(');
-      destPl:= TryParsePlayer(AScope,ALine,AIndex);
+      destPl:= TryParsePlayer(AThreads, AScope, ALine, AIndex);
       if destPl = plNone then raise exception.Create('Expecting player');
       if TryToken(ALine,AIndex,',')  then
-        intVal := ExpectIntegerConstant(AScope, ALine, AIndex, false);
+        intVal := ExpectIntegerConstant(AThreads, AScope, ALine, AIndex, false);
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
     end else
@@ -400,7 +400,7 @@ begin
         raise exception.Create('Expecting property name');
       ExpectToken(ALine,AIndex,'=');
 
-      propVal:= ExpectIntegerConstant(AScope,ALine,AIndex,false);
+      propVal:= ExpectIntegerConstant(AThreads, AScope, ALine, AIndex, false);
       AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, propVal));
     end;
 
@@ -410,7 +410,7 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      locStr := ExpectStringConstant(AScope,ALine,AIndex);
+      locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TCenterViewInstruction.Create(locStr));
     end else
@@ -418,7 +418,7 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      locStr := ExpectStringConstant(AScope,ALine,AIndex);
+      locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TCenterViewInstruction.Create(locStr));
     end else
@@ -426,7 +426,7 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      text := ExpectStringConstant(AScope,ALine,AIndex,true);
+      text := ExpectStringConstant(AThreads, AScope, ALine, AIndex, true);
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TDisplayTextMessageInstruction.Create(true, text));
     end else
@@ -436,7 +436,7 @@ begin
       ExpectToken(ALine,AIndex,'(');
       unitType := ExpectUnitType(AScope,ALine,AIndex);
       ExpectToken(ALine,AIndex,',');
-      timeMs := ExpectIntegerConstant(AScope,ALine,AIndex,false);
+      timeMs := ExpectIntegerConstant(AThreads, AScope, ALine, AIndex, false);
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TTalkingPortraitInstruction.Create(unitType, timeMs));
     end else
@@ -444,7 +444,7 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'=');
-      text := ExpectStringConstant(AScope,ALine,AIndex);
+      text := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
       AProg.Add(TSetMissionObjectivesInstruction.Create(text));
     end else
     if TryToken(ALine,AIndex,'Leaderboard') then
@@ -465,7 +465,7 @@ begin
       if TryToken(ALine,AIndex,'Show') then
       begin
         ExpectToken(ALine,AIndex,'(');
-        textDefined:= TryStringConstant(AScope,ALine,AIndex,text);
+        textDefined:= TryStringConstant(AThreads, AScope, ALine, AIndex, text);
         if textDefined then ExpectToken(ALine,AIndex,',');
 
         if TryToken(ALine,AIndex,'MineralsAndGas') or
@@ -476,7 +476,7 @@ begin
             intVal := MaxLongInt;
             if TryToken(ALine,AIndex,',') then
             begin
-              if not TryIntegerConstant(AScope,ALine,AIndex,intVal) then
+              if not TryIntegerConstant(AThreads, AScope, ALine, AIndex, intVal) then
                 raise exception.Create('Expecting integer value');
             end;
             AProg.Add(TShowLeaderboardOreAndGasIconInstruction.Create(intVal));
@@ -484,7 +484,7 @@ begin
             AProg.Add(TShowLeaderboardResourceInstruction.Create('minerals and gas', srOreAndGas,-1));
         end else
         begin
-          if TryInteger(AScope,ALine,AIndex,intVal) then
+          if TryInteger(AThreads, AScope, ALine, AIndex, intVal) then
             ExpectToken(ALine,AIndex,'-')
           else intVal := -1;
 
@@ -562,7 +562,7 @@ begin
             begin
               unitType := ExpectUnitType(AScope,ALine,AIndex);
               if TryToken(ALine,AIndex,',') then
-                locStr := ExpectStringConstant(AScope,ALine,AIndex)
+                locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex)
               else
                 locStr := MapInfo.AnywhereLocationName;
               ExpectToken(ALine,AIndex,')');
@@ -590,7 +590,7 @@ begin
       else if TryToken(ALine,AIndex,'AlliedVictory') then alliance := asAlliedVictory
       else raise exception.Create('Expecting alliance status (Ennemy, Ally, AlliedVictory)');
       ExpectToken(ALine,AIndex,'(');
-      players := ExpectPlayers(AScope,ALine,AIndex);
+      players := ExpectPlayers(AThreads, AScope, ALine ,AIndex);
       ExpectToken(ALine,AIndex,')');
 
       for pl := low(TPlayer) to high(TPlayer) do
@@ -600,10 +600,10 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      pl := TryParsePlayer(AScope,ALine,AIndex);
+      pl := TryParsePlayer(AThreads, AScope, ALine, AIndex);
       if pl = plNone then
       begin
-        if TryIntegerConstant(AScope, ALine, AIndex, intVal) then
+        if TryIntegerConstant(AThreads, AScope, ALine, AIndex, intVal) then
         begin
           if (intVal < 1) or (intVal > 8) then
             raise exception.Create('Player index out of bounds');
@@ -628,9 +628,9 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      filename := ExpectStringConstant(AScope,ALine,AIndex);
+      filename := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
       if TryToken(ALine,AIndex,',') then
-        locStr := ExpectStringConstant(AScope,ALine,AIndex)
+        locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex)
       else
         locStr := '';
       ExpectToken(ALine,AIndex,')');
@@ -715,7 +715,7 @@ begin
     begin
       if IsIntegerType(Procedures[AProcId].ReturnType) then
       begin
-        if TryIntegerConstant(AScope,ALine,index,intVal) then
+        if TryIntegerConstant(AThreads, AScope, ALine, index, intVal) then
         begin
           if (intVal < 0) or (intVal >= 1 shl Procedures[AProcId].ReturnBitCount) then
             raise exception.Create('Value out of bounds')
@@ -724,7 +724,7 @@ begin
         end
         else
         begin
-          expr := TryExpression(AScope,ALine,index,true);
+          expr := TryExpression(AThreads, AScope, ALine, index, true);
           if expr.CanPutInAccumulator then
           begin
             expr.AddToProgramInAccumulator(AProg);
@@ -742,7 +742,7 @@ begin
       begin
         idxVar := GetBoolResultVar;
         sw := BoolVars[idxVar].Switch;
-        if TryBoolean(AScope,ALine,index,boolVal) then
+        if TryBoolean(AThreads, AScope, ALine, index, boolVal) then
         begin
           AProg.Add( TSetSwitchInstruction.Create(sw, BoolToSwitch[boolVal]) );
         end else
@@ -825,7 +825,7 @@ begin
   end else
   begin
     done := false;
-    scalar := TryScalarVariable(AScope,ALine,index);
+    scalar := TryScalarVariable(AThreads, AScope, ALine, index);
     if scalar.VarType <> svtNone then
     begin
       if TryToken(ALine,index,'=') then
@@ -835,7 +835,7 @@ begin
         if scalar.ReadOnly then raise exception.Create('This value is read-only');
         case scalar.VarType of
         svtInteger: begin
-            expr := TryExpression(AScope,ALine, index, true);
+            expr := TryExpression(AThreads, AScope, ALine, index, true);
             if expr = nil then
               raise exception.Create('Unhandled case');
             expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simSetTo);
@@ -880,7 +880,7 @@ begin
         if scalar.ReadOnly then raise exception.Create('This value is read-only');
         if scalar.VarType = svtInteger then
         begin
-          expr := TryExpression(AScope,ALine,index, true);
+          expr := TryExpression(AThreads, AScope, ALine, index, true);
           if assignOp='+' then
             expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simAdd)
           else if assignOp='-' then
@@ -920,7 +920,7 @@ begin
           done := true;
           if IntArrays[idxArr].Constant then raise exception.Create('Constant cannot be assigned to');
 
-          ints := ParseIntArray(AScope,ALine,index);
+          ints := ParseIntArray(AThreads, AScope, ALine, index);
           if length(ints) <> IntArrays[idxArr].Size then
             raise exception.Create('Array size mismatch');
           CheckEndOfLine;
@@ -958,7 +958,7 @@ begin
           if BoolArrays[idxArr].Constant then raise exception.Create('Constant cannot be assigned to');
           if BoolArrays[idxArr].ReadOnly then raise exception.Create('Array is readonly');
 
-          bools := ParseBoolArray(AScope,ALine,index);
+          bools := ParseBoolArray(AThreads, AScope, ALine, index);
           if length(bools) <> BoolArrays[idxArr].Size then
             raise exception.Create('Array size mismatch');
           CheckEndOfLine;
@@ -973,7 +973,7 @@ begin
     if not done then
     begin
       index := 0;
-      pl := TryParsePlayer(AScope,ALine,index);
+      pl := TryParsePlayer(AThreads, AScope, ALine, index);
       if pl <> plNone then
       begin
         done := true;
@@ -986,7 +986,7 @@ begin
             raise exception.Create('Printing for any player is only possible from main thread');
 
           ExpectToken(ALine,index,'(');
-          text := ExpectStringConstant(AScope,ALine,index,true);
+          text := ExpectStringConstant(AThreads, AScope, ALine, index, true);
           ExpectToken(ALine,index,')');
           idxMsg := FindOrCreateMessage(text, [pl]);
           AProg.Add( TPrintForAnyPlayerInstruction.Create(idxMsg) );
@@ -1066,6 +1066,14 @@ begin
       begin
         if name <> '' then
           raise exception.Create('Unknown variable "' + name + '"')
+        else
+        begin
+          if TryStringConstant(AThreads, AScope, ALine, index, text) then
+            raise exception.Create('Expecting instruction but found string ' + StrToBasic(text))
+          else
+          if index < ALine.Count then
+            raise exception.Create('Unexpected token : ' + ALine[index]);
+        end;
       end
       else
         raise exception.Create('Expecting assignment');

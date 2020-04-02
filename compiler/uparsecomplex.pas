@@ -11,23 +11,23 @@ type
   ArrayOfInteger = array of integer;
   ArrayOfString = array of string;
 
-function TryUnitPropertiesVariableOrDefinition(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
-function TryUnitPropertiesDefinition(AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
-function ParseStringArray(AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfString;
-function ParseBoolArray(AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfSwitchValue;
-function ParseIntArray(AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfInteger;
-function TryStringConstant(AScope: integer; ALine: TStringList; var AIndex: integer; out AStr: string; ARaiseException: boolean = false): boolean;
+function TryUnitPropertiesVariableOrDefinition(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function TryUnitPropertiesDefinition(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
+function ParseStringArray(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfString;
+function ParseBoolArray(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfSwitchValue;
+function ParseIntArray(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfInteger;
+function TryStringConstant(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AStr: string; ARaiseException: boolean = false): boolean;
 
 function IsVarNameUsed(AScope: integer; AName: string; AParamCount: integer): boolean;
-procedure ProcessDim(AScope: integer; ADeclaration: string; AProg: TInstructionList; AInit0: boolean; out AWarning: string);
-procedure ProcessDim(AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0: boolean; out AWarning: string);
+procedure ProcessDim(AThreads: TPlayers; AScope: integer; ADeclaration: string; AProg: TInstructionList; AInit0: boolean; out AWarning: string);
+procedure ProcessDim(AThreads: TPlayers; AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0: boolean; out AWarning: string);
 
 implementation
 
 uses uparsevb, uparsescalar, uexpressions, utriggerinstructions, uprocedures,
   umapinfo;
 
-function TryUnitPropertiesDefinition(AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
+function TryUnitPropertiesDefinition(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
 var intVal, oldIndex: integer;
   name: String;
   boolVal: boolean;
@@ -35,14 +35,14 @@ var intVal, oldIndex: integer;
   procedure ValueInteger(AMin,AMax: integer);
   begin
     ExpectToken(ALine,AIndex,'=');
-    intVal := ExpectIntegerConstant(AScope, ALine, AIndex, false);
+    intVal := ExpectIntegerConstant(AThreads, AScope, ALine, AIndex, false);
     if (intVal < AMin) or (intVal > AMax) then
       raise exception.Create('Value out of range (' + inttostr(AMin)+' to '+Inttostr(AMax)+')');
   end;
   procedure ValueBool;
   begin
     ExpectToken(ALine,AIndex,'=');
-    boolVal := ExpectBooleanConstant(AScope, ALine, AIndex);
+    boolVal := ExpectBooleanConstant(AThreads, AScope, ALine, AIndex);
   end;
 
 begin
@@ -136,7 +136,7 @@ begin
   result := true;
 end;
 
-function TryUnitPropertiesVariableOrDefinition(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function TryUnitPropertiesVariableOrDefinition(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 var
   idxProp: Integer;
   prop: TUnitProperties;
@@ -147,14 +147,14 @@ begin
        and TryToken(ALine, AIndex, UnitPropVars[idxProp].Name) then
       exit(idxProp);
 
-  if TryUnitPropertiesDefinition(AScope, ALine,AIndex,prop) then
+  if TryUnitPropertiesDefinition(AThreads, AScope, ALine,AIndex,prop) then
   begin
     result := FindOrCreateUnitProperty(prop);
   end else
     exit(-1);
 end;
 
-function ParseIntArray(AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfInteger;
+function ParseIntArray(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfInteger;
 var count: integer;
 begin
   setlength(result, 4);
@@ -166,14 +166,14 @@ begin
       setlength(result, Count*2 + 4);
 
     if Count > 0 then ExpectToken(ALine, AIndex, ',');
-    if not TryIntegerConstant(AScope, ALine, AIndex, result[count]) then
+    if not TryIntegerConstant(AThreads, AScope, ALine, AIndex, result[count]) then
       raise exception.Create('Expecting integer or "}"');
     inc(count);
   end;
   setlength(result, count);
 end;
 
-function ParseBoolArray(AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfSwitchValue;
+function ParseBoolArray(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfSwitchValue;
 var count: integer;
 begin
   setlength(result, 4);
@@ -190,13 +190,13 @@ begin
       result[Count] := svRandomize;
       if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
     end else
-      result[Count] := BoolToSwitch[ExpectBooleanConstant(AScope, ALine, AIndex)];
+      result[Count] := BoolToSwitch[ExpectBooleanConstant(AThreads, AScope, ALine, AIndex)];
     inc(count);
   end;
   setlength(result, count);
 end;
 
-function ParseStringArray(AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfString;
+function ParseStringArray(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfString;
 var count: integer;
 begin
   setlength(result, 4);
@@ -208,7 +208,7 @@ begin
       setlength(result, Count*2 + 4);
 
     if Count > 0 then ExpectToken(ALine, AIndex, ',');
-    if not TryStringConstant(AScope, ALine, AIndex, result[count]) then
+    if not TryStringConstant(AThreads, AScope, ALine, AIndex, result[count]) then
       raise exception.Create('Expecting string or "}"');
     inc(count);
   end;
@@ -255,22 +255,42 @@ begin
   result := -1;
 end;
 
-function TryStringConstant(AScope: integer; ALine: TStringList; var AIndex: integer; out AStr: string; ARaiseException: boolean = false): boolean;
+function TryStringConstant(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AStr: string; ARaiseException: boolean = false): boolean;
 var
   scalar: TScalarVariable;
   idxVar, intVal: Integer;
   boolVal: boolean;
   idx, aiIndex, oldIndex: integer;
   firstElem: boolean;
+  pl: TPlayer;
+  uniquePlayer: TPlayer;
 begin
   idx := AIndex;
   AStr := '';
+
   firstElem := true;
   repeat
+    if TryToken(ALine,idx,'Me') then
+    begin
+      uniquePlayer := GetUniquePlayer(AThreads);
+      if (uniquePlayer in [plPlayer1..plPlayer12]) and
+         not (firstElem and not PeekToken(ALine,idx,'&')) then
+      begin
+        AStr += inttostr(ord(uniquePlayer)-ord(plPlayer1)+1);
+        firstElem := false;
+        continue;
+      end else
+      begin
+        dec(idx);
+        if not firstElem and ARaiseException then
+          raise exception.Create('Player "Me" is ambiguous');
+      end;
+    end;
+
     if TryToken(ALine,idx,'Chr') then
     begin
       ExpectToken(ALine,idx,'(');
-      intVal := ExpectIntegerConstant(AScope, ALine,idx,false);
+      intVal := ExpectIntegerConstant(AThreads, AScope, ALine,idx,false);
       ExpectToken(ALine,idx,')');
       AStr += chr(intVal);
     end else
@@ -317,7 +337,7 @@ begin
       AStr += RemoveQuotes(ALine[idx]);
       Inc(idx);
     end else
-    if TryInteger(AScope, ALine,idx,intVal) then
+    if TryInteger(AThreads, AScope, ALine,idx,intVal) then
     begin
       AStr += inttostr(intVal);
       if firstElem then
@@ -327,7 +347,7 @@ begin
         continue;
       end;
     end else
-    if TryBoolean(AScope, ALine,idx,boolVal) then
+    if TryBoolean(AThreads, AScope, ALine, idx, boolVal) then
     begin
       AStr += BoolToStr(boolVal, 'True', 'False');
       if firstElem then
@@ -354,9 +374,7 @@ begin
        if idxVar <> -1 then
        begin
          ExpectToken(ALine,idx,'(');
-         if PeekToken(ALine,idx,'Me') then
-            raise exception.Create('Constant arrays cannot be indexed by "Me"');
-         intVal := ExpectIntegerConstant(AScope,ALine,idx,true);
+         intVal := ExpectConstantIndex(AThreads,AScope,ALine,idx,true);
          ExpectToken(ALine,idx,')');
          if (intVal < 1) or (intVal > StringArrays[idxVar].Size) then
            raise exception.Create('Index out of bounds');
@@ -372,7 +390,7 @@ begin
          end else
          begin
            idx := oldIndex;
-           scalar := TryScalarVariable(AScope, ALine, idx, true);
+           scalar := TryScalarVariable(AThreads, AScope, ALine, idx, true);
            if scalar.VarType <> svtNone then
            begin
              if not scalar.Constant then
@@ -413,18 +431,18 @@ begin
   result := true;
 end;
 
-function ExpectStringConstantImplementation(AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): string;
+function ExpectStringConstantImplementation(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): string;
 var
   intVal: integer;
   boolVal: boolean;
 begin
-  if not TryStringConstant(AScope, ALine,AIndex,result,True) then
+  if not TryStringConstant(AThreads, AScope, ALine, AIndex, result, True) then
   begin
     if AConvertToString then
     begin
-      if TryIntegerConstant(AScope,ALine,AIndex,intVal) then
+      if TryIntegerConstant(AThreads, AScope, ALine, AIndex, intVal) then
         result := IntToStr(intVal)
-      else if TryBoolean(AScope,ALine,AIndex,boolVal) then
+      else if TryBoolean(AThreads, AScope, ALine, AIndex, boolVal) then
         result := BoolToStr(boolVal, 'True','False')
       else
         raise exception.Create('No value found');
@@ -446,7 +464,7 @@ begin
             (CompareText('Switch',AName) = 0) or (CompareText('Color',AName) = 0) or (CompareText('Align',AName) = 0);
 end;
 
-procedure ProcessDim(AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0: boolean; out AWarning: string);
+procedure ProcessDim(AThreads: TPlayers; AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0: boolean; out AWarning: string);
 var
   index: Integer;
   varName, varType, filename, text: String;
@@ -462,7 +480,7 @@ var
 
   procedure ExpectArraySize;
   begin
-    if not TryIntegerConstant(AScope,ALine,index,arraySize) then
+    if not TryIntegerConstant(AThreads, AScope, ALine, index, arraySize) then
       raise exception.Create('Expecting array size or "]"');
     if (arraySize < 1) or (arraySize > MaxIntArraySize) then
       raise Exception.Create('Array size can go from 1 to ' + inttostr(MaxIntArraySize));
@@ -623,7 +641,7 @@ begin
         end else
         if IsIntegerType(varType) then
         begin
-          arrValues := ParseIntArray(AScope,ALine,index);
+          arrValues := ParseIntArray(AThreads, AScope, ALine, index);
           if (arraySize <> 0) and (length(arrValues) <> arraySize) then
             raise exception.Create('Array size mismatch');
           if arraySize = 0 then
@@ -635,7 +653,7 @@ begin
           SetupIntArray(CreateIntArray(AScope,varName, arraySize, arrValues, bitCount, Constant));
         end else if varType = 'Boolean' then
         begin
-          arrBoolValues := ParseBoolArray(AScope,ALine,index);
+          arrBoolValues := ParseBoolArray(AThreads, AScope, ALine, index);
           if (arraySize <> 0) and (length(arrBoolValues) <> arraySize) then
             raise exception.Create('Array size mismatch (expecting ' + inttostr(arraySize) + ' but ' + inttostr(length(arrValues)) + ' found)');
           if arraySize = 0 then
@@ -647,7 +665,7 @@ begin
           SetupBoolArray(CreateBoolArray(AScope,varName, arraySize, arrBoolValues, Constant));
         end else if varType = 'String' then
         begin
-          strValues := ParseStringArray(AScope,ALine,index);
+          strValues := ParseStringArray(AThreads, AScope, ALine, index);
           if (arraySize <> 0) and (length(strValues) <> arraySize) then
             raise exception.Create('Array size mismatch');
           if arraySize = 0 then
@@ -677,12 +695,12 @@ begin
               for i := WavMinIndex to WavMaxIndex do
                 AddToCompletionList(StrToBasic(MapInfo.WavName[i]));
             end;
-            filename := ExpectStringConstant(AScope,ALine,index);
+            filename := ExpectStringConstant(AThreads, AScope, ALine, index);
           end else
           if TryToken(ALine,index,'Duration') then
           begin
             ExpectToken(ALine,index,'=');
-            timeMs := ExpectIntegerConstant(AScope,ALine,index,false);
+            timeMs := ExpectIntegerConstant(AThreads, AScope, ALine, index, false);
           end else
             raise exception.Create('Unknown field. Expecting Filename or Duration');
           if not TryToken(ALine,index,',') then
@@ -697,7 +715,7 @@ begin
       end else
       if varType = 'UnitProperties' then
       begin
-        if TryUnitPropertiesDefinition(AScope,ALine,index,prop) then
+        if TryUnitPropertiesDefinition(AThreads, AScope, ALine, index, prop) then
         begin
           CreateUnitProp(AScope,varName, prop, Constant);
         end else
@@ -705,7 +723,7 @@ begin
       end else
       if varType = 'String' then
       begin
-        CreateString(AScope,varName,ExpectStringConstant(AScope,ALine,index), Constant);
+        CreateString(AScope,varName,ExpectStringConstant(AThreads,AScope,ALine,index), Constant);
       end else
       if varType = 'Boolean' then
       begin
@@ -716,21 +734,22 @@ begin
         end
         else
         begin
-          boolVal := ExpectBooleanConstant(AScope,ALine,index);
+          boolVal := ExpectBooleanConstant(AThreads, AScope, ALine, index);
           SetupBoolVar(CreateBoolVar(AScope,varName, BoolToSwitch[boolVal], Constant));
         end;
       end else
       if IsIntegerType(varType) then
       begin
-        SetupIntVar(CreateIntVar(AScope,varName, 0, bitCount, false, Constant), TryExpression(AScope,ALine,index,true));
+        SetupIntVar(CreateIntVar(AScope,varName, 0, bitCount, false, Constant),
+                    TryExpression(AThreads, AScope, ALine, index, true));
       end else
       begin
         if varType <> '?' then raise exception.Create('Unhandled case');
 
-        if TryBoolean(AScope,ALine,index,boolVal) then
+        if TryBoolean(AThreads, AScope, ALine, index, boolVal) then
           SetupBoolVar(CreateBoolVar(AScope,varName, BoolToSwitch[boolVal], Constant))
         else
-        if TryIntegerConstant(AScope,ALine,index,intVal) then
+        if TryIntegerConstant(AThreads, AScope, ALine, index, intVal) then
         begin
           bitCount := BitCountNeededFor(intVal);
           if not Constant then AWarning := 'Assuming ' + inttostr( bitCount) + ' bit value for "' + varName + '". Please specify integer type (Byte, UInt16, UInt24)';
@@ -739,7 +758,7 @@ begin
         else if TryToken(ALine,index,'Rnd') then
           raise exception.Create('Cannot determine if integer or boolean')
         else
-        if TryStringConstant(AScope,ALine,index,text) then
+        if TryStringConstant(AThreads,AScope,ALine,index,text) then
           CreateString(AScope,varName,text, Constant)
         else
           raise exception.Create('Expecting constant value');
@@ -774,13 +793,13 @@ begin
   end;
 end;
 
-procedure ProcessDim(AScope: integer; ADeclaration: string; AProg: TInstructionList; AInit0: boolean; out AWarning: string);
+procedure ProcessDim(AThreads: TPlayers; AScope: integer; ADeclaration: string; AProg: TInstructionList; AInit0: boolean; out AWarning: string);
 var
   line: TStringList;
 begin
   line := ParseLine(ADeclaration);
   try
-    ProcessDim(AScope, line, AProg, AInit0, AWarning);
+    ProcessDim(AThreads, AScope, line, AProg, AInit0, AWarning);
   finally
     line.Free;
   end;

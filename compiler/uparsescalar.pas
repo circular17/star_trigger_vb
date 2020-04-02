@@ -19,17 +19,18 @@ type
     BoolValue: boolean;
   end;
 
-function TryScalarVariable(AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false): TScalarVariable;
+function TryScalarVariable(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false): TScalarVariable;
 function ExpectUnitType({%H-}AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
 function IsUnitType(AName: string): boolean;
 function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string; AcceptsReservedWords: boolean): boolean;
-function TryInteger(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
+function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
 function TryIntegerVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 function TryIntegerConstantVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 function TryIntegerArray(AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false): integer;
 function TryPredefinedIntegerArray(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
-function ExpectInteger(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
-function TryBoolean(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;
+function ExpectInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function ExpectConstantIndex(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AAcceptNegative: boolean): integer;
+function TryBoolean(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;
 function TryBooleanVariable(AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false): integer;
 function TryBooleanArray(AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false): integer;
 function TryStringVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
@@ -38,10 +39,10 @@ function TrySoundVariable(AScope: integer; ALine: TStringList; var AIndex: integ
 function TryUnitPropertiesVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 
 type
-  TExpectBooleanConstantFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer): boolean;
-  TExpectIntegerConstantFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer; AAcceptNegative: boolean): integer;
-  TTryIntegerConstantFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
-  TExpectStringConstantFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): string;
+  TExpectBooleanConstantFunc = function(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): boolean;
+  TExpectIntegerConstantFunc = function(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AAcceptNegative: boolean): integer;
+  TTryIntegerConstantFunc = function(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
+  TExpectStringConstantFunc = function(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): string;
 
 var
   ExpectBooleanConstant: TExpectBooleanConstantFunc;
@@ -119,14 +120,14 @@ begin
   end;
 end;
 
-function TryInteger(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
+function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
 var errPos, idxVar, oldIndex: integer;
   s, ident, strValue: String;
 begin
   if TryToken(ALine,AIndex,'Asc') then
   begin
     ExpectToken(ALine,AIndex,'(');
-    s := ExpectStringConstant(AScope, ALine,AIndex);
+    s := ExpectStringConstant(AThreads, AScope, ALine,AIndex);
     ExpectToken(ALine,AIndex,')');
     if s = '' then
       AValue := 0
@@ -190,7 +191,7 @@ begin
   if TryToken(ALine,AIndex,'Len') then
   begin
     ExpectToken(ALine,AIndex,'(');
-    strValue := ExpectStringConstant(AScope, ALine,AIndex);
+    strValue := ExpectStringConstant(AThreads, AScope, ALine,AIndex);
     ExpectToken(ALine,AIndex,')');
     AValue := length(strValue);
     exit(true);
@@ -315,10 +316,10 @@ begin
   result := -1;
 end;
 
-function ExpectInteger(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function ExpectInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 begin
   result := 0;
-  if not TryInteger(AScope, ALine,AIndex,result) then
+  if not TryInteger(AThreads, AScope, ALine,AIndex,result) then
   begin
     if AIndex > ALine.Count then
       raise exception.Create('Integer expected but end of line found') else
@@ -326,7 +327,19 @@ begin
   end;
 end;
 
-function TryBoolean(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;
+function ExpectConstantIndex(AThreads: TPlayers; AScope: integer;
+  ALine: TStringList; var AIndex: integer; AAcceptNegative: boolean): integer;
+var
+  uniquePlayer: TPlayer;
+begin
+  uniquePlayer := GetUniquePlayer(AThreads);
+  if (uniquePlayer in [plPlayer1..plPlayer12]) and
+     TryToken(ALine,AIndex,'Me') then
+    result := ord(uniquePlayer)-ord(plPlayer1)+1
+    else result := ExpectIntegerConstant(AThreads, AScope, ALine,AIndex,AAcceptNegative);
+end;
+
+function TryBoolean(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;
 var
   idxVar, arrIndex, oldIndex: Integer;
 begin
@@ -385,7 +398,7 @@ begin
     begin
       if TryToken(ALine,AIndex,'(') then
       begin
-        arrIndex := ExpectIntegerConstant(AScope, ALine,AIndex,true);
+        arrIndex := ExpectConstantIndex(AThreads, AScope, ALine,AIndex,true);
         if (arrIndex < 1) or (arrIndex > BoolArrays[idxVar].Size) then
           raise exception.Create('Index out of bounds');
         AValue := BoolArrays[idxVar].Values[arrIndex-1] = svSet;
@@ -469,7 +482,7 @@ begin
   result := -1;
 end;
 
-function TryScalarVariable(AScope: integer; ALine: TStringList; var AIndex: integer;
+function TryScalarVariable(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer;
   AConstantOnly: boolean): TScalarVariable;
 var varIdx, arrayIndex, idx: integer;
   pl: TPlayer;
@@ -512,7 +525,7 @@ begin
     result.VarType := svtSwitch;
     result.Player := plNone;
     result.UnitType := suSwitch;
-    result.Switch := ExpectIntegerConstant(AScope,ALine,AIndex,true);
+    result.Switch := ExpectConstantIndex(AThreads,AScope,ALine,AIndex,true);
     if (result.Switch < 1) or (result.Switch > 256) then raise exception.Create('Switch index out of bounds (1 to 256)');
     result.Constant:= False;
     result.ReadOnly := False;
@@ -526,7 +539,7 @@ begin
   begin
     if TryToken(ALine,AIndex,'(') then
     begin
-      arrayIndex := ExpectIntegerConstant(AScope, ALine,AIndex,true);
+      arrayIndex := ExpectConstantIndex(AThreads, AScope, ALine,AIndex,true);
       if (arrayIndex < 1) or (arrayIndex > MaxTriggerPlayers) then
         raise exception.Create('Array index out of bounds');
       ExpectToken(ALine, AIndex, ')');
@@ -550,7 +563,7 @@ begin
   begin
     if TryToken(ALine,AIndex,'(') then
     begin
-      arrayIndex := ExpectIntegerConstant(AScope, ALine,AIndex,true);
+      arrayIndex := ExpectConstantIndex(AThreads, AScope, ALine,AIndex,true);
       if (arrayIndex < 1) or (arrayIndex > BoolArrays[varIdx].Size) then
         raise exception.Create('Array index out of bounds');
       ExpectToken(ALine, AIndex, ')');
@@ -573,17 +586,23 @@ begin
   begin
     if TryToken(ALine,AIndex,'(') then
     begin
-      if TryToken(ALine,AIndex,'Me') then
+      if TryToken(ALine,AIndex,'Me') and not IntArrays[varIdx].Constant then
       begin
-        if IntArrays[varIdx].Constant then
-          raise exception.Create('Constant arrays cannot be indexed by "Me"');
+        for pl := plPlayer1 to plPlayer12 do
+          if pl in AThreads then
+          begin
+            if ord(pl)-ord(plPlayer1)+1 > IntArrays[varIdx].Size then
+              raise exception.Create('Array index out of bounds');
+          end;
+        if (plAllPlayers in AThreads) and (MaxTriggerPlayers > IntArrays[varIdx].Size) then
+          raise exception.Create('Array index out of bounds');
         result.IntValue:= 0;
         result.UnitType := IntArrays[varIdx].UnitType;
         result.Player := plCurrentPlayer;
       end
       else
       begin
-        arrayIndex := ExpectIntegerConstant(AScope, ALine, AIndex,true);
+        arrayIndex := ExpectConstantIndex(AThreads, AScope, ALine, AIndex,true);
         if (arrayIndex < 1) or (arrayIndex > IntArrays[varIdx].Size) then
           raise exception.Create('Array index out of bounds');
         pl := IntToPlayer(arrayIndex);
@@ -607,7 +626,7 @@ begin
 
   idx := AIndex;
   if AConstantOnly then exit;
-  pl := TryParsePlayer(AScope, ALine,idx);
+  pl := TryParsePlayer(AThreads, AScope, ALine,idx);
   if pl <> plNone then
   begin
     if TryToken(ALine,idx,'.') then
@@ -639,7 +658,7 @@ begin
         if (varIdx <> -1) and IntArrays[varIdx].Predefined then
         begin
           result.VarType := svtInteger;
-          if (pl in[plPlayer1..plPlayer8]) and
+          if (pl in[plPlayer1..plPlayer12]) and
             (ord(pl) - ord(plPlayer1) + 1 > IntArrays[varIdx].Size) then
               raise exception.Create('This player is not included in this array. Index is out of bounds');
           result.Player := pl;

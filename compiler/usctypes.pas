@@ -35,6 +35,7 @@ type
 
 function IntToPlayer(APlayer: integer): TPlayer;
 function IsUniquePlayer(APlayers: TPlayers): boolean;
+function GetUniquePlayer(APlayers: TPlayers): TPlayer;
 
 const
   MaxTriggerPlayers = 8;
@@ -939,6 +940,18 @@ begin
     end;
   end;
   exit(count=1);
+end;
+
+function GetUniquePlayer(APlayers: TPlayers): TPlayer;
+var
+  pl: TPlayer;
+begin
+  if IsUniquePlayer(APlayers) then
+  begin
+    for pl := succ(plNone) to high(TPlayer) do
+      if pl in APlayers then exit(pl);
+  end else
+    exit(plNone);
 end;
 
 procedure InitStarcraftUnitPrefixes;

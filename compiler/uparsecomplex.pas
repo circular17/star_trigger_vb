@@ -260,7 +260,7 @@ var
   scalar: TScalarVariable;
   idxVar, intVal: Integer;
   boolVal: boolean;
-  idx, aiIndex: integer;
+  idx, aiIndex, oldIndex: integer;
   firstElem: boolean;
 begin
   idx := AIndex;
@@ -364,36 +364,45 @@ begin
          AStr += StringArrays[idxVar].Values[intVal-1];
        end else
        begin
-         scalar := TryScalarVariable(AScope, ALine, idx, true);
-         if scalar.VarType <> svtNone then
+         oldIndex := idx;
+         idxVar := TrySoundVariable(AScope, ALine, idx);
+         if (idxVar <> -1) and TryToken(ALine, idx, '.') and TryToken(ALine, idx, 'Filename') then
          begin
-           if not scalar.Constant then
-           begin
-             if ARaiseException then raise exception.Create('Only constants can be used in a string');
-             exit(false);
-           end;
-
-           case scalar.VarType of
-           svtInteger: AStr += inttostr(scalar.IntValue);
-           svtSwitch: AStr += BoolToStr(scalar.BoolValue, 'True', 'False');
-           else raise exception.Create('Unhandled case');
-           end;
-
-           if firstElem then
-           begin
-             if not TryToken(ALine, idx, '&') then exit(false);
-             firstElem := false;
-             continue;
-           end;
+           AStr += SoundVars[idxVar].Filename;
          end else
          begin
-           if ARaiseException then
+           idx := oldIndex;
+           scalar := TryScalarVariable(AScope, ALine, idx, true);
+           if scalar.VarType <> svtNone then
            begin
-             if idx >= ALine.Count then
-               raise exception.Create('Expecting string but end of line found')
-               else raise exception.Create('Expecting string but "' + ALine[idx] + '" found');
+             if not scalar.Constant then
+             begin
+               if ARaiseException then raise exception.Create('Only constants can be used in a string');
+               exit(false);
+             end;
+
+             case scalar.VarType of
+             svtInteger: AStr += inttostr(scalar.IntValue);
+             svtSwitch: AStr += BoolToStr(scalar.BoolValue, 'True', 'False');
+             else raise exception.Create('Unhandled case');
+             end;
+
+             if firstElem then
+             begin
+               if not TryToken(ALine, idx, '&') then exit(false);
+               firstElem := false;
+               continue;
+             end;
+           end else
+           begin
+             if ARaiseException then
+             begin
+               if idx >= ALine.Count then
+                 raise exception.Create('Expecting string but end of line found')
+                 else raise exception.Create('Expecting string but "' + ALine[idx] + '" found');
+             end;
+             exit(false);
            end;
-           exit(false);
          end;
        end;
      end;

@@ -238,6 +238,20 @@ begin
     AIndex := oldIndex;
   end;
 
+  idxVar := TrySoundVariable(AScope, ALine, AIndex);
+  if idxVar <> -1 then
+  begin
+    if TryToken(ALine, AIndex, '.') then
+    begin
+      if TryToken(ALine, AIndex, 'Duration') then
+      begin
+        AValue := SoundVars[idxVar].DurationMs;
+        exit(true);
+      end;
+    end;
+    AIndex := oldIndex;
+  end;
+
   if AIndex < ALine.Count then
   begin
     s := ALine[AIndex];

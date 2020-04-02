@@ -581,7 +581,16 @@ begin
         raise exception.Create('Expecting trigger instruction but ' + AProg[i].Classname + ' found')
       else
         consecutiveInstructions[instrCount] := TTriggerInstruction(AProg[i]);
+
       inc(instrCount);
+      if instrCount >= MAX_ACTIONS-1 then
+      begin
+        nextIP := NewIP;
+        WriteTrigger(APlayers, finalConditions, slice(consecutiveInstructions, instrCount), nextIP, APreserve or (ATempPreserve > 0));
+        WriteProg(APlayers, [], AProg, NextIP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
+        done := true;
+        break;
+      end;
     end;
 
     if not done then

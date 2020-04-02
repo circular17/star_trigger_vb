@@ -874,24 +874,23 @@ begin
       If TryToken(ALine,index,'+') or TryToken(ALine,index,'-') then
       begin
         assignOp := ALine[index-1];
-        if TryToken(ALine,index,'=') then
+        ExpectToken(ALine,index,'=');
+        done := true;
+        if scalar.Constant then raise exception.Create('Constant cannot be assigned to');
+        if scalar.ReadOnly then raise exception.Create('This value is read-only');
+        if scalar.VarType = svtInteger then
         begin
-          done := true;
-          if scalar.Constant then raise exception.Create('Constant cannot be assigned to');
-          if scalar.ReadOnly then raise exception.Create('This value is read-only');
-          if scalar.VarType = svtInteger then
-          begin
-            expr := TryExpression(AScope,ALine,index, true);
-            if assignOp='+' then
-              expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simAdd)
-            else if assignOp='-' then
-              expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simSubtract);
-            expr.Free;
-          end
-          else raise Exception.Create('Integer variables only can be incremented/decremented');
-        end;
-      end;
-
+          expr := TryExpression(AScope,ALine,index, true);
+          if assignOp='+' then
+            expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simAdd)
+          else if assignOp='-' then
+            expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simSubtract);
+          expr.Free;
+        end
+        else raise Exception.Create('Integer variables only can be incremented/decremented');
+      end else
+        raise exception.Create('Assignment expected');
+      CheckEndOfLine;
     end;
 
     if not done then

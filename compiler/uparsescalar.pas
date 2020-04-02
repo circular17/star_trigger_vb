@@ -35,6 +35,7 @@ function TryBooleanArray(AScope: integer; ALine: TStringList; var AIndex: intege
 function TryStringVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 function TryStringArray(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 function TrySoundVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function TryUnitPropertiesVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 
 type
   TExpectBooleanConstantFunc = function(AScope: integer; ALine: TStringList; var AIndex: integer): boolean;
@@ -119,7 +120,7 @@ begin
 end;
 
 function TryInteger(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
-var errPos, idxVar: integer;
+var errPos, idxVar, oldIndex: integer;
   s, ident, strValue: String;
 begin
   if TryToken(ALine,AIndex,'Asc') then
@@ -202,6 +203,41 @@ begin
     exit(true);
   end;
 
+  oldIndex := AIndex;
+  idxVar := TryUnitPropertiesVariable(AScope, ALine, AIndex);
+  if idxVar <> -1 then
+  begin
+    if TryToken(ALine, AIndex, '.') then
+    begin
+      if TryToken(ALine, AIndex, 'Life') then
+      begin
+        AValue := UnitPropVars[idxVar].Value.Life;
+        exit(true);
+      end else
+      if TryToken(ALine, AIndex, 'Shield') then
+      begin
+        AValue := UnitPropVars[idxVar].Value.Shield;
+        exit(true);
+      end else
+      if TryToken(ALine, AIndex, 'Energy') then
+      begin
+        AValue := UnitPropVars[idxVar].Value.Energy;
+        exit(true);
+      end else
+      if TryToken(ALine, AIndex, 'Resource') then
+      begin
+        AValue := UnitPropVars[idxVar].Value.Resource;
+        exit(true);
+      end else
+      if TryToken(ALine, AIndex, 'HangarCount') then
+      begin
+        AValue := UnitPropVars[idxVar].Value.HangarCount;
+        exit(true);
+      end;
+    end;
+    AIndex := oldIndex;
+  end;
+
   if AIndex < ALine.Count then
   begin
     s := ALine[AIndex];
@@ -278,7 +314,7 @@ end;
 
 function TryBoolean(AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;
 var
-  idxVar,idx, arrIndex: Integer;
+  idxVar, arrIndex, oldIndex: Integer;
 begin
   AValue := false;
   if TryToken(ALine,AIndex,'False') then exit(true)
@@ -288,30 +324,61 @@ begin
     exit(true)
   end else
   begin
-    if AIndex < ALine.Count then
+    oldIndex := AIndex;
+
+    idxVar := TryUnitPropertiesVariable(AScope, ALine, AIndex);
+    if idxVar <> -1 then
     begin
-      idxVar := BoolVarIndexOf(AScope, ALine[AIndex]);
-      if (idxVar<>-1) and BoolVars[idxVar].Constant then
+      if TryToken(ALine, AIndex, '.') then
       begin
-        AValue := (BoolVars[idxVar].Value = svSet);
-        inc(AIndex);
-        exit(true);
-      end;
-      idxVar := BoolArrayIndexOf(AScope, ALine[AIndex]);
-      if (idxVar <> -1) and BoolArrays[idxVar].Constant then
-      begin
-        idx := AIndex+1;
-        if TryToken(ALine,idx,'(') then
+        if TryToken(ALine, AIndex, 'Invincible') then
         begin
-          arrIndex := ExpectIntegerConstant(AScope, ALine,idx,true);
-          if (arrIndex < 1) or (arrIndex > BoolArrays[idxVar].Size) then
-            raise exception.Create('Index out of bounds');
-          AValue := BoolArrays[idxVar].Values[arrIndex-1] = svSet;
-          ExpectToken(ALine,idx,')');
-          AIndex := idx;
+          AValue := UnitPropVars[idxVar].Value.Invincible;
+          exit(true);
+        end else
+        if TryToken(ALine, AIndex, 'Burrowed') then
+        begin
+          AValue := UnitPropVars[idxVar].Value.Burrowed;
+          exit(true);
+        end else
+        if TryToken(ALine, AIndex, 'Lifted') then
+        begin
+          AValue := UnitPropVars[idxVar].Value.Lifted;
+          exit(true);
+        end else
+        if TryToken(ALine, AIndex, 'Hallucinated') then
+        begin
+          AValue := UnitPropVars[idxVar].Value.Hallucinated;
+          exit(true);
+        end else
+        if TryToken(ALine, AIndex, 'Cloaked') then
+        begin
+          AValue := UnitPropVars[idxVar].Value.Cloaked;
           exit(true);
         end;
       end;
+      AIndex := oldIndex;
+    end;
+
+    idxVar := TryBooleanVariable(AScope, ALine, AIndex, true);
+    if idxVar <> -1 then
+    begin
+      AValue := (BoolVars[idxVar].Value = svSet);
+      exit(true);
+    end;
+    idxVar := TryBooleanArray(AScope, ALine, AIndex, true);
+    if idxVar <> -1 then
+    begin
+      if TryToken(ALine,AIndex,'(') then
+      begin
+        arrIndex := ExpectIntegerConstant(AScope, ALine,AIndex,true);
+        if (arrIndex < 1) or (arrIndex > BoolArrays[idxVar].Size) then
+          raise exception.Create('Index out of bounds');
+        AValue := BoolArrays[idxVar].Values[arrIndex-1] = svSet;
+        ExpectToken(ALine,AIndex,')');
+        exit(true);
+      end;
+      AIndex := oldIndex;
     end;
     exit(false);
   end;
@@ -338,7 +405,7 @@ begin
     if ((BoolArrays[i].Scope = AScope) or (BoolArrays[i].Scope = GlobalScope)) and
       (not AConstantOnly or BoolArrays[i].Constant) and
       TryToken(ALine, AIndex, BoolArrays[i].Name) then exit(i);
-  if TryToken(ALine,AIndex,'Present') then
+  if not AConstantOnly and TryToken(ALine,AIndex,'Present') then
     exit(GetPlayerPresentArray);
   result := -1;
 end;
@@ -372,6 +439,19 @@ begin
   for i := 0 to SoundCount-1 do
     if ((SoundVars[i].Scope = AScope) or (SoundVars[i].Scope = GlobalScope)) and
       TryToken(ALine, AIndex, SoundVars[i].Name) then exit(i);
+  result := -1;
+end;
+
+function TryUnitPropertiesVariable(AScope: integer; ALine: TStringList;
+  var AIndex: integer): integer;
+var
+  idxProp: Integer;
+begin
+  for idxProp := 0 to UnitPropCount-1 do
+    if ((UnitPropVars[idxProp].Scope = AScope) or
+      (UnitPropVars[idxProp].Scope = GlobalScope))
+       and TryToken(ALine, AIndex, UnitPropVars[idxProp].Name) then
+      exit(idxProp);
   result := -1;
 end;
 

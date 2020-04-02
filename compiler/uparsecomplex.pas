@@ -11,8 +11,8 @@ type
   ArrayOfInteger = array of integer;
   ArrayOfString = array of string;
 
-function TryUnitPropVar(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
-function TryUnitProperties(AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
+function TryUnitPropertiesVariableOrDefinition(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function TryUnitPropertiesDefinition(AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
 function ParseStringArray(AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfString;
 function ParseBoolArray(AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfSwitchValue;
 function ParseIntArray(AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfInteger;
@@ -27,7 +27,7 @@ implementation
 uses uparsevb, uparsescalar, uexpressions, utriggerinstructions, uprocedures,
   umapinfo;
 
-function TryUnitProperties(AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
+function TryUnitPropertiesDefinition(AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
 var intVal, oldIndex: integer;
   name: String;
   boolVal: boolean;
@@ -136,7 +136,7 @@ begin
   result := true;
 end;
 
-function TryUnitPropVar(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function TryUnitPropertiesVariableOrDefinition(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 var
   idxProp: Integer;
   prop: TUnitProperties;
@@ -147,7 +147,7 @@ begin
        and TryToken(ALine, AIndex, UnitPropVars[idxProp].Name) then
       exit(idxProp);
 
-  if TryUnitProperties(AScope, ALine,AIndex,prop) then
+  if TryUnitPropertiesDefinition(AScope, ALine,AIndex,prop) then
   begin
     result := FindOrCreateUnitProperty(prop);
   end else
@@ -688,7 +688,7 @@ begin
       end else
       if varType = 'UnitProperties' then
       begin
-        if TryUnitProperties(AScope,ALine,index,prop) then
+        if TryUnitPropertiesDefinition(AScope,ALine,index,prop) then
         begin
           CreateUnitProp(AScope,varName, prop, Constant);
         end else

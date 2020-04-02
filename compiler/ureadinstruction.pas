@@ -133,7 +133,7 @@ begin
         locStr := MapInfo.AnywhereLocationName;
       if TryToken(ALine,AIndex,',') then
       begin
-        propIndex := TryUnitPropVar(AScope,ALine,AIndex);
+        propIndex := TryUnitPropertiesVariableOrDefinition(AScope,ALine,AIndex);
         if propIndex = -1 then
           raise exception.Create('Unit properties expected');
       end else
@@ -144,7 +144,7 @@ begin
       begin
         if TryToken(ALine,AIndex,'With') then
         begin
-          propIndex := TryUnitPropVar(AScope,ALine,AIndex);
+          propIndex := TryUnitPropertiesVariableOrDefinition(AScope,ALine,AIndex);
           if propIndex = -1 then
             raise exception.Create('Unit properties expected');
         end;
@@ -206,7 +206,7 @@ begin
     if TryToken(ALine,AIndex,'Properties') then
     begin
       ExpectToken(ALine,AIndex,'=');
-      if not TryUnitProperties(AScope,ALine,AIndex,props) then
+      if not TryUnitPropertiesDefinition(AScope,ALine,AIndex,props) then
       begin
         if (AIndex < ALine.Count) and IsValidVariableName(ALine[AIndex]) then
         begin

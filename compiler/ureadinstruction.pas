@@ -81,7 +81,7 @@ var
   intVal, propIndex, propVal, timeMs, tempInt, i: integer;
   unitType: TStarcraftUnit;
   locStr, destLocStr, orderStr, filename, text: String;
-  textDefined: boolean;
+  textDefined, deathAnim: boolean;
   destPl: TPlayer;
   props: TUnitProperties;
   prop: TSetUnitProperty;
@@ -149,9 +149,10 @@ begin
             raise exception.Create('Unit properties expected');
         end;
       end;
+      if propIndex <> -1 then inc(propIndex);
 
       if expr.IsConstant then
-        AProg.Add(TCreateUnitInstruction.Create(APlayer, expr.ConstElement, unitType, locStr, propIndex+1))
+        AProg.Add(TCreateUnitInstruction.Create(APlayer, expr.ConstElement, unitType, locStr, propIndex))
       else
       begin
         tempInt := AllocateTempInt(8);
@@ -159,7 +160,7 @@ begin
         for i := 7 downto 0 do
         begin
           subInstr := TInstructionList.Create;
-          subInstr.Add( TCreateUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, propIndex+1) );
+          subInstr.Add( TCreateUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, propIndex) );
           subInstr.Add( CreateSetIntegerInstruction(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
           AProg.Add( TFastIfInstruction.Create( [CreateIntegerCondition( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i)], subInstr) );
         end;
@@ -312,39 +313,72 @@ begin
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TOrderUnitInstruction.Create(APlayer, unitType, locStr, destLocStr, unitOrder));
     end else
-    if TryToken(ALine,AIndex,'Kill') then
+    if TryToken(ALine,AIndex,'Kill') or TryToken(ALine,AIndex,'Remove') then
     begin
+      deathAnim := CompareText(ALine[AIndex-1], 'Kill')=0;
+      expr := nil;
       if TryToken(ALine,AIndex,'(') then
       begin
         if not TryToken(ALine,AIndex,')') then
         begin
-          intVal := ExpectIntegerConstant(AThreads, AScope, ALine, AIndex, false);
+          if intVal = -1 then
+            expr := TryExpression(AThreads, AScope, ALine, AIndex, True);
           ExpectToken(ALine,AIndex,')');
         end;
       end;
-      AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, true));
-    end else
-    if TryToken(ALine,AIndex,'Remove') then
-    begin
-      if TryToken(ALine,AIndex,'(') then
+      if (expr = nil) or expr.IsConstant then
       begin
-        if not TryToken(ALine,AIndex,')') then
+        if Assigned(expr) then
+          intVal := expr.ConstElement;
+        if intVal > 0 then
+          AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, deathAnim));
+      end else
+      begin
+        tempInt := AllocateTempInt(8);
+        expr.AddToProgram(AProg, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
+        for i := 7 downto 0 do
         begin
-          intVal := ExpectIntegerConstant(AThreads, AScope, ALine, AIndex, false);
-          ExpectToken(ALine,AIndex,')');
+          subInstr := TInstructionList.Create;
+          subInstr.Add( TKillUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, deathAnim) );
+          subInstr.Add( CreateSetIntegerInstruction(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
+          AProg.Add( TFastIfInstruction.Create( [CreateIntegerCondition( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i)], subInstr) );
         end;
+        ReleaseTempInt(tempInt);
       end;
-      AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, false));
+      expr.Free;
     end else
     if TryToken(ALine,AIndex,'Give') then
     begin
       ExpectToken(ALine,AIndex,'(');
       destPl:= TryParsePlayer(AThreads, AScope, ALine, AIndex);
       if destPl = plNone then raise exception.Create('Expecting player');
-      if TryToken(ALine,AIndex,',')  then
-        intVal := ExpectIntegerConstant(AThreads, AScope, ALine, AIndex, false);
+      expr := nil;
+      if intVal = -1 then
+      begin
+        if TryToken(ALine,AIndex,',')  then
+          expr := TryExpression(AThreads, AScope, ALine, AIndex, True);
+      end;
       ExpectToken(ALine,AIndex,')');
-      AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
+      if (expr = nil) or expr.IsConstant then
+      begin
+        if Assigned(expr) then
+          intVal := expr.ConstElement;
+        if intVal > 0 then
+          AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
+      end else
+      begin
+        tempInt := AllocateTempInt(8);
+        expr.AddToProgram(AProg, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
+        for i := 7 downto 0 do
+        begin
+          subInstr := TInstructionList.Create;
+          subInstr.Add( TGiveUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, destPl) );
+          subInstr.Add( CreateSetIntegerInstruction(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
+          AProg.Add( TFastIfInstruction.Create( [CreateIntegerCondition( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i)], subInstr) );
+        end;
+        ReleaseTempInt(tempInt);
+      end;
+      expr.Free;
     end else
     if TryToken(ALine,AIndex,'ToggleInvincibility') then
     begin

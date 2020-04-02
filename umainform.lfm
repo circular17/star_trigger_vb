@@ -3,6 +3,7 @@ object FMain: TFMain
   Height = 674
   Top = 135
   Width = 1418
+  AllowDropFiles = True
   BorderIcons = [biSystemMenu, biMaximize]
   Caption = 'BroodBasic program'
   ClientHeight = 674

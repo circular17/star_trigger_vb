@@ -483,7 +483,7 @@ end;
 procedure ProcessDim(AThreads: TPlayers; AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0: boolean; out AWarning: string);
 var
   index: Integer;
-  varName, varType, filename, text: String;
+  varName, varType, filename, text, wavName: String;
   arraySize, bitCount: integer;
   isArray: boolean;
   timeMs, intVal, i: integer;
@@ -491,7 +491,7 @@ var
   boolVal: boolean;
   prop: TUnitProperties;
   arrBoolValues: ArrayOfSwitchValue;
-  Constant: boolean;
+  Constant, filenameSpecified: boolean;
   strValues: ArrayOfString;
 
   procedure ExpectArraySize;
@@ -698,22 +698,27 @@ begin
       begin
         ExpectToken(ALine,index,'{');
         filename := '';
+        filenameSpecified := false;
         timeMs := -1;
         if not TryToken(ALine,index,'}') then
         while true do
         begin
           ExpectToken(ALine,index,'.');
-          if TryToken(ALine,index,'Filename') then
+          if not filenameSpecified and TryToken(ALine,index,'Filename') then
           begin
             ExpectToken(ALine,index,'=');
             if index >= ALine.Count then
             begin
               for i := WavMinIndex to WavMaxIndex do
-                AddToCompletionList(StrToBasic(MapInfo.WavName[i]));
+              begin
+                wavName := MapInfo.WavName[i];
+                if wavName <> '' then AddToCompletionList(StrToBasic(wavName));
+              end;
             end;
             filename := ExpectStringConstant(AThreads, AScope, ALine, index);
+            filenameSpecified := true;
           end else
-          if TryToken(ALine,index,'Duration') then
+          if (timeMs = -1) and TryToken(ALine,index,'Duration') then
           begin
             ExpectToken(ALine,index,'=');
             timeMs := ExpectIntegerConstant(AThreads, AScope, ALine, index, false);
@@ -726,7 +731,7 @@ begin
           end;
         end;
         if filename = '' then raise exception.Create('Filename not specified');
-        if timeMs = -1 then raise exception.Create('Duration not specified');
+        if timeMs = -1 then timeMs := 0;
         CreateSound(AScope,varName, filename, timeMs, Constant);
       end else
       if varType = 'UnitProperties' then

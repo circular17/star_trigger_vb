@@ -301,7 +301,7 @@ var
   op: TConditionOperator;
   merged, secondExpr, firstExpr: TExpression;
   mergeComp: TIntegerConditionMode;
-  mergeCompValue: integer;
+  mergeCompValue, oldIndex: integer;
 
   procedure AppendFirst;
   var
@@ -324,63 +324,69 @@ var
   end;
 
 begin
+  oldIndex := AIndex;
   firstExpr := TryExpression(AScope, ALine,AIndex,false);
   if firstExpr = nil then exit(nil);
   op := TryConditionOperator(ALine,AIndex);
   if op = coNone then
   begin
     firstExpr.Free;
+    AIndex := oldIndex;
     exit(nil);
   end;
-  secondExpr := TryExpression(AScope, ALine,AIndex,True);
-  if ANot then
-  begin
-    op := NotConditionOperator[op];
-    ANot := false;
-  end;
-
-  merged := TExpression.Create;
-  case op of
-  coGreaterThan,coGreaterThanOrEqual: begin
-      AppendFirst;
-      secondExpr.NegateAll;
-      AppendSecond;
-      if op = coGreaterThanOrEqual then merged.ConstElement += 1;
-      mergeComp := icmAtLeast;
-      mergeCompValue := 1;
+  secondExpr := nil;
+  try
+    secondExpr := TryExpression(AScope, ALine,AIndex,True);
+    if ANot then
+    begin
+      op := NotConditionOperator[op];
+      ANot := false;
     end;
-  coLowerThan,coLowerThanOrEqual: begin
-      AppendSecond;
-      firstExpr.NegateAll;
-      AppendFirst;
-      if op = coLowerThanOrEqual then merged.ConstElement += 1;
-      mergeComp := icmAtLeast;
-      mergeCompValue := 1;
-    end;
-  coEqual,coNotEqual: begin
-      AppendSecond;
-      firstExpr.NegateAll;
-      AppendFirst;
-      if (merged.NegativeCount > 0) and (merged.PositiveCount = 0) then
-        merged.NegateAll;
-      merged.ConstElement += 1;
-      mergeComp := icmExactly;
-      mergeCompValue := 1;
-      ANot := (op = coNotEqual);
-    end;
-  else raise exception.Create('Case not handled');
-  end;
 
-  firstExpr.Free;
-  secondExpr.Free;
+    merged := TExpression.Create;
+    case op of
+    coGreaterThan,coGreaterThanOrEqual: begin
+        AppendFirst;
+        secondExpr.NegateAll;
+        AppendSecond;
+        if op = coGreaterThanOrEqual then merged.ConstElement += 1;
+        mergeComp := icmAtLeast;
+        mergeCompValue := 1;
+      end;
+    coLowerThan,coLowerThanOrEqual: begin
+        AppendSecond;
+        firstExpr.NegateAll;
+        AppendFirst;
+        if op = coLowerThanOrEqual then merged.ConstElement += 1;
+        mergeComp := icmAtLeast;
+        mergeCompValue := 1;
+      end;
+    coEqual,coNotEqual: begin
+        AppendSecond;
+        firstExpr.NegateAll;
+        AppendFirst;
+        if (merged.NegativeCount > 0) and (merged.PositiveCount = 0) then
+          merged.NegateAll;
+        merged.ConstElement += 1;
+        mergeComp := icmExactly;
+        mergeCompValue := 1;
+        ANot := (op = coNotEqual);
+      end;
+    else raise exception.Create('Case not handled');
+    end;
 
-  if merged.ConstElement < 0 then
-  begin
-    mergeCompValue += -merged.ConstElement;
-    merged.ConstElement := 0;
+    if merged.ConstElement < 0 then
+    begin
+      mergeCompValue += -merged.ConstElement;
+      merged.ConstElement := 0;
+    end;
+    result := TArithmeticCondition.Create(merged, mergeComp, mergeCompValue);
+    if ANot then result := TNotCondition.Create([result]);
+
+  finally
+    firstExpr.Free;
+    secondExpr.Free;
   end;
-  result := TArithmeticCondition.Create(merged, mergeComp, mergeCompValue);
-  if ANot then result := TNotCondition.Create([result]);
 end;
 
 function ExpectCondition(AScope: integer; ALine: TStringList; var AIndex: integer; AThreads: TPlayers): TCondition;

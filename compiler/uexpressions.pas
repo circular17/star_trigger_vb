@@ -415,9 +415,9 @@ begin
       node := ParseSimpleNode;
       if node = nil then
       begin
+        FreeAndNil(result);
         if ARaiseException then
           raise exception.Create('Integer expression expected');
-        FreeAndNil(result);
         exit;
       end;
       result.Elements.Add(node);

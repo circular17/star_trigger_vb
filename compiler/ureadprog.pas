@@ -98,7 +98,7 @@ var
   index: integer;
   doPlayers: TPlayers;
   inDoAs: Boolean;
-  scope: integer;
+  scope, refClass: integer;
   warning: string;
 
   procedure CheckEndOfLine;
@@ -444,7 +444,9 @@ begin
           raise exception.Create('Nested multi-thread instruction not allowed');
         if not inDoAs and TryToken(line,index,'As') then
         begin
-          doPlayers := ExpectPlayers(AThreads, scope, line, index);
+          refClass := TryClass(line, index);
+          if refClass <> -1 then doPlayers := ClassDefinitions[refClass].Threads
+          else doPlayers := ExpectPlayers(AThreads, scope, line, index);
           if (plAllPlayers in doPlayers) or ([plForce1,plForce2,plForce3,plForce4] <= doPlayers) then
             doPlayers := [plPlayer1,plPlayer2,plPlayer3,plPlayer4,
                       plPlayer5,plPlayer6,plPlayer7,plPlayer8];
@@ -563,7 +565,7 @@ var
   end;
 
 var
-  inSub, inEvent, inClass, i: integer;
+  inSub, inEvent, inClass, i, refClass: integer;
   inSubMain, subMainDeclared, done: boolean;
   curClassPlayers: TPlayers;
   str: string;
@@ -683,7 +685,9 @@ begin
         else if (inSub = -1) and (inEvent = -1) and not inSubMain and (inClass = -1) and
             TryToken(line,index,'As') then
         begin
-          players := ExpectPlayers([], GlobalScope, line, index);
+          refClass := TryClass(line, index);
+          if refClass <> -1 then players := ClassDefinitions[refClass].Threads
+          else players := ExpectPlayers([], GlobalScope, line, index);
           if index < line.Count then
           begin
             for i := index-1 downto 0 do

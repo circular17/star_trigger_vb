@@ -323,6 +323,13 @@ var
               end;
               ExpectToken(ALine,idx,')');
             end else
+            if TryToken(ALine, idx, 'Abs') then
+            begin
+              ExpectToken(ALine,idx,'(');
+              intVal := ExpectIntegerConstant(AThreads, AScope, ALine, idx, true);
+              result := TConstantNode.Create(false, abs(intVal));
+              ExpectToken(ALine,idx,')');
+            end else
             begin
               if TryIdentifier(ALine,idx, name, false) then
               begin

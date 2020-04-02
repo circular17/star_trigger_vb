@@ -700,7 +700,7 @@ begin
           break;
         end;
       if not done then
-        AProg.Add(TWaitForPresenceDefinedInstruction.Create);
+        AProg.Insert(0, TWaitForPresenceDefinedInstruction.Create);
     end;
 
   index := 0;

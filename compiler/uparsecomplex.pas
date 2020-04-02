@@ -262,7 +262,6 @@ var
   boolVal: boolean;
   idx, aiIndex, oldIndex: integer;
   firstElem: boolean;
-  pl: TPlayer;
   uniquePlayer: TPlayer;
 begin
   idx := AIndex;
@@ -274,7 +273,7 @@ begin
     begin
       uniquePlayer := GetUniquePlayer(AThreads);
       if (uniquePlayer in [plPlayer1..plPlayer12]) and
-         not (firstElem and not PeekToken(ALine,idx,'&')) then
+         not (firstElem and not ARaiseException and not PeekToken(ALine,idx,'&')) then
       begin
         AStr += inttostr(ord(uniquePlayer)-ord(plPlayer1)+1);
         firstElem := false;
@@ -287,6 +286,12 @@ begin
       end;
     end;
 
+    if TryToken(ALine,idx,'CStr') then
+    begin
+      ExpectToken(ALine,idx,'(');
+      AStr += ExpectStringConstant(AThreads, AScope, ALine, idx, true);
+      ExpectToken(ALine,idx,')');
+    end else
     if TryToken(ALine,idx,'Chr') then
     begin
       ExpectToken(ALine,idx,'(');

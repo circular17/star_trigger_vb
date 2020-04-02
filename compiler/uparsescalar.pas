@@ -121,8 +121,10 @@ begin
 end;
 
 function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
-var errPos, idxVar, oldIndex: integer;
-  s, ident, strValue: String;
+var errPos, idxVar, oldIndex, bitDepth: integer;
+  s, ident, strValue, typeStr: String;
+  boolValue: boolean;
+  pl: TPlayer;
 begin
   if TryToken(ALine,AIndex,'Asc') then
   begin
@@ -194,6 +196,43 @@ begin
     strValue := ExpectStringConstant(AThreads, AScope, ALine,AIndex);
     ExpectToken(ALine,AIndex,')');
     AValue := length(strValue);
+    exit(true);
+  end;
+
+  if TryToken(ALine,AIndex,'CByte') or TryToken(ALine,AIndex,'CUInt8') or
+     TryToken(ALine,AIndex,'CUShort') or TryToken(ALine,AIndex,'CUInt16') or
+     TryToken(ALine,AIndex,'CUInt24') or TryToken(ALine,AIndex,'CUInt') then
+  begin
+    typeStr := ALine[AIndex-1];
+    delete(typeStr, 1, 1);
+    bitDepth := GetBitCountOfType(typeStr);
+    if bitDepth = 0 then bitDepth := 24;
+    ExpectToken(ALine, AIndex, '(');
+    if not PeekToken(ALine,AIndex,'Me') then
+      pl := TryParsePlayer(AThreads, AScope, ALine, AIndex)
+      else pl := plNone;
+    if pl <> plNone then
+    begin
+      if pl in [plPlayer1..plPlayer12] then
+        AValue := ord(pl) - ord(plPlayer1)+1
+        else raise exception.Create('This player does not have a number');
+    end else
+    if TryBoolean(AThreads, AScope, ALine, AIndex, boolValue) then
+    begin
+      if boolValue then
+        AValue := 1
+        else AValue := 0;
+    end else
+    begin
+      s := ExpectStringConstant(AThreads, AScope, ALine, AIndex, true);
+      if copy(s,1,2)='&H' then s := '$'+copy(s,3,length(s)-2);
+      val(s, AValue, errPos);
+      if errPos > 0 then
+        raise exception.Create('Not a valid integer');
+    end;
+    if (AValue < 0) or (AValue > 1 shl bitDepth) then
+      raise exception.create('Integer out of range');
+    ExpectToken(ALine, AIndex, ')');
     exit(true);
   end;
 
@@ -341,7 +380,8 @@ end;
 
 function TryBoolean(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;
 var
-  idxVar, arrIndex, oldIndex: Integer;
+  idxVar, arrIndex, oldIndex, intVal: Integer;
+  strVal: string;
 begin
   AValue := false;
   if TryToken(ALine,AIndex,'False') then exit(true)
@@ -349,6 +389,24 @@ begin
   begin
     AValue := true;
     exit(true)
+  end else
+  if TryToken(ALine,AIndex,'CBool') then
+  begin
+    ExpectToken(ALine,AIndex,'(');
+    if TryIntegerConstant(AThreads, AScope, ALine, AIndex, intVal) then
+    begin
+      AValue := (intVal <> 0);
+      ExpectToken(ALine,AIndex,')');
+      exit(true);
+    end else
+    begin
+      strVal := ExpectStringConstant(AThreads, AScope, ALine, AIndex, true);
+      if compareText(strVal,'False')=0 then AValue := false
+      else if compareText(strVal,'True')=0 then AValue := true
+      else raise exception.Create('Value cannot be converted to boolean');
+      ExpectToken(ALine,AIndex,')');
+      exit(true);
+    end;
   end else
   begin
     oldIndex := AIndex;

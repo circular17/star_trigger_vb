@@ -22,6 +22,7 @@ uses uparsevb, uvariables, utriggerinstructions,
   utriggerconditions, umapinfo, uparsescalar, uparsecomplex, ureadinstruction;
 
 const MAX_ERRORS = 3;
+const MaxInstructionsPerSub = 65534*63 div 4;
 
 procedure AddError(ALine: integer; AText: string);
 begin
@@ -88,7 +89,8 @@ begin
   end;
 end;
 
-procedure ParseCode(AThreads: TPlayers; AMainThread: TPlayer; inSubMain: boolean; inSub, inEvent: integer; ACustomCode: TCodeLineList = nil);
+procedure ParseCode(AThreads: TPlayers; AMainThread: TPlayer; inSubMain: boolean;
+  inSub, inEvent: integer; ACustomCode: TCodeLineList = nil; ANestedLoopCount: Integer = 0);
 var
   code: TCodeLineList;
   i, lineNumber: Integer;
@@ -108,61 +110,100 @@ var
   procedure DoParseInstruction;
   begin
     if inSub <> -1 then
-      ParseInstruction(scope, line, Procedures[inSub].Instructions, AThreads, AMainThread, inSub,false)
+    begin
+      ParseInstruction(scope, line, Procedures[inSub].Instructions, AThreads, AMainThread, inSub,false);
+      if Procedures[inSub].Instructions.Count > MaxInstructionsPerSub then
+        raise exception.Create('Too many instructions');
+    end
     else if inEvent <> -1 then
     begin
       if inDoAs then
         ParseInstruction(scope, line, Events[inEvent].Instructions, doPlayers, AMainThread, -1, false)
       else
         ParseInstruction(scope, line, Events[inEvent].Instructions, AThreads, AMainThread, -1, false);
+      if Events[inEvent].Instructions.Count > MaxInstructionsPerSub then
+        raise exception.Create('Too many instructions');
     end else
     begin
       if inDoAs then
         ParseInstruction(scope, line, MainProg, doPlayers, AMainThread, -1, true)
       else
         ParseInstruction(scope, line, MainProg, AThreads, AMainThread, -1, true);
+      if MainProg.Count > MaxInstructionsPerSub then
+        raise exception.Create('Too many instructions');
     end
   end;
 
   procedure DoForLoop(var ALineIndex: integer);
-  const MAX_LOOP = 256;
+  const MAX_LOOP = 128;
+    MaxNestedForLoop = 2;
 
     procedure CheckLoopCount(ACount: integer);
     begin
       if ACount > MAX_LOOP then raise exception.Create('Too many iterations (maximum is '+inttostr(MAX_LOOP)+' but '+inttostr(ACount)+' found)');
     end;
 
-    function ParseLoopCode(AFromLine,AToLine: integer; ALoopVar, ACurValue: string): boolean;
+    function ParseLoopCode(AFromLine,AToLine: integer; ALoopVar: string; AValues: array of string): boolean;
+    var
+      loopVarPositions: array of record
+        LineIndex, TokenIndex: integer;
+      end;
+      loopVarPositionCount: integer;
+
+      procedure AddLoopVarPosition(ALineIndex,ATokenIndex: integer);
+      begin
+        if loopVarPositionCount >= length(loopVarPositions) then
+          setlength(loopVarPositions, loopVarPositionCount*2+4);
+        loopVarPositions[loopVarPositionCount].LineIndex:= ALineIndex;
+        loopVarPositions[loopVarPositionCount].TokenIndex:= ATokenIndex;
+        inc(loopVarPositionCount);
+      end;
+
     var
       loopCode: TCodeLineList;
       loopLine: TCodeLine;
-      i, j: integer;
+      i, j, k: integer;
       prevErrCount: integer;
     begin
       result := true;
       prevErrCount := ReadProgErrors.Count;
       loopCode := TCodeLineList.Create;
       try
+        loopVarPositions := nil;
+        loopVarPositionCount := 0;
         for i := AFromLine to AToLine do
         begin
           loopLine := TCodeLine.Create(code[i].Tokens,code[i].LineNumber);
           for j := 0 to loopLine.Tokens.Count-1 do
             if (CompareText(loopLine.Tokens[j], ALoopVar)=0) and
               ((j = 0) or (loopLine.Tokens[j-1] <> '.')) then
-              loopLine.Tokens[j] := ACurValue;
+              AddLoopVarPosition(loopCode.Count, j);
           loopCode.Add(loopLine);
         end;
-        if inDoAs then
-          ParseCode(doPlayers, AMainThread, inSubMain, inSub, inEvent, loopCode)
-        else
-          ParseCode(AThreads, AMainThread, inSubMain, inSub, inEvent, loopCode);
+
+        for k := 0 to high(AValues) do
+        begin
+          for i := 0 to loopVarPositionCount-1 do
+            with loopVarPositions[i] do
+              loopCode.Items[LineIndex].Tokens[TokenIndex] := AValues[k];
+
+          if inDoAs then
+            ParseCode(doPlayers, AMainThread, inSubMain, inSub, inEvent, loopCode, ANestedLoopCount + 1)
+          else
+            ParseCode(AThreads, AMainThread, inSubMain, inSub, inEvent, loopCode, ANestedLoopCount + 1);
+
+          if ReadProgErrors.Count <> prevErrCount then
+          begin
+            result := false;
+            break;
+          end;
+        end;
       finally
         loopCode.FreeAll;
       end;
-      result := ReadProgErrors.Count = prevErrCount;
     end;
 
-  var j,k: integer;
+  var j: integer;
     loopValues: array of string;
     fromValue, stepValue, nesting, toValue, bitCount: integer;
     isString, isBoolean: boolean;
@@ -209,6 +250,8 @@ var
     end;
 
   begin
+    if ANestedLoopCount >= MaxNestedForLoop then
+      raise exception.Create('Too many nested for loops');
     if TryIdentifier(line,index,loopVar, false) then
     begin
       if IsVarNameUsed(scope, loopVar, 0) then
@@ -307,9 +350,7 @@ var
         dec(nesting);
         if nesting = 0 then
         begin
-          for k := 0 to high(loopValues) do
-            if not ParseLoopCode(ALineIndex+1, j-1, loopVar, loopValues[k]) then break;
-
+          ParseLoopCode(ALineIndex+1, j-1, loopVar, loopValues);
           ALineIndex := j;
           break;
         end;

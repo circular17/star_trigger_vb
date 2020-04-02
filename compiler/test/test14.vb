@@ -13,7 +13,7 @@ Sub Main()
     Print("0. correct result")
   Else
     Print("0. incorrect result")
-  EndIf
+  End If
   
   Dim x As Byte = CONSTANT_A
   Dim y As Byte = x * CONSTANT_B
@@ -22,7 +22,7 @@ Sub Main()
     Print("1. correct result")
   Else
     Print("1. incorrect result :(")
-  EndIf
+  End If
   
   Dim z As Byte = y * CONSTANT_C
   
@@ -30,6 +30,6 @@ Sub Main()
     Print("2. correct result")
   Else
     Print("2. incorrect result :(")
-  EndIf
+  End If
 
 End Sub

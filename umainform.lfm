@@ -518,9 +518,15 @@ object FMain: TFMain
       MouseTextActions = <>
       MouseSelActions = <>
       Lines.Strings = (
-        'Sub Main()'
+        'Option Hyper Off'
         ''
-        'End Sub'
+        'Class Player8'
+        ''
+        '  Sub Main()'
+        ''
+        '  End Sub'
+        ''
+        'End Class'
       )
       Options = [eoAutoIndent, eoBracketHighlight, eoGroupUndo, eoScrollPastEol, eoTabIndent, eoTabsToSpaces, eoTrimTrailingSpaces]
       VisibleSpecialChars = [vscSpace, vscTabAtLast]

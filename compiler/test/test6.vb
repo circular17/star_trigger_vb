@@ -8,6 +8,7 @@ Sub Main()
     Dim foo as Byte, bar as Byte
     foo = SpawnUnits()
     bar = 5 + foo
+    CreateUnit(bar, Terran.Marine)
 End Sub
 
 

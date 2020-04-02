@@ -550,9 +550,23 @@ var
       raise exception.Create('Expecting end of line');
   end;
 
+  procedure SetMainThread(APlayers: TPlayers);
+  var
+    pl: TPlayer;
+  begin
+    if not IsUniquePlayer(APlayers) or (APlayers = [plCurrentPlayer]) then
+      raise exception.Create('Main thread player must be one specific player');
+    pl := GetUniquePlayer(APlayers);
+    if not (pl in[plPlayer1..plPlayer8]) then raise exception.Create('The player '+ PlayerIdentifiers[pl]+' can''t be used as a main thread');
+    if AMainThread = plNone then AMainThread := pl else
+    if pl <> AMainThread then raise exception.Create('Main thread already defined to be ' + PlayerIdentifiers[AMainThread]);
+  end;
+
 var
-  inSub, inEvent, i: integer;
+  inSub, inEvent, inClass, i: integer;
   inSubMain, subMainDeclared, done: boolean;
+  curClassPlayers: TPlayers;
+  str: string;
   players: TPlayers;
   pl: TPlayer;
   warning: string;
@@ -599,6 +613,8 @@ begin
   inEvent := -1;
   inSubMain := false;
   subMainDeclared := false;
+  inClass := -1;
+  curClassPlayers := [];
 
   try
     while not Eof and (ReadProgErrors.Count < MAX_ERRORS) do
@@ -607,6 +623,35 @@ begin
         ClearParseCompletionList;
         ReadNextLine;
 
+        if TryToken(line,index,'Class') then
+        begin
+          if inClass <> -1 then
+            raise exception.Create('Nested classes not allowed');
+          if (inSub <> -1) or inSubMain or (inEvent <> -1) then
+            raise exception.Create('Classes not allowed within functions or events');
+          pl := TryParsePlayer([], GlobalScope,line, index);
+          if pl = plNone then
+          begin
+            if not TryIdentifier(line, index, str, false) then
+              raise exception.Create('Class identifier expected');
+            inClass := ClassIndexOf(str);
+            if inClass = -1 then
+            begin
+              ExpectToken(line,index,'=');
+              curClassPlayers := ExpectPlayers([], GlobalScope, line, index);
+              inClass := CreateClass(curClassPlayers, str);
+            end else
+              curClassPlayers:= ClassDefinitions[inClass].Threads;
+          end else
+          begin
+            str:= PlayerIdentifiers[pl];
+            curClassPlayers:= [pl];
+            inClass := ClassIndexOf(str);
+            if inClass = -1 then
+              inClass := CreateClass(curClassPlayers, str);
+          end;
+          CheckEndOfLine;
+        end else
         if TryToken(line,index,'Dim') or TryToken(line,index,'Const') then
         begin
           if inEvent <> -1 then Events[inEvent].Code.Add(TCodeLine.Create(line, lineNumber))
@@ -621,12 +666,13 @@ begin
         else if (inSub = -1) and (inEvent = -1) and not inSubMain and
          (TryToken(line,index, 'Sub') or TryToken(line,index,'Function')) then
         begin
-          inSub := ProcessSubStatement(line);
+          inSub := ProcessSubStatement(line, curClassPlayers);
           if inSub = -1 then
           begin
             if subMainDeclared then raise exception.Create('Sub Main already declared');
             inSubMain:= true;
             subMainDeclared := true;
+            if inClass <> -1 then SetMainThread(curClassPlayers) else
             if AMainThread = plNone then
             begin
               AMainThread:= ADefaultMainThread;
@@ -634,7 +680,8 @@ begin
             end;
           end;
         end
-        else if (inSub = -1) and (inEvent = -1) and not inSubMain and TryToken(line,index,'As') then
+        else if (inSub = -1) and (inEvent = -1) and not inSubMain and (inClass = -1) and
+            TryToken(line,index,'As') then
         begin
           players := ExpectPlayers([], GlobalScope, line, index);
           if index < line.Count then
@@ -656,12 +703,7 @@ begin
               if subMainDeclared then raise exception.Create('Sub Main already declared');
               inSubMain := true;
               subMainDeclared:= true;
-              if not IsUniquePlayer(players) or (players = [plCurrentPlayer]) then
-                raise exception.Create('If you specify a player for Sub Main, it must be one specific player');
-              pl := GetUniquePlayer(players);
-              if not (pl in[plPlayer1..plPlayer8]) then raise exception.Create('The player '+ PlayerIdentifiers[pl]+' can''t be used as a main thread');
-              if AMainThread = plNone then AMainThread := pl else
-              if pl <> AMainThread then raise exception.Create('Main thread already defined to be ' + PlayerIdentifiers[AMainThread]);
+              SetMainThread(players);
             end;
           end else
             inEvent := ProcessEventStatement(line, players);
@@ -669,19 +711,24 @@ begin
         else if (inSub = -1) and (inEvent = -1) and not inSubMain and
           TryToken(line,index,'On') then
         begin
-          if AMainThread = plNone then
+          if inClass <> -1 then
+            inEvent := ProcessEventStatement(line, curClassPlayers)
+          else
           begin
-            AMainThread:= ADefaultMainThread;
-            AddWarning(lineNumber, 'Main thread implicitely defined to '+PlayerIdentifiers[ADefaultMainThread]);
+            if AMainThread = plNone then
+            begin
+              AMainThread:= ADefaultMainThread;
+              AddWarning(lineNumber, 'Main thread implicitely defined to '+PlayerIdentifiers[ADefaultMainThread]);
+            end;
+            inEvent := ProcessEventStatement(line, [AMainThread])
           end;
-          inEvent := ProcessEventStatement(line, [AMainThread])
         end else
         begin
           done := false;
-          if not inSubMain and (inSub= -1) and (inEvent = -1) then
+          if not inSubMain and (inSub= -1) and (inEvent = -1) and (inClass = -1) then
           begin
             if PeekToken(line,index,'End') then
-              raise exception.Create('Not in a procedure, function or event');
+              raise exception.Create('Not in any code structure');
           end else
           if TryToken(line,index,'End') then
           begin
@@ -756,6 +803,16 @@ begin
               end;
               CheckEndOfLine;
               done := true;
+            end else if TryToken(line, index, 'Class') then
+            begin
+              if inClass = -1 then
+                raise exception.Create('Not in a class');
+              if inEvent <> -1 then raise exception.Create('Event not finished');
+              if inSubMain or (inSub <> -1) then raise exception.Create('Sub not finished');
+              curClassPlayers:= [];
+              inClass := -1;
+              CheckEndOfLine;
+              done := true;
             end;
           end;
           if not done then
@@ -764,11 +821,16 @@ begin
             else if inEvent<>-1 then Events[inEvent].Code.Add(TCodeLine.Create(line,lineNumber))
             else if inSubMain then MainCode.Add(TCodeLine.Create(line,lineNumber))
             else
+            begin
+              if PeekToken(line,index,'As') then
+                raise exception.Create('"As" keyword not allowed within class');
+
               if not ParseOption(line) then
               begin
                 if line.Count > 0 then
                   raise exception.Create('Unexpected instruction. Please put initialization code into Sub Main.');
               end;
+            end;
           end;
         end;
       except
@@ -804,6 +866,9 @@ begin
           ParseCode([], AMainThread, inSubMain, inSub, inEvent);
         ALastScope:= SubMainScope;
       end;
+
+      if curClassPlayers <> [] then
+        AddError(lineNumber, 'Class ' + str+' not finished');
     end;
   except
     on ex: Exception do

@@ -13,9 +13,9 @@ Sub Main()
 
   If foo(1) = 15 Then
     AllPlayers.Print("foo(1) = 15")
-  EndIf
+  End If
 
   If foo(2)*2 = 84 Then
     AllPlayers.Print("foo(2)*2 = 84")
-  EndIf
+  End If
 End Sub

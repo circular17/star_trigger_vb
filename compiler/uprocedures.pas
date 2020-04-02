@@ -63,6 +63,16 @@ var
 function CreateEvent(APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
 function ProcessEventStatement(ALine: TStringList; APlayers: TPlayers): integer;
 
+var
+  ClassDefinitions: array of record
+    Name: string;
+    Threads: TPlayers;
+  end;
+  ClassCount: integer;
+
+function CreateClass(AThreads: TPlayers; AName: string): integer;
+function ClassIndexOf(AName: string): integer;
+
 procedure ClearProceduresAndEvents;
 
 const
@@ -75,6 +85,29 @@ var
 implementation
 
 uses uparsevb, utriggerinstructions, uvariables, uparseconditions, utriggerconditions;
+
+function CreateClass(AThreads: TPlayers; AName: string): integer;
+begin
+  if ClassCount >= length(ClassDefinitions) then
+    setlength(ClassDefinitions, length(ClassDefinitions)*2+4);
+  result := ClassCount;
+  with ClassDefinitions[result] do
+  begin
+    Name:= AName;
+    Threads:= AThreads;
+  end;
+  inc(ClassCount);
+end;
+
+function ClassIndexOf(AName: string): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to ClassCount-1 do
+    if CompareText(AName, ClassDefinitions[i].Name)=0 then
+      exit(i);
+  result := -1;
+end;
 
 { TCodeLine }
 
@@ -276,6 +309,8 @@ procedure ClearProceduresAndEvents;
 var
   i: Integer;
 begin
+  ClassCount := 0;
+
   for i := 0 to ProcedureCount-1 do
     with Procedures[i] do
     begin

@@ -565,8 +565,22 @@ var
   end;
 
 var
-  inSub, inEvent, inClass, i, refClass: integer;
-  inSubMain, subMainDeclared, done: boolean;
+  inClass: integer;
+  inSubMain, subMainDeclared: boolean;
+  subMainLineNumber: integer;
+
+  procedure DeclareSubMain;
+  begin
+    if subMainDeclared then raise exception.Create('Sub Main already declared');
+    inSubMain:= true;
+    MainSubScope:= NewScope(ALastScope, 'Main');
+    subMainDeclared := true;
+    subMainLineNumber:= lineNumber;
+  end;
+
+var
+  inSub, inEvent, i, refClass: integer;
+  done: boolean;
   curClassPlayers: TPlayers;
   str: string;
   players: TPlayers;
@@ -675,18 +689,15 @@ begin
         else if (inSub = -1) and (inEvent = -1) and not inSubMain and
          (TryToken(line,index, 'Sub') or TryToken(line,index,'Function')) then
         begin
-          inSub := ProcessSubStatement(ALastScope, line, curClassPlayers);
+          inSub := ProcessSubStatement(ALastScope, lineNumber, line, curClassPlayers);
           if inSub = -1 then
           begin
-            if subMainDeclared then raise exception.Create('Sub Main already declared');
-            inSubMain:= true;
-            MainSubScope:= NewScope(ALastScope, 'Main');
-            subMainDeclared := true;
+            DeclareSubMain;
             if inClass <> -1 then SetMainThread(curClassPlayers) else
             if AMainThread = plNone then
             begin
               AMainThread:= ADefaultMainThread;
-              AddWarning(lineNumber, 'Main thread implicitely defined to '+PlayerIdentifiers[ADefaultMainThread]);
+              AddWarning(lineNumber, 'Main thread implicitely defined to '+PlayerIdentifiers[AMainThread]);
             end;
           end;
         end
@@ -709,23 +720,20 @@ begin
 
           if TryToken(line,index,'Sub') or TryToken(line,index,'Function') then
           begin
-            inSub := ProcessSubStatement(ALastScope, line, players);
+            inSub := ProcessSubStatement(ALastScope, lineNumber, line, players);
             if inSub = -1 then
             begin
-              if subMainDeclared then raise exception.Create('Sub Main already declared');
-              inSubMain := true;
-              MainSubScope:= NewScope(ALastScope, 'Main');
-              subMainDeclared:= true;
+              DeclareSubMain;
               SetMainThread(players);
             end;
           end else
-            inEvent := ProcessEventStatement(ALastScope, line, players);
+            inEvent := ProcessEventStatement(ALastScope, lineNumber, line, players);
         end
         else if (inSub = -1) and (inEvent = -1) and not inSubMain and
           TryToken(line,index,'On') then
         begin
           if inClass <> -1 then
-            inEvent := ProcessEventStatement(ALastScope, line, curClassPlayers)
+            inEvent := ProcessEventStatement(ALastScope, lineNumber, line, curClassPlayers)
           else
           begin
             if AMainThread = plNone then
@@ -733,7 +741,7 @@ begin
               AMainThread:= ADefaultMainThread;
               AddWarning(lineNumber, 'Main thread implicitely defined to '+PlayerIdentifiers[ADefaultMainThread]);
             end;
-            inEvent := ProcessEventStatement(ALastScope, line, [AMainThread])
+            inEvent := ProcessEventStatement(ALastScope, lineNumber, line, [AMainThread])
           end;
         end else
         begin
@@ -748,33 +756,14 @@ begin
             if TryToken(line,index,'Sub') then
             begin
               if inSubMain then
-              begin
-                try
-                  FillParseCompletionList := false;
-                  if AMainThread <> plNone then
-                    ParseCode([AMainThread], AMainThread, inSubMain, inSub, inEvent)
-                  else
-                    ParseCode([], AMainThread, inSubMain, inSub, inEvent);
-                finally
-                  FillParseCompletionList := true;
-                  inSubMain := false;
-                end;
-              end
+                inSubMain := false
               else
               begin
                 if inSub= -1 then
                   raise Exception.create('Not in a procedure');
-                if Procedures[inSub].ReturnType <> 'Void' then raise exception.Create('Expecting "End Function"');
-                try
-                  FillParseCompletionList := false;
-                  ParseCode(Procedures[inSub].Players, AMainThread, inSubMain, inSub, inEvent);
-                finally
-                  FillParseCompletionList := true;
-                  with Procedures[inSub].Instructions do
-                    if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
-                      Add(TReturnInstruction.Create);
-                  inSub := -1;
-                end;
+                i := inSub;
+                inSub := -1;
+                if Procedures[i].ReturnType <> 'Void' then raise exception.Create('Expecting "End Function"');
               end;
               CheckEndOfLine;
               done := true;
@@ -783,17 +772,9 @@ begin
             begin
               if inSub= -1 then
                 raise Exception.create('Not in a function');
-              if Procedures[inSub].ReturnType = 'Void' then raise exception.Create('Expecting "End Sub" instead');
-              try
-                FillParseCompletionList := false;
-                ParseCode(Procedures[inSub].Players, AMainThread, inSubMain, inSub, inEvent);
-              finally
-                FillParseCompletionList := true;
-                with Procedures[inSub].Instructions do
-                  if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
-                    Add(TReturnInstruction.Create);
-                inSub := -1;
-              end;
+              i := inSub;
+              inSub := -1;
+              if Procedures[i].ReturnType = 'Void' then raise exception.Create('Expecting "End Sub" instead');
               CheckEndOfLine;
               done := true;
             end
@@ -801,19 +782,7 @@ begin
             begin
               if inEvent= -1 then
                 raise Exception.create('Not in an event');
-              try
-                FillParseCompletionList := false;
-                ParseCode(Events[inEvent].Players, AMainThread, inSubMain, inSub, inEvent);
-                with Events[inEvent] do
-                  while (Instructions.Count > 0) and (Instructions[Instructions.Count-1] is TReturnInstruction) do
-                  begin
-                    Instructions[Instructions.Count-1].Free;
-                    Instructions.Delete(Instructions.Count-1);
-                  end;
-              finally
-                FillParseCompletionList := true;
-                inEvent := -1;
-              end;
+              inEvent := -1;
               CheckEndOfLine;
               done := true;
             end else if TryToken(line, index, 'Class') then
@@ -852,32 +821,77 @@ begin
           AddError(lineNumber, ex.Message);
       end;
     end;
-
     line.Free;
+
+    if ReadProgErrors.Count < MAX_ERRORS then
+      try
+        FillParseCompletionList := inSubMain;
+        if AMainThread <> plNone then
+          ParseCode([AMainThread], AMainThread, true, -1, -1)
+          else ParseCode([], AMainThread, true, -1, -1);
+      except
+        on ex:Exception do
+          AddError(subMainLineNumber, ex.Message);
+      end;
+
+    if ReadProgErrors.Count < MAX_ERRORS then
+      for i := 0 to ProcedureCount-1 do
+      begin
+        try
+          FillParseCompletionList := inSub <> -1;
+          ParseCode(Procedures[i].Players, AMainThread, false, i, -1);
+          with Procedures[i].Instructions do
+            if (Count = 0) or not (Items[Count-1] is TReturnInstruction) then
+              Add(TReturnInstruction.Create);
+        except
+          on ex:Exception do
+          begin
+            AddError(Procedures[i].LineNumber, ex.Message);
+            break;
+          end;
+        end;
+      end;
+
+    if ReadProgErrors.Count < MAX_ERRORS then
+      for i := 0 to EventCount-1 do
+      begin
+        try
+          FillParseCompletionList := inEvent <> -1;
+          ParseCode(Events[i].Players, AMainThread, false, -1, i);
+          with Events[i] do
+            while (Instructions.Count > 0) and (Instructions[Instructions.Count-1] is TReturnInstruction) do
+            begin
+              Instructions[Instructions.Count-1].Free;
+              Instructions.Delete(Instructions.Count-1);
+            end;
+        except
+          on ex:Exception do
+          begin
+            AddError(Events[i].LineNumber, ex.Message);
+            break;
+          end;
+        end;
+      end;
+
+    FillParseCompletionList := false;
 
     if ReadProgErrors.Count < MAX_ERRORS then
     begin
       if inSub<>-1 then
       begin
         AddError(lineNumber, 'Sub or Function not finished');
-        ParseCode(Procedures[inSub].Players, AMainThread, inSubMain, inSub, inEvent);
         ALastScope:= Procedures[inSub].InnerScope;
       end;
 
       if inEvent<>-1 then
       begin
         AddError(lineNumber, 'Event not finished');
-        ParseCode(Events[inEvent].Players, AMainThread, inSubMain, inSub, inEvent);
         ALastScope:= Events[inEvent].InnerScope;
       end;
 
       if inSubMain then
       begin
         AddError(lineNumber, 'Sub Main not finished');
-        if AMainThread <> plNone then
-          ParseCode([AMainThread], AMainThread, inSubMain, inSub, inEvent)
-        else
-          ParseCode([], AMainThread, inSubMain, inSub, inEvent);
         ALastScope:= MainSubScope;
       end;
 

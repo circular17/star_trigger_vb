@@ -30,6 +30,7 @@ var
   Procedures: array of record
     Name: string;
     WiderScope: integer;
+    LineNumber: integer;
     ParamCount: integer;
     Instructions: TInstructionList;
     Code: TCodeLineList;
@@ -44,14 +45,15 @@ var
   end;
   ProcedureCount: integer;
 
-function CreateProcedure(AWiderScope: integer; AName: string; AParamCount: integer; AReturnType: string; APlayers: TPlayers): integer;
+function CreateProcedure(AWiderScope: integer; ALineNumber: integer; AName: string; AParamCount: integer; AReturnType: string; APlayers: TPlayers): integer;
 function ProcedureIndexOf(AScope: integer; AName: string; AParamCount: integer): integer;
 function GetProcedureExprTempVarInt(AProcId, ABitCount: integer): integer;
 function ProcedureReturnVar(AProcId: integer): integer;
-function ProcessSubStatement(AScope: integer; ALine: TStringList; APlayers: TPlayers = []): integer;
+function ProcessSubStatement(AScope: integer; ALineNumber: integer; ALine: TStringList; APlayers: TPlayers = []): integer;
 
 var
   Events: array of record
+    LineNumber: integer;
     Players: TPlayers;
     Conditions: TConditionList;
     Instructions: TInstructionList;
@@ -61,8 +63,8 @@ var
   end;
   EventCount: integer;
 
-function CreateEvent(AWiderScope: integer; APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
-function ProcessEventStatement(AScope: integer; ALine: TStringList; APlayers: TPlayers): integer;
+function CreateEvent(AWiderScope: integer; ALineNumber: integer; APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
+function ProcessEventStatement(AScope: integer; ALineNumber: integer; ALine: TStringList; APlayers: TPlayers): integer;
 
 var
   ClassDefinitions: array of record
@@ -140,7 +142,7 @@ begin
   end;
 end;
 
-function CreateProcedure(AWiderScope: integer; AName: string; AParamCount: integer; AReturnType: string; APlayers: TPlayers): integer;
+function CreateProcedure(AWiderScope: integer; ALineNumber: integer; AName: string; AParamCount: integer; AReturnType: string; APlayers: TPlayers): integer;
 begin
   if ProcedureIndexOf(AWiderScope, AName, AParamCount)<>-1 then
     raise exception.Create('Procedure already declared with this signature');
@@ -164,6 +166,7 @@ begin
   begin
     Name := AName;
     WiderScope := AWiderScope;
+    LineNumber:= ALineNumber;
     ParamCount:= AParamCount;
     Instructions := TInstructionList.Create;
     Code := TCodeLineList.Create;
@@ -214,7 +217,7 @@ begin
   result := GetProcedureExprTempVarInt(AProcId, Procedures[AProcId].ReturnBitCount);
 end;
 
-function CreateEvent(AWiderScope: integer; APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
+function CreateEvent(AWiderScope: integer; ALineNumber: integer; APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
 begin
   if AConditions.IsArithmetic then
     raise exception.Create('Arithmetic expressions cannot be used in event conditions');
@@ -226,6 +229,7 @@ begin
 
   with Events[result] do
   begin
+    LineNumber:= ALineNumber;
     Players := APlayers;
     Conditions := AConditions;
     Instructions := TInstructionList.Create;
@@ -235,7 +239,7 @@ begin
   end;
 end;
 
-function ProcessSubStatement(AScope: integer; ALine: TStringList; APlayers: TPlayers): integer;
+function ProcessSubStatement(AScope: integer; ALineNumber: integer; ALine: TStringList; APlayers: TPlayers): integer;
 var
   index: Integer;
   name: String;
@@ -293,10 +297,10 @@ begin
       raise exception.Create('The sub Main takes no parameter');
     exit(-1);
   end else
-    result := CreateProcedure(AScope,name,paramCount,returnType,APlayers);
+    result := CreateProcedure(AScope,ALineNumber,name,paramCount,returnType,APlayers);
 end;
 
-function ProcessEventStatement(AScope: integer; ALine: TStringList; APlayers: TPlayers): integer;
+function ProcessEventStatement(AScope: integer; ALineNumber: integer; ALine: TStringList; APlayers: TPlayers): integer;
 var
   index: Integer;
   conds: TConditionList;
@@ -307,7 +311,7 @@ begin
   ExpectToken(ALine,index,'On');
 
   conds := ExpectConditions(AScope, ALine,index,APlayers);
-  result := CreateEvent(AScope, APlayers, conds, preserve);
+  result := CreateEvent(AScope, ALineNumber, APlayers, conds, preserve);
 
   if index < ALine.Count then
     raise exception.Create('End of line expected');

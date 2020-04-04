@@ -1100,7 +1100,9 @@ begin
             begin
               done := true;
               CheckEndOfLine;
-            end;
+              break;
+            end else
+              index := 0;
           end;
       end;
     end;

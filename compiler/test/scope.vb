@@ -1,9 +1,5 @@
 Option Hyper Off
 
-Class Group1 = {Player1, Player2}
-
-End Class
-
 Class Player8
 
   Sub Main()
@@ -14,7 +10,7 @@ Class Player8
 
 End Class
 
-Class Group1
+Class Group1 = {Player1, Player2}
 
     dim a as byte
 

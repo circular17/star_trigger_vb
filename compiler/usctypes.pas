@@ -36,6 +36,8 @@ type
 function IntToPlayer(APlayer: integer): TPlayer;
 function IsUniquePlayer(APlayers: TPlayers): boolean;
 function GetUniquePlayer(APlayers: TPlayers): TPlayer;
+function AreThreadsIncluded(APlayers, AInPlayers: TPlayers): boolean;
+function AreThreadsEqual(APlayers1, APlayers2: TPlayers): boolean;
 
 const
   MaxTriggerPlayers = 8;
@@ -952,6 +954,34 @@ begin
       if pl in APlayers then exit(pl);
   end else
     exit(plNone);
+end;
+
+function AreThreadsIncluded(APlayers, AInPlayers: TPlayers): boolean;
+var
+  pl: TPlayer;
+begin
+  if plAllPlayers in AInPlayers then exit(true);
+  for pl := succ(plNone) to high(TPlayer) do
+    if pl in APlayers then
+    begin
+      if not (pl in AInPlayers) then
+      begin
+        if (pl = plAllPlayers) then
+        begin
+          if not ([plPlayer1,plPlayer2,plPlayer3,plPlayer4,
+                 plPlayer5,plPlayer6,plPlayer7,plPlayer8] <= AInPlayers)
+           then exit(false);
+        end
+          else exit(false);
+      end;
+    end;
+  result := true;
+end;
+
+function AreThreadsEqual(APlayers1, APlayers2: TPlayers): boolean;
+begin
+  result := AreThreadsIncluded(APlayers1, APlayers2) and
+    AreThreadsIncluded(APlayers2, APlayers1);
 end;
 
 procedure InitStarcraftUnitPrefixes;

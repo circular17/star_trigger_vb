@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, fgl, uinstructions, utriggerinstructions, utriggerconditions, usctypes,
-  utriggerchunk;
+  utriggerchunk, uscope;
 
 const
   MaxStackSize = 6;

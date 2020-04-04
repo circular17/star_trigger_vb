@@ -371,7 +371,7 @@ begin
       else ExpectToken(ALine,AIndex,',');
     until false;
 
-    if plCurrentPlayer in result then raise exception.Create('Current player does not define a player');
+    if plCurrentPlayer in result then raise exception.Create('"Me" does not define a player');
     if result = [] then raise exception.Create('No player specified');
   end else
   begin

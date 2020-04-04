@@ -12,7 +12,7 @@ uses
   ureadprog, usctypes, utriggercode, uvariables, uwritetriggers, 
   utrigeditoutput, utriggerchunk, umapinfo, utriggerinstructions, 
   utriggerconditions, uparsescalar, uparsecomplex, uprocedures, 
-  ureadinstruction, uunitpropchunk, LazarusPackageIntf;
+  ureadinstruction, uunitpropchunk, uscope, LazarusPackageIntf;
 
 implementation
 

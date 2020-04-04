@@ -5,7 +5,7 @@ unit uprocedures;
 interface
 
 uses
-  Classes, SysUtils, uinstructions, fgl, usctypes;
+  Classes, SysUtils, uinstructions, fgl, usctypes, uscope;
 
 type
   TIntegerList = specialize TFPGList<Integer>;
@@ -29,6 +29,7 @@ type
 var
   Procedures: array of record
     Name: string;
+    WiderScope: integer;
     ParamCount: integer;
     Instructions: TInstructionList;
     Code: TCodeLineList;
@@ -43,11 +44,11 @@ var
   end;
   ProcedureCount: integer;
 
-function CreateProcedure(AName: string; AParamCount: integer; AReturnType: string; APlayers: TPlayers): integer;
-function ProcedureIndexOf(AName: string; AParamCount: integer): integer;
+function CreateProcedure(AWiderScope: integer; AName: string; AParamCount: integer; AReturnType: string; APlayers: TPlayers): integer;
+function ProcedureIndexOf(AScope: integer; AName: string; AParamCount: integer): integer;
 function GetProcedureExprTempVarInt(AProcId, ABitCount: integer): integer;
 function ProcedureReturnVar(AProcId: integer): integer;
-function ProcessSubStatement(ALine: TStringList; APlayers: TPlayers = []): integer;
+function ProcessSubStatement(AScope: integer; ALine: TStringList; APlayers: TPlayers = []): integer;
 
 var
   Events: array of record
@@ -60,33 +61,33 @@ var
   end;
   EventCount: integer;
 
-function CreateEvent(APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
-function ProcessEventStatement(ALine: TStringList; APlayers: TPlayers): integer;
+function CreateEvent(AWiderScope: integer; APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
+function ProcessEventStatement(AScope: integer; ALine: TStringList; APlayers: TPlayers): integer;
 
 var
   ClassDefinitions: array of record
     Name: string;
     Threads: TPlayers;
+    InnerScope: integer;
   end;
   ClassCount: integer;
 
-function CreateClass(AThreads: TPlayers; AName: string): integer;
+function CreateClass(AWiderScope: integer; AThreads: TPlayers; AName: string): integer;
 function ClassIndexOf(AName: string): integer;
 
 procedure ClearProceduresAndEvents;
 
-const
-  SubMainScope = 1;
-
 var
   MainProg: TInstructionList;
   MainCode: TCodeLineList;
+  MainSubScope: integer;
 
 implementation
 
 uses uparsevb, utriggerinstructions, uvariables, uparseconditions, utriggerconditions;
 
-function CreateClass(AThreads: TPlayers; AName: string): integer;
+function CreateClass(AWiderScope: integer; AThreads: TPlayers; AName: string
+  ): integer;
 begin
   if ClassCount >= length(ClassDefinitions) then
     setlength(ClassDefinitions, length(ClassDefinitions)*2+4);
@@ -95,6 +96,7 @@ begin
   begin
     Name:= AName;
     Threads:= AThreads;
+    InnerScope:= NewScope(AWiderScope, AName);
   end;
   inc(ClassCount);
 end;
@@ -138,9 +140,9 @@ begin
   end;
 end;
 
-function CreateProcedure(AName: string; AParamCount: integer; AReturnType: string; APlayers: TPlayers): integer;
+function CreateProcedure(AWiderScope: integer; AName: string; AParamCount: integer; AReturnType: string; APlayers: TPlayers): integer;
 begin
-  if ProcedureIndexOf(AName, AParamCount)<>-1 then
+  if ProcedureIndexOf(AWiderScope, AName, AParamCount)<>-1 then
     raise exception.Create('Procedure already declared with this signature');
   CheckReservedWord(AName);
 
@@ -161,6 +163,7 @@ begin
   with Procedures[result] do
   begin
     Name := AName;
+    WiderScope := AWiderScope;
     ParamCount:= AParamCount;
     Instructions := TInstructionList.Create;
     Code := TCodeLineList.Create;
@@ -171,20 +174,25 @@ begin
     StackChecked := false;
     Calls := TIntegerList.Create;
     ExprTempVarInt := -1;
-    InnerScope := result+2;
+    InnerScope := NewScope(AWiderScope, 'Name');
     Players:= APlayers;
   end;
 end;
 
-function ProcedureIndexOf(AName: string; AParamCount: integer): integer;
+function ProcedureIndexOf(AScope: integer; AName: string; AParamCount: integer): integer;
 var
   i: Integer;
 begin
-  for i := 0 to ProcedureCount-1 do
+  while AScope <> -1 do
   begin
-    if (CompareText(AName, Procedures[i].Name)=0) and
-      (AParamCount = Procedures[i].ParamCount) then
-      exit(i);
+    for i := 0 to ProcedureCount-1 do
+    begin
+      if (Procedures[i].WiderScope = AScope) and
+        (CompareText(AName, Procedures[i].Name)=0) and
+        (AParamCount = Procedures[i].ParamCount) then
+        exit(i);
+    end;
+    AScope := GetWiderScope(AScope);
   end;
   exit(-1);
 end;
@@ -206,7 +214,7 @@ begin
   result := GetProcedureExprTempVarInt(AProcId, Procedures[AProcId].ReturnBitCount);
 end;
 
-function CreateEvent(APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
+function CreateEvent(AWiderScope: integer; APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
 begin
   if AConditions.IsArithmetic then
     raise exception.Create('Arithmetic expressions cannot be used in event conditions');
@@ -223,11 +231,11 @@ begin
     Instructions := TInstructionList.Create;
     Code := TCodeLineList.Create;
     Preserve := APreserve;
-    InnerScope := -1-result;
+    InnerScope := NewScope(AWiderScope, '_event' + inttostr(result+1));
   end;
 end;
 
-function ProcessSubStatement(ALine: TStringList; APlayers: TPlayers): integer;
+function ProcessSubStatement(AScope: integer; ALine: TStringList; APlayers: TPlayers): integer;
 var
   index: Integer;
   name: String;
@@ -285,10 +293,10 @@ begin
       raise exception.Create('The sub Main takes no parameter');
     exit(-1);
   end else
-    result := CreateProcedure(name,paramCount,returnType,APlayers);
+    result := CreateProcedure(AScope,name,paramCount,returnType,APlayers);
 end;
 
-function ProcessEventStatement(ALine: TStringList; APlayers: TPlayers): integer;
+function ProcessEventStatement(AScope: integer; ALine: TStringList; APlayers: TPlayers): integer;
 var
   index: Integer;
   conds: TConditionList;
@@ -298,8 +306,8 @@ begin
   preserve := true;
   ExpectToken(ALine,index,'On');
 
-  conds := ExpectConditions(GlobalScope, ALine,index,APlayers);
-  result := CreateEvent(APlayers, conds, preserve);
+  conds := ExpectConditions(AScope, ALine,index,APlayers);
+  result := CreateEvent(AScope, APlayers, conds, preserve);
 
   if index < ALine.Count then
     raise exception.Create('End of line expected');
@@ -333,6 +341,7 @@ begin
   MainProg := TInstructionList.Create;
   if Assigned(MainCode) then MainCode.FreeAll;
   MainCode := TCodeLineList.Create;
+  MainSubScope := -1;
 end;
 
 initialization

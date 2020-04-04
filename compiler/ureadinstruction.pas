@@ -76,6 +76,58 @@ begin
     result := false;
 end;
 
+function TryClassFunction({%H-}AScope: integer; AProg: TInstructionList; ALine: TStringList; var AIndex: Integer; AClass: integer; AThreads: TPlayers; AMainThread: TPlayer): boolean;
+var
+  i, classScope, oldIndex: Integer;
+  targetThreads: TPlayers;
+  ident: string;
+
+  procedure AddCall(AProcName: string);
+  begin
+    if TryToken(ALine, AIndex, '(') then
+      ExpectToken(ALine, AIndex, ')');
+    if AreThreadsEqual(AThreads, targetThreads) then
+      AProg.Add(TCallInstruction.Create(classScope, AProcName, []))
+    else
+    begin
+      if AThreads <> [AMainThread] then
+        raise exception.Create('Cannot call other thread except from main thread');
+      if plAllPlayers in targetThreads then
+        targetThreads := [plPlayer1,plPlayer2,plPlayer3,plPlayer4,plPlayer5,plPlayer6,plPlayer7,plPlayer8];
+      AProg.Add(TDoAsInstruction.Create(targetThreads));
+      AProg.Add(TCallInstruction.Create(classScope, AProcName, []));
+      AProg.Add(TEndDoAsInstruction.Create(targetThreads));
+    end;
+  end;
+
+begin
+  oldIndex := AIndex;
+  classScope := ClassDefinitions[AClass].InnerScope;
+  targetThreads := ClassDefinitions[AClass].Threads;
+  for i := 0 to ProcedureCount-1 do
+    if (Procedures[i].WiderScope = classScope) and
+      TryToken(ALine, AIndex, Procedures[i].Name) then
+    begin
+      AddCall(Procedures[i].Name);
+      exit(true);
+    end;
+  result := false;
+
+  if TryIdentifier(ALine, AIndex, ident, false) then
+  begin
+    if not IsVarNameUsed(classScope, ident, 0) then
+    begin
+      AddCall(ident);
+      result := true;
+    end else
+    begin
+      AIndex := oldIndex;
+      result := false;
+    end;
+  end else
+    result := false;
+end;
+
 function TryPlayerAction(AScope: integer; AProg: TInstructionList; ALine: TStringList; var AIndex: Integer; APlayer: TPlayer; AThreads: TPlayers): boolean;
 var
   intVal, propIndex, propVal, timeMs, tempInt, i: integer;
@@ -702,7 +754,7 @@ end;
 
 procedure ParseInstruction(AScope: integer; ALine: TStringList; AProg: TInstructionList; AThreads: TPlayers; AMainThread: TPlayer; AProcId: integer; AInSubMain: boolean);
 var
-  index, intVal, idxArr, i, idxSound, sw, idxVar, idxMsg: integer;
+  index, intVal, idxArr, i, idxSound, sw, idxVar, idxMsg, idxClass: integer;
   params: TStringList;
   name, assignOp, text: String;
   done, boolVal: boolean;
@@ -1028,12 +1080,28 @@ begin
         end else
         if not TryPlayerAction(AScope,AProg,ALine,index,pl, AThreads) then
         begin
-          if index >= ALine.Count then
-            raise exception.Create('Expecting action but end of line found')
-          else
-            raise exception.Create('Expecting action but "' + ALine[index] + '" found');
+          idxClass := ClassIndexOf(PlayerIdentifiers[pl]);
+          if (idxClass = -1) or not TryClassFunction(AScope, AProg, ALine, index, idxClass, AThreads, AMainThread) then
+          begin
+            if index >= ALine.Count then
+              raise exception.Create('Expecting action but end of line found')
+            else
+              raise exception.Create('Expecting action but "' + ALine[index] + '" found');
+          end;
         end;
         CheckEndOfLine;
+      end else
+      begin
+        for idxClass := 0 to ClassCount-1 do
+          if TryToken(ALine,index,ClassDefinitions[idxClass].Name) then
+          begin
+            ExpectToken(ALine,index,'.');
+            if TryClassFunction(AScope, AProg, ALine, index, idxClass, AThreads, AMainThread) then
+            begin
+              done := true;
+              CheckEndOfLine;
+            end;
+          end;
       end;
     end;
 
@@ -1090,7 +1158,7 @@ begin
           end;
           CheckEndOfLine;
 
-          AProg.Add(TCallInstruction.Create(name, params));
+          AProg.Add(TCallInstruction.Create(AScope, name, params));
           params := nil;
         finally
           params.Free;
@@ -1099,7 +1167,7 @@ begin
       if scalar.VarType = svtNone then
       begin
         if name <> '' then
-          raise exception.Create('Unknown variable "' + name + '"')
+          raise exception.Create('Unknown variable or class "' + name + '"')
         else
         begin
           if TryStringConstant(AThreads, AScope, ALine, index, text) then

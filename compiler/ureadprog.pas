@@ -5,7 +5,7 @@ unit ureadprog;
 interface
 
 uses
-  Classes, SysUtils, uinstructions, fgl, usctypes, uprocedures;
+  Classes, SysUtils, uinstructions, fgl, usctypes, uprocedures, uscope;
 
 function ReadProg(AFilename: string; out AMainThread: TPlayer; out ALastScope: integer; ADefaultMainThread: TPlayer): boolean;
 function ReadProg(ALines: TStrings; out AMainThread: TPlayer; out ALastScope: integer; ADefaultMainThread: TPlayer): boolean;
@@ -388,7 +388,7 @@ begin
   if inSubMain then
   begin
     code := MainCode;
-    scope := SubMainScope;
+    scope := MainSubScope;
   end
   else if inSub <> -1 then
   begin
@@ -422,11 +422,11 @@ begin
       if TryToken(line,index,'Dim') or TryToken(line,index,'Const') then
       begin
         if inEvent <> -1 then
-          ProcessDim(AThreads, scope, line, Events[inEvent].Instructions, true, warning)
+          ProcessDim(AThreads, scope, line, Events[inEvent].Instructions, true, true, warning)
         else if inSub <> -1 then
-          ProcessDim(AThreads, scope, line, Procedures[inSub].Instructions, true, warning)
+          ProcessDim(AThreads, scope, line, Procedures[inSub].Instructions, true, true, warning)
         else
-          ProcessDim(AThreads, scope, line, MainProg, false, warning);
+          ProcessDim(AThreads, scope, line, MainProg, false, false, warning);
 
         if warning<>'' then AddWarning(lineNumber, warning);
       end
@@ -572,6 +572,7 @@ var
   players: TPlayers;
   pl: TPlayer;
   warning: string;
+  fileScope: integer;
 begin
   if not (ADefaultMainThread in[plPlayer1..plPlayer8]) then
     raise exception.Create('This player can''t be used as a main thread');
@@ -582,30 +583,32 @@ begin
   FillParseCompletionList := true;
 
   InitVariables;
+  InitScopes;
   ClearProceduresAndEvents;
 
   AMainThread := plNone;
-  ALastScope := GlobalScope;
+  fileScope := NewScope(GlobalScope,'');
+  ALastScope := fileScope;
 
-  PredefineIntArray(GlobalScope,'Ore',suResourceOre,24);
-  PredefineIntArray(GlobalScope,'Minerals',suResourceOre,24);
-  PredefineIntArray(GlobalScope,'Gas',suResourceGas,24);
-  PredefineIntArray(GlobalScope,'OreAndGas',suResourceOreAndGas,24);
-  PredefineIntArray(GlobalScope,'MineralsAndGas',suResourceOreAndGas,24);
-  PredefineIntArray(GlobalScope,'UnitScore',suScoreUnits,24);
-  PredefineIntArray(GlobalScope,'BuildingScore',suScoreBuildings,24);
-  PredefineIntArray(GlobalScope,'UnitAndBuildingScore',suScoreUnitsAndBuildings,24);
-  PredefineIntArray(GlobalScope,'KillScore',suScoreKills,24);
-  PredefineIntArray(GlobalScope,'RazingScore',suScoreRazings,24);
-  PredefineIntArray(GlobalScope,'KillAndRazingScore',suScoreKillsAndRazings,24);
-  PredefineIntArray(GlobalScope,'CustomScore',suScoreCustom,24);
-  PredefineIntArray(GlobalScope,'TotalScore',suScoreTotal,24);
-  PredefineIntVar(GlobalScope,'Countdown', plNone, suCountdown,16);
-  CreateString(GlobalScope, 'vbCr', #13, true);
-  CreateString(GlobalScope, 'vbLf', #10, true);
-  CreateString(GlobalScope, 'vbCrLf', #13#10, true);
-  CreateString(GlobalScope, 'vbTab', #9, true);
-  CreateString(GlobalScope, 'Anywhere', MapInfo.AnywhereLocationName, true);
+  PredefineIntArray(fileScope,'Ore',suResourceOre,24);
+  PredefineIntArray(fileScope,'Minerals',suResourceOre,24);
+  PredefineIntArray(fileScope,'Gas',suResourceGas,24);
+  PredefineIntArray(fileScope,'OreAndGas',suResourceOreAndGas,24);
+  PredefineIntArray(fileScope,'MineralsAndGas',suResourceOreAndGas,24);
+  PredefineIntArray(fileScope,'UnitScore',suScoreUnits,24);
+  PredefineIntArray(fileScope,'BuildingScore',suScoreBuildings,24);
+  PredefineIntArray(fileScope,'UnitAndBuildingScore',suScoreUnitsAndBuildings,24);
+  PredefineIntArray(fileScope,'KillScore',suScoreKills,24);
+  PredefineIntArray(fileScope,'RazingScore',suScoreRazings,24);
+  PredefineIntArray(fileScope,'KillAndRazingScore',suScoreKillsAndRazings,24);
+  PredefineIntArray(fileScope,'CustomScore',suScoreCustom,24);
+  PredefineIntArray(fileScope,'TotalScore',suScoreTotal,24);
+  PredefineIntVar(fileScope,'Countdown', plNone, suCountdown,16);
+  CreateString(fileScope, 'vbCr', #13, true);
+  CreateString(fileScope, 'vbLf', #10, true);
+  CreateString(fileScope, 'vbCrLf', #13#10, true);
+  CreateString(fileScope, 'vbTab', #9, true);
+  CreateString(fileScope, 'Anywhere', MapInfo.AnywhereLocationName, true);
 
   fileLineNumber:= 0;
   lineNumber := 0;
@@ -631,7 +634,7 @@ begin
             raise exception.Create('Nested classes not allowed');
           if (inSub <> -1) or inSubMain or (inEvent <> -1) then
             raise exception.Create('Classes not allowed within functions or events');
-          pl := TryParsePlayer([], GlobalScope,line, index);
+          pl := TryParsePlayer([], fileScope,line, index);
           if pl = plNone then
           begin
             if not TryIdentifier(line, index, str, false) then
@@ -640,8 +643,8 @@ begin
             if inClass = -1 then
             begin
               ExpectToken(line,index,'=');
-              curClassPlayers := ExpectPlayers([], GlobalScope, line, index);
-              inClass := CreateClass(curClassPlayers, str);
+              curClassPlayers := ExpectPlayers([], fileScope, line, index);
+              inClass := CreateClass(fileScope, curClassPlayers, str);
             end else
               curClassPlayers:= ClassDefinitions[inClass].Threads;
           end else
@@ -650,8 +653,9 @@ begin
             curClassPlayers:= [pl];
             inClass := ClassIndexOf(str);
             if inClass = -1 then
-              inClass := CreateClass(curClassPlayers, str);
+              inClass := CreateClass(fileScope, curClassPlayers, str);
           end;
+          ALastScope:= ClassDefinitions[inClass].InnerScope;
           CheckEndOfLine;
         end else
         if TryToken(line,index,'Dim') or TryToken(line,index,'Const') then
@@ -661,18 +665,22 @@ begin
           else if inSubMain then MainCode.Add(TCodeLine.Create(line, lineNumber))
           else
           begin
-            ProcessDim([], GlobalScope, line, MainProg, false, warning);
+            if inClass <> -1 then
+              ProcessDim(curClassPlayers, ALastScope, line, MainProg, false, false, warning)
+            else
+              ProcessDim([], ALastScope, line, MainProg, false, false, warning);
             if warning <> '' then AddWarning(lineNumber, warning);
           end;
         end
         else if (inSub = -1) and (inEvent = -1) and not inSubMain and
          (TryToken(line,index, 'Sub') or TryToken(line,index,'Function')) then
         begin
-          inSub := ProcessSubStatement(line, curClassPlayers);
+          inSub := ProcessSubStatement(ALastScope, line, curClassPlayers);
           if inSub = -1 then
           begin
             if subMainDeclared then raise exception.Create('Sub Main already declared');
             inSubMain:= true;
+            MainSubScope:= NewScope(ALastScope, 'Main');
             subMainDeclared := true;
             if inClass <> -1 then SetMainThread(curClassPlayers) else
             if AMainThread = plNone then
@@ -687,7 +695,7 @@ begin
         begin
           refClass := TryClass(line, index);
           if refClass <> -1 then players := ClassDefinitions[refClass].Threads
-          else players := ExpectPlayers([], GlobalScope, line, index);
+          else players := ExpectPlayers([], ALastScope, line, index);
           if index < line.Count then
           begin
             for i := index-1 downto 0 do
@@ -701,22 +709,23 @@ begin
 
           if TryToken(line,index,'Sub') or TryToken(line,index,'Function') then
           begin
-            inSub := ProcessSubStatement(line, players);
+            inSub := ProcessSubStatement(ALastScope, line, players);
             if inSub = -1 then
             begin
               if subMainDeclared then raise exception.Create('Sub Main already declared');
               inSubMain := true;
+              MainSubScope:= NewScope(ALastScope, 'Main');
               subMainDeclared:= true;
               SetMainThread(players);
             end;
           end else
-            inEvent := ProcessEventStatement(line, players);
+            inEvent := ProcessEventStatement(ALastScope, line, players);
         end
         else if (inSub = -1) and (inEvent = -1) and not inSubMain and
           TryToken(line,index,'On') then
         begin
           if inClass <> -1 then
-            inEvent := ProcessEventStatement(line, curClassPlayers)
+            inEvent := ProcessEventStatement(ALastScope, line, curClassPlayers)
           else
           begin
             if AMainThread = plNone then
@@ -724,7 +733,7 @@ begin
               AMainThread:= ADefaultMainThread;
               AddWarning(lineNumber, 'Main thread implicitely defined to '+PlayerIdentifiers[ADefaultMainThread]);
             end;
-            inEvent := ProcessEventStatement(line, [AMainThread])
+            inEvent := ProcessEventStatement(ALastScope, line, [AMainThread])
           end;
         end else
         begin
@@ -815,6 +824,7 @@ begin
               if inSubMain or (inSub <> -1) then raise exception.Create('Sub not finished');
               curClassPlayers:= [];
               inClass := -1;
+              ALastScope:= fileScope;
               CheckEndOfLine;
               done := true;
             end;
@@ -868,7 +878,7 @@ begin
           ParseCode([AMainThread], AMainThread, inSubMain, inSub, inEvent)
         else
           ParseCode([], AMainThread, inSubMain, inSub, inEvent);
-        ALastScope:= SubMainScope;
+        ALastScope:= MainSubScope;
       end;
 
       if curClassPlayers <> [] then

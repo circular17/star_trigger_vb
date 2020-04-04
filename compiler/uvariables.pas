@@ -5,14 +5,13 @@ unit uvariables;
 interface
 
 uses
-  Classes, SysUtils, usctypes;
+  Classes, SysUtils, usctypes, uscope;
 
 const
   MaxBoolArraySize = MaxSwitches;
   MaxIntArraySize = MaxBoolArraySize;
   MaxStringArraySize = MaxBoolArraySize;
   MaxUnitProperties = 64;
-  GlobalScope = 0;
 
 var
   HyperTriggersOption: boolean;
@@ -34,13 +33,14 @@ var
   IntArrayCount: integer;
   CurIntArrayUnitNameIndex: integer;
 
-function CreateIntArray(AScope: integer; AName: string; ASize: integer; AValues: array of integer; ABitCount: integer; AConstant: boolean = false): integer;
+function CreateIntArray(AScope: integer; AName: string; ASize: integer; AValues: array of integer; ABitCount: integer; AConstant: boolean = false; AMultithread: boolean = false): integer;
 function PredefineIntArray(AScope: integer; AName: string; AUnitType: TStarcraftUnit; ABitCount: integer): integer;
 function IntArrayIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean = true): integer;
 function GetMultiplicandIntArray(AMaxBitCount: integer): integer;
 
 var
   IntVars: array of record
+    Scope: integer;
     Predefined, Constant: boolean;
     Name: string;
     Player: TPlayer;
@@ -50,7 +50,6 @@ var
     Randomize: boolean;
     AddToAcc,AddFromAcc: boolean;
     IntArray: integer;
-    Scope: integer;
   end;
   IntVarCount: integer;
   CurIntVarPlayer: TPlayer;
@@ -213,9 +212,10 @@ begin
 end;
 
 function CreateIntArray(AScope: integer; AName: string; ASize: integer;
-  AValues: array of integer; ABitCount: integer; AConstant: boolean): integer;
+  AValues: array of integer; ABitCount: integer; AConstant: boolean;
+  AMultithread: boolean): integer;
 var
-  i: Integer;
+  i, sharedIntVar: Integer;
 begin
   CheckReservedWord(AName);
 
@@ -263,25 +263,35 @@ begin
       Values[i] := 0;
 
     setlength(Vars, Size);
-    for i := 1 to Size do
-      if (i <= MaxTriggerPlayers) or Constant then
-      begin
-        if i <= MaxTriggerPlayers then
-          Vars[i-1] := PredefineIntVar(AScope, Name+'('+IntToStr(i)+')', IntToPlayer(i), UnitType, ABitCount)
+    if AMultithread and not AConstant then
+    begin
+      sharedIntVar := PredefineIntVar(AScope, AName, plCurrentPlayer, UnitType, ABitCount);
+      IntVars[sharedIntVar].IntArray := result;
+      IntVars[sharedIntVar].Value := Values[0];
+      for i := 1 to Size do
+        Vars[i-1] := sharedIntVar;
+    end else
+    begin
+      for i := 1 to Size do
+        if (i <= MaxTriggerPlayers) or Constant then
+        begin
+          if i <= MaxTriggerPlayers then
+            Vars[i-1] := PredefineIntVar(AScope, Name+'('+IntToStr(i)+')', IntToPlayer(i), UnitType, ABitCount)
+          else
+            Vars[i-1] := PredefineIntVar(AScope, Name+'('+IntToStr(i)+')', plNone, UnitType, ABitCount);
+          IntVars[Vars[i-1]].Value := Values[i-1];
+          IntVars[Vars[i-1]].Constant:= Constant;
+          IntVars[Vars[i-1]].IntArray := result;
+        end
         else
-          Vars[i-1] := PredefineIntVar(AScope, Name+'('+IntToStr(i)+')', plNone, UnitType, ABitCount);
-        IntVars[Vars[i-1]].Value := Values[i-1];
-        IntVars[Vars[i-1]].Constant:= Constant;
-        IntVars[Vars[i-1]].IntArray := result;
-      end
-      else
-      begin
-        Vars[i-1] := CreateIntVar(AScope, Name+'('+IntToStr(i)+')', Values[i-1], ABitCount, false, Constant);
-        IntVars[Vars[i-1]].Predefined := true;
-        IntVars[Vars[i-1]].IntArray := result;
-      end;
+        begin
+          Vars[i-1] := CreateIntVar(AScope, Name+'('+IntToStr(i)+')', Values[i-1], ABitCount, false, Constant);
+          IntVars[Vars[i-1]].Predefined := true;
+          IntVars[Vars[i-1]].IntArray := result;
+        end;
 
-    IntVars[PredefineIntVar(AScope, Name+'(Me)', plCurrentPlayer, UnitType, ABitCount)].IntArray := result;
+      IntVars[PredefineIntVar(AScope, Name+'(Me)', plCurrentPlayer, UnitType, ABitCount)].IntArray := result;
+    end;
   end;
 end;
 
@@ -329,9 +339,16 @@ begin
     if not IntArrays[i].Deleted and (IntArrays[i].Scope = AScope)
        and (CompareText(IntArrays[i].Name, AName)=0) then exit(i);
   if ACheckGlobal then
-    for i := 0 to IntArrayCount-1 do
-      if not IntArrays[i].Deleted and (IntArrays[i].Scope = GlobalScope)
-         and (CompareText(IntArrays[i].Name, AName)=0) then exit(i);
+  begin
+    AScope := GetWiderScope(AScope);
+    while AScope <> -1 do
+    begin
+      for i := 0 to IntArrayCount-1 do
+        if not IntArrays[i].Deleted and (IntArrays[i].Scope = AScope)
+           and (CompareText(IntArrays[i].Name, AName)=0) then exit(i);
+      AScope := GetWiderScope(AScope);
+    end;
+  end;
   exit(-1);
 end;
 
@@ -422,12 +439,15 @@ begin
   begin
     Scope := AScope;
     Predefined := true;
+    Constant := false;
     Name := AName;
     Player := APlayer;
     UnitType := AUnitType;
-    Value := 0;
     BitCount:= ABitCount;
+    Value := 0;
     Randomize:= false;
+    AddToAcc := false;
+    AddFromAcc:= false;
     IntArray := -1;
   end;
 end;
@@ -439,8 +459,15 @@ begin
   for i := 0 to IntVarCount-1 do
     if (IntVars[i].Scope = AScope) and (CompareText(IntVars[i].Name, AName)=0) then exit(i);
   if ACheckGlobal then
-    for i := 0 to IntVarCount-1 do
-      if (IntVars[i].Scope = GlobalScope) and (CompareText(IntVars[i].Name, AName)=0) then exit(i);
+  begin
+    AScope := GetWiderScope(AScope);
+    while AScope <> -1 do
+    begin
+      for i := 0 to IntVarCount-1 do
+       if (IntVars[i].Scope = AScope) and (CompareText(IntVars[i].Name, AName)=0) then exit(i);
+      AScope := GetWiderScope(AScope);
+    end;
+  end;
   exit(-1);
 end;
 
@@ -606,8 +633,15 @@ begin
   for i := 0 to BoolArrayCount-1 do
     if (BoolArrays[i].Scope = AScope) and (CompareText(BoolArrays[i].Name, AName)=0) then exit(i);
   if ACheckGlobal then
-    for i := 0 to BoolArrayCount-1 do
-      if (BoolArrays[i].Scope = GlobalScope) and (CompareText(BoolArrays[i].Name, AName)=0) then exit(i);
+  begin
+    AScope:= GetWiderScope(AScope);
+    while AScope <> -1 do
+    begin
+      for i := 0 to BoolArrayCount-1 do
+        if (BoolArrays[i].Scope = AScope) and (CompareText(BoolArrays[i].Name, AName)=0) then exit(i);
+      AScope:= GetWiderScope(AScope);
+    end;
+  end;
   exit(-1);
 end;
 
@@ -658,8 +692,15 @@ begin
   for i := 0 to BoolVarCount-1 do
     if (BoolVars[i].Scope = AScope) and (CompareText(BoolVars[i].Name, AName)=0) then exit(i);
   if ACheckGlobal then
-    for i := 0 to BoolVarCount-1 do
-      if (BoolVars[i].Scope = GlobalScope) and (CompareText(BoolVars[i].Name, AName)=0) then exit(i);
+  begin
+    AScope := GetWiderScope(AScope);
+    while AScope <> -1 do
+    begin
+      for i := 0 to BoolVarCount-1 do
+        if (BoolVars[i].Scope = AScope) and (CompareText(BoolVars[i].Name, AName)=0) then exit(i);
+      AScope := GetWiderScope(AScope);
+    end;
+  end;
   exit(-1);
 end;
 
@@ -771,8 +812,16 @@ begin
   for i := 0 to UnitPropCount-1 do
     if (UnitPropVars[i].Scope = AScope) and (CompareText(AName, UnitPropVars[i].Name) = 0) then exit(i);
   if ACheckGlobal then
-    for i := 0 to UnitPropCount-1 do
-      if (UnitPropVars[i].Scope = GlobalScope) and (CompareText(AName, UnitPropVars[i].Name) = 0) then exit(i);
+  begin
+    AScope := GetWiderScope(AScope);
+    while AScope <> -1 do
+    begin
+      for i := 0 to UnitPropCount-1 do
+        if (UnitPropVars[i].Scope = AScope) and (CompareText(AName, UnitPropVars[i].Name) = 0) then exit(i);
+      AScope := GetWiderScope(AScope);
+    end;
+
+  end;
   exit(-1);
 end;
 
@@ -850,8 +899,15 @@ begin
   for i := 0 to SoundCount-1 do
     if (SoundVars[i].Scope = AScope) and (CompareText(SoundVars[i].Name,AName)=0) then exit(i);
   if ACheckGlobal then
-    for i := 0 to SoundCount-1 do
-      if (SoundVars[i].Scope = GlobalScope) and (CompareText(SoundVars[i].Name,AName)=0) then exit(i);
+  begin
+    AScope := GetWiderScope(AScope);
+    while AScope <> -1 do
+    begin
+      for i := 0 to SoundCount-1 do
+        if (SoundVars[i].Scope = AScope) and (CompareText(SoundVars[i].Name,AName)=0) then exit(i);
+      AScope := GetWiderScope(AScope);
+    end;
+  end;
   exit(-1);
 end;
 
@@ -884,8 +940,15 @@ begin
   for i := 0 to StringCount-1 do
     if (StringVars[i].Scope = AScope) and (CompareText(StringVars[i].Name,AName)=0) then exit(i);
   if ACheckGlobal then
-    for i := 0 to StringCount-1 do
-      if (StringVars[i].Scope = GlobalScope) and (CompareText(StringVars[i].Name,AName)=0) then exit(i);
+  begin
+    AScope := GetWiderScope(AScope);
+    while AScope <> -1 do
+    begin
+      for i := 0 to StringCount-1 do
+        if (StringVars[i].Scope = AScope) and (CompareText(StringVars[i].Name,AName)=0) then exit(i);
+      AScope := GetWiderScope(AScope);
+    end;
+  end;
   exit(-1);
 end;
 
@@ -927,8 +990,15 @@ begin
   for i := 0 to StringArrayCount-1 do
     if (StringArrays[i].Scope = AScope) and (CompareText(StringArrays[i].Name,AName)=0) then exit(i);
   if ACheckGlobal then
-    for i := 0 to StringArrayCount-1 do
-      if (StringArrays[i].Scope = GlobalScope) and (CompareText(StringArrays[i].Name,AName)=0) then exit(i);
+  begin
+    AScope := GetWiderScope(AScope);
+    while AScope <> -1 do
+    begin
+      for i := 0 to StringArrayCount-1 do
+        if (StringArrays[i].Scope = AScope) and (CompareText(StringArrays[i].Name,AName)=0) then exit(i);
+      AScope := GetWiderScope(AScope);
+    end;
+  end;
   exit(-1);
 end;
 

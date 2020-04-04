@@ -5,7 +5,7 @@ unit uparsecomplex;
 interface
 
 uses
-  Classes, SysUtils, uvariables, usctypes, uinstructions;
+  Classes, SysUtils, uvariables, usctypes, uinstructions, uscope;
 
 type
   ArrayOfInteger = array of integer;
@@ -20,8 +20,8 @@ function TryStringConstant(AThreads: TPlayers; AScope: integer; ALine: TStringLi
 function TryClass(ALine: TStringList; var AIndex: integer): integer;
 
 function IsVarNameUsed(AScope: integer; AName: string; AParamCount: integer): boolean;
-procedure ProcessDim(AThreads: TPlayers; AScope: integer; ADeclaration: string; AProg: TInstructionList; AInit0: boolean; out AWarning: string);
-procedure ProcessDim(AThreads: TPlayers; AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0: boolean; out AWarning: string);
+procedure ProcessDim(AThreads: TPlayers; AScope: integer; ADeclaration: string; AProg: TInstructionList; AInit0, AAllowMultithread: boolean; out AWarning: string);
+procedure ProcessDim(AThreads: TPlayers; AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0, AMultithreadInit: boolean; out AWarning: string);
 
 implementation
 
@@ -139,14 +139,18 @@ end;
 
 function TryUnitPropertiesVariableOrDefinition(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 var
-  idxProp: Integer;
+  idxProp, triedScope: Integer;
   prop: TUnitProperties;
 begin
-  for idxProp := 0 to UnitPropCount-1 do
-    if ((UnitPropVars[idxProp].Scope = AScope) or
-      (UnitPropVars[idxProp].Scope = GlobalScope))
-       and TryToken(ALine, AIndex, UnitPropVars[idxProp].Name) then
-      exit(idxProp);
+  triedScope := AScope;
+  while triedScope <> -1 do
+  begin
+    for idxProp := 0 to UnitPropCount-1 do
+      if (UnitPropVars[idxProp].Scope = triedScope)
+         and TryToken(ALine, AIndex, UnitPropVars[idxProp].Name) then
+        exit(idxProp);
+    triedScope := GetWiderScope(triedScope);
+  end;
 
   if TryUnitPropertiesDefinition(AThreads, AScope, ALine,AIndex,prop) then
   begin
@@ -471,7 +475,7 @@ function IsVarNameUsed(AScope: integer; AName: string; AParamCount: integer): bo
 begin
   result := (IntVarIndexOf(AScope, AName, False)<>-1) or (BoolVarIndexOf(AScope, AName, False)<>-1) or
             (IntArrayIndexOf(AScope, AName, False)<>-1) or (BoolArrayIndexOf(AScope, AName, False)<>-1) or
-            (ProcedureIndexOf(AName,AParamCount)<>-1) or (UnitPropIndexOf(AScope, AName, False) <> -1) or
+            (ProcedureIndexOf(AScope, AName,AParamCount)<>-1) or (UnitPropIndexOf(AScope, AName, False) <> -1) or
             (StringIndexOf(AScope, AName, False)<>-1) or (StringArrayIndexOf(AScope, AName, False)<>-1) or
             (SoundIndexOf(AScope, AName, False)<>-1) or
             (CompareText('AI',AName) = 0) or (CompareText('Present',AName) = 0) or
@@ -480,7 +484,7 @@ begin
             (CompareText('Switch',AName) = 0) or (CompareText('Color',AName) = 0) or (CompareText('Align',AName) = 0);
 end;
 
-procedure ProcessDim(AThreads: TPlayers; AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0: boolean; out AWarning: string);
+procedure ProcessDim(AThreads: TPlayers; AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0, AMultithreadInit: boolean; out AWarning: string);
 var
   index: Integer;
   varName, varType, filename, text, wavName: String;
@@ -491,7 +495,7 @@ var
   boolVal: boolean;
   prop: TUnitProperties;
   arrBoolValues: ArrayOfSwitchValue;
-  Constant, filenameSpecified: boolean;
+  Constant, filenameSpecified, multiThreadVar: boolean;
   strValues: ArrayOfString;
 
   procedure ExpectArraySize;
@@ -502,9 +506,9 @@ var
       raise Exception.Create('Array size can go from 1 to ' + inttostr(MaxIntArraySize));
   end;
 
-  procedure SetupIntVar(AIntVar: integer; AExpr : TExpression = nil);
+  procedure SetupIntVar(AVar: integer; AExpr : TExpression = nil); overload;
   begin
-    with IntVars[AIntVar] do
+    with IntVars[AVar] do
     begin
       if AExpr <> nil then
       begin
@@ -532,13 +536,55 @@ var
     end;
   end;
 
-  procedure SetupBoolVar(ABoolVar: integer);
+  procedure SetupIntVar(AName: string; AValue: integer; ABitCount: integer; AConstant: boolean = false; AExpr : TExpression = nil); overload;
+  var i, intVar, arrayVar: integer;
+    values: array of integer;
+  begin
+    if multiThreadVar and not AConstant then
+    begin
+      if not AMultithreadInit then
+      begin
+        if Assigned(AExpr) then
+        begin
+          if not AExpr.IsConstant or (AExpr.ConstElement <> 0) then
+          begin
+            FreeAndNil(AExpr);
+            raise exception.Create('Multithread variable cannot be initialized');
+          end;
+          FreeAndNil(AExpr);
+        end;
+        if AValue <> 0 then
+          raise exception.Create('Multithread variable cannot be initialized');
+      end;
+      setlength(values, MaxTriggerPlayers);
+      for i := 0 to high(values) do values[i] := AValue;
+      arrayVar := CreateIntArray(AScope, '_multi.'+AName, MaxTriggerPlayers,
+        values, ABitCount, false, true);
+      if AMultithreadInit then
+        SetupIntVar(IntArrays[arrayVar].Vars[0], AExpr);
+    end else
+    begin
+      intVar := CreateIntVar(AScope, AName, AValue, ABitCount, false, AConstant);
+      SetupIntVar(intVar, AExpr);
+    end;
+  end;
+
+  procedure SetupBoolVar(ABoolVar: integer); overload;
   begin
     with BoolVars[ABoolVar] do
     begin
       if not Constant and (AInit0 or (Value <> svClear)) then
         AProg.Add( TSetSwitchInstruction.Create(Switch, Value) );
     end;
+  end;
+
+  procedure SetupBoolVar(AName: string; AValue: TSwitchValue; AConstant: boolean); overload;
+  var boolVar: integer;
+  begin
+    if multiThreadVar and not AConstant then
+      raise exception.Create('Multithread boolean variables not implemented');
+    boolVar := CreateBoolVar(AScope, AName, AValue, AConstant);
+    SetupBoolVar(boolVar);
   end;
 
   procedure SetupIntArray(AIntArray: integer);
@@ -567,6 +613,7 @@ var
 
 
 begin
+  multiThreadVar := (AThreads <> []) and not IsUniquePlayer(AThreads);
   AWarning:= '';
   index := 0;
   if TryToken(ALine,index,'Const') then
@@ -644,7 +691,10 @@ begin
     end else
       varType := '?';
 
-    if IsVarNameUsed(AScope,varName, integer(isArray)) then
+    if isArray and not Constant and multiThreadVar then
+      raise exception.Create('Array variables not handled in multithreading');
+
+    if IsVarNameUsed(AScope, varName, integer(isArray)) then
       raise exception.Create('The name "' + varName + '" is already in use');
 
     if TryToken(ALine,index,'=') then
@@ -751,30 +801,30 @@ begin
         if TryToken(ALine,index,'Rnd') then
         begin
           if TryToken(ALine,index,'(') then ExpectToken(ALine,index,')');
-          SetupBoolVar(CreateBoolVar(AScope,varName, svRandomize, Constant));
+          SetupBoolVar(varName, svRandomize, Constant);
         end
         else
         begin
           boolVal := ExpectBooleanConstant(AThreads, AScope, ALine, index);
-          SetupBoolVar(CreateBoolVar(AScope,varName, BoolToSwitch[boolVal], Constant));
+          SetupBoolVar(varName, BoolToSwitch[boolVal], Constant);
         end;
       end else
       if IsIntegerType(varType) then
       begin
-        SetupIntVar(CreateIntVar(AScope,varName, 0, bitCount, false, Constant),
+        SetupIntVar(varName, 0, bitCount, Constant,
                     TryExpression(AThreads, AScope, ALine, index, true));
       end else
       begin
         if varType <> '?' then raise exception.Create('Unhandled case');
 
         if TryBoolean(AThreads, AScope, ALine, index, boolVal) then
-          SetupBoolVar(CreateBoolVar(AScope,varName, BoolToSwitch[boolVal], Constant))
+          SetupBoolVar(varName, BoolToSwitch[boolVal], Constant)
         else
         if TryIntegerConstant(AThreads, AScope, ALine, index, intVal) then
         begin
           bitCount := BitCountNeededFor(intVal);
           if not Constant then AWarning := 'Assuming ' + inttostr( bitCount) + ' bit value for "' + varName + '". Please specify integer type (Byte, UInt16, UInt24)';
-          SetupIntVar(CreateIntVar(AScope,varName, intVal, bitCount, false, Constant));
+          SetupIntVar(varName, intVal, bitCount, Constant, nil);
         end
         else if TryToken(ALine,index,'Rnd') then
           raise exception.Create('Cannot determine if integer or boolean')
@@ -805,22 +855,22 @@ begin
       end else
       begin
         if varType = 'Boolean' then
-          SetupBoolVar(CreateBoolVar(AScope,varName, svClear, Constant))
+          SetupBoolVar(varName, svClear, Constant)
         else if IsIntegerType(varType) then
-          SetupIntVar(CreateIntVar(AScope,varName, 0, bitCount, false, Constant))
+          SetupIntVar(varName, 0, bitCount, Constant)
         else raise exception.Create('Initial value needed for '+varType);
       end;
     end;
   end;
 end;
 
-procedure ProcessDim(AThreads: TPlayers; AScope: integer; ADeclaration: string; AProg: TInstructionList; AInit0: boolean; out AWarning: string);
+procedure ProcessDim(AThreads: TPlayers; AScope: integer; ADeclaration: string; AProg: TInstructionList; AInit0, AAllowMultithread: boolean; out AWarning: string);
 var
   line: TStringList;
 begin
   line := ParseLine(ADeclaration);
   try
-    ProcessDim(AThreads, AScope, line, AProg, AInit0, AWarning);
+    ProcessDim(AThreads, AScope, line, AProg, AInit0, AAllowMultithread, AWarning);
   finally
     line.Free;
   end;

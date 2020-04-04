@@ -5,7 +5,7 @@ unit uwritetriggers;
 interface
 
 uses
-  Classes, SysUtils, fgl, usctypes;
+  Classes, SysUtils, fgl, usctypes, uscope;
 
 procedure CreateTriggers(AMainThread: TPlayer; ASourceCode: string = '');
 
@@ -153,8 +153,10 @@ var
   endDoAs: TEndDoAsInstruction;
   endDoIP: integer;
   err: string;
+  currentThreads: TPlayers;
 
 begin
+  currentThreads := APlayers;
   err := '';
   i := -1;
   endDoIP := -1;
@@ -204,6 +206,7 @@ begin
         AExpanded.Add( TSplitInstruction.Create(nextIP, nextIP, doAs.Players) )
       else
         AExpanded.Add( TSplitInstruction.Create(nextIP, EndDoIP, doAs.Players) );
+      currentThreads := doAs.Players;
       continue;
     end else
     if AProg[i] is TEndDoAsInstruction then
@@ -216,6 +219,7 @@ begin
         if not AIsMain then
           AExpanded.Add( TSetSwitchInstruction.Create(BoolVars[GetRunEventBoolVar].Switch, svSet) );
       end;
+      currentThreads := APlayers;
       continue;
     end else
     if HyperTriggersOption and (AProg[i] is TWaitInstruction) then
@@ -412,18 +416,15 @@ begin
     begin
       call := TCallInstruction(AProg[i]);
 
-      procIdx := ProcedureIndexOf(call.Name, length(call.Params));
+      procIdx := ProcedureIndexOf(call.Scope, call.Name, length(call.Params));
       if procIdx = -1 then
       begin
         err := 'Procedure not found "' + call.Name + '" with ' + Inttostr(length(call.Params)) + ' parameter(s)';
         break;
       end;
 
-      if Procedures[procIdx].Players <> [plAllPlayers] then
-      begin
-        if not (APlayers <= Procedures[procIdx].Players) then
-          raise exception.Create('The procedure "' + Procedures[procIdx].Name+'" is not available in this thread');
-      end;
+      if not AreThreadsIncluded(currentThreads, Procedures[procIdx].Players) then
+        raise exception.Create('The procedure "' + Procedures[procIdx].Name+'" is not available in this thread');
 
       if (call.ReturnType <> 'Void') and not
       ((IsIntegerType(Procedures[procIdx].ReturnType) and IsIntegerType(call.ReturnType))
@@ -484,6 +485,7 @@ procedure WritePlayerPresenceTopTrigger({%H-}AMainThread: TPlayer; AMainExpanded
     j: Integer;
     pl: TPlayer;
   begin
+    if AProc = nil then exit;
     for j := 0 to AProc.Count-1 do
       if AProc[j] is TWaitForPlayersInstruction then
       begin
@@ -531,7 +533,7 @@ begin
       if not IPUnused then
       begin
         switch := BoolVars[GetPlayerPresenceBoolVar(pl)].Switch;
-        cond := TSwitchCondition.Create(switch, True);
+        cond := TSwitchCondition.Create(switch, False);
         setIP := SetNextIP(InitialIP, pl);
         comment := TCommentInstruction.Create('Reset IP');
         WriteTrigger([AMainThread], [cond], [comment, setIP], -1, true);

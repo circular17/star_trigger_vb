@@ -5,7 +5,7 @@ unit uparsescalar;
 interface
 
 uses
-  Classes, SysUtils, usctypes;
+  Classes, SysUtils, usctypes, uscope;
 
 type
   TScalarVariableType = (svtNone, svtInteger, svtSwitch);
@@ -313,10 +313,13 @@ function TryIntegerVariable(AScope: integer; ALine: TStringList;
 var
   i: Integer;
 begin
-  for i := 0 to IntVarCount-1 do
-    if ((IntVars[i].Scope = AScope) or (IntVars[i].Scope = GlobalScope)) and
-      (IntVars[i].IntArray = -1) and
-      TryToken(ALine, AIndex, IntVars[i].Name) then exit(i);
+  while AScope <> -1 do
+  begin
+    for i := 0 to IntVarCount-1 do
+      if (IntVars[i].Scope = AScope) and (IntVars[i].IntArray = -1) and
+        TryToken(ALine, AIndex, IntVars[i].Name) then exit(i);
+    AScope := GetWiderScope(AScope);
+  end;
   result := -1;
 end;
 
@@ -325,10 +328,13 @@ function TryIntegerConstantVariable(AScope: integer; ALine: TStringList;
 var
   i: Integer;
 begin
-  for i := 0 to IntVarCount-1 do
-    if ((IntVars[i].Scope = AScope) or (IntVars[i].Scope = GlobalScope)) and
-      IntVars[i].Constant and
-      TryToken(ALine, AIndex, IntVars[i].Name) then exit(i);
+  while AScope <> -1 do
+  begin
+    for i := 0 to IntVarCount-1 do
+      if (IntVars[i].Scope = AScope) and IntVars[i].Constant and
+        TryToken(ALine, AIndex, IntVars[i].Name) then exit(i);
+    AScope := GetWiderScope(AScope);
+  end;
   result := -1;
 end;
 
@@ -337,10 +343,14 @@ function TryIntegerArray(AScope: integer; ALine: TStringList;
 var
   i: Integer;
 begin
-  for i := 0 to IntArrayCount-1 do
-    if ((IntArrays[i].Scope = AScope) or (IntArrays[i].Scope = GlobalScope)) and
-      (not AConstantOnly or IntArrays[i].Constant) and
-      TryToken(ALine, AIndex, IntArrays[i].Name) then exit(i);
+  while AScope <> -1 do
+  begin
+    for i := 0 to IntArrayCount-1 do
+      if (IntArrays[i].Scope = AScope) and
+        (not AConstantOnly or IntArrays[i].Constant) and
+        TryToken(ALine, AIndex, IntArrays[i].Name) then exit(i);
+    AScope := GetWiderScope(AScope);
+  end;
   result := -1;
 end;
 
@@ -349,9 +359,13 @@ function TryPredefinedIntegerArray(AScope: integer; ALine: TStringList;
 var
   i: Integer;
 begin
-  for i := 0 to IntArrayCount-1 do
-    if ((IntArrays[i].Scope = AScope) or (IntArrays[i].Scope = GlobalScope)) and
-       IntArrays[i].Predefined and TryToken(ALine, AIndex, IntArrays[i].Name) then exit(i);
+  while AScope <> -1 do
+  begin
+    for i := 0 to IntArrayCount-1 do
+      if (IntArrays[i].Scope = AScope) and
+         IntArrays[i].Predefined and TryToken(ALine, AIndex, IntArrays[i].Name) then exit(i);
+    AScope := GetWiderScope(AScope);
+  end;
   result := -1;
 end;
 
@@ -474,10 +488,14 @@ function TryBooleanVariable(AScope: integer; ALine: TStringList;
 var
   i: Integer;
 begin
-  for i := 0 to BoolVarCount-1 do
-    if ((BoolVars[i].Scope = AScope) or (BoolVars[i].Scope = GlobalScope)) and
-      (BoolVars[i].BoolArray = -1) and (not AConstantOnly or BoolVars[i].Constant) and
-      TryToken(ALine, AIndex, BoolVars[i].Name) then exit(i);
+  while AScope <> -1 do
+  begin
+    for i := 0 to BoolVarCount-1 do
+      if (BoolVars[i].Scope = AScope) and
+        (BoolVars[i].BoolArray = -1) and (not AConstantOnly or BoolVars[i].Constant) and
+        TryToken(ALine, AIndex, BoolVars[i].Name) then exit(i);
+    AScope := GetWiderScope(AScope);
+  end;
   result := -1;
 end;
 
@@ -486,10 +504,14 @@ function TryBooleanArray(AScope: integer; ALine: TStringList;
 var
   i: Integer;
 begin
-  for i := 0 to BoolArrayCount-1 do
-    if ((BoolArrays[i].Scope = AScope) or (BoolArrays[i].Scope = GlobalScope)) and
-      (not AConstantOnly or BoolArrays[i].Constant) and
-      TryToken(ALine, AIndex, BoolArrays[i].Name) then exit(i);
+  while AScope <> -1 do
+  begin
+    for i := 0 to BoolArrayCount-1 do
+      if (BoolArrays[i].Scope = AScope) and
+        (not AConstantOnly or BoolArrays[i].Constant) and
+        TryToken(ALine, AIndex, BoolArrays[i].Name) then exit(i);
+    AScope := GetWiderScope(AScope);
+  end;
   if not AConstantOnly and TryToken(ALine,AIndex,'Present') then
     exit(GetPlayerPresentArray);
   result := -1;
@@ -500,9 +522,13 @@ function TryStringVariable(AScope: integer; ALine: TStringList;
 var
   i: Integer;
 begin
-  for i := 0 to StringCount-1 do
-    if ((StringVars[i].Scope = AScope) or (StringVars[i].Scope = GlobalScope)) and
-      TryToken(ALine, AIndex, StringVars[i].Name) then exit(i);
+  while AScope <> -1 do
+  begin
+    for i := 0 to StringCount-1 do
+      if (StringVars[i].Scope = AScope) and
+        TryToken(ALine, AIndex, StringVars[i].Name) then exit(i);
+    AScope := GetWiderScope(AScope);
+  end;
   result := -1;
 end;
 
@@ -510,9 +536,13 @@ function TryStringArray(AScope: integer; ALine: TStringList; var AIndex: integer
 var
   i: Integer;
 begin
-  for i := 0 to StringArrayCount-1 do
-    if ((StringArrays[i].Scope = AScope) or (StringArrays[i].Scope = GlobalScope)) and
-      TryToken(ALine, AIndex, StringArrays[i].Name) then exit(i);
+  while AScope <> -1 do
+  begin
+    for i := 0 to StringArrayCount-1 do
+      if (StringArrays[i].Scope = AScope) and
+        TryToken(ALine, AIndex, StringArrays[i].Name) then exit(i);
+    AScope := GetWiderScope(AScope);
+  end;
   result := -1;
 end;
 
@@ -521,9 +551,13 @@ function TrySoundVariable(AScope: integer; ALine: TStringList;
 var
   i: Integer;
 begin
-  for i := 0 to SoundCount-1 do
-    if ((SoundVars[i].Scope = AScope) or (SoundVars[i].Scope = GlobalScope)) and
-      TryToken(ALine, AIndex, SoundVars[i].Name) then exit(i);
+  while AScope <> -1 do
+  begin
+    for i := 0 to SoundCount-1 do
+      if (SoundVars[i].Scope = AScope) and
+        TryToken(ALine, AIndex, SoundVars[i].Name) then exit(i);
+    AScope := GetWiderScope(AScope);
+  end;
   result := -1;
 end;
 
@@ -532,11 +566,14 @@ function TryUnitPropertiesVariable(AScope: integer; ALine: TStringList;
 var
   idxProp: Integer;
 begin
-  for idxProp := 0 to UnitPropCount-1 do
-    if ((UnitPropVars[idxProp].Scope = AScope) or
-      (UnitPropVars[idxProp].Scope = GlobalScope))
-       and TryToken(ALine, AIndex, UnitPropVars[idxProp].Name) then
-      exit(idxProp);
+  while AScope <> -1 do
+  begin
+    for idxProp := 0 to UnitPropCount-1 do
+      if (UnitPropVars[idxProp].Scope = AScope)
+         and TryToken(ALine, AIndex, UnitPropVars[idxProp].Name) then
+        exit(idxProp);
+    AScope := GetWiderScope(AScope);
+  end;
   result := -1;
 end;
 

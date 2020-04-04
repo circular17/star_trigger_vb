@@ -5,7 +5,7 @@ unit uarithmetic;
 interface
 
 uses
-  Classes, SysUtils, uinstructions, usctypes;
+  Classes, SysUtils, uinstructions, usctypes, uscope;
 
 const
   MaxTempBools = MaxSwitches;

@@ -90,11 +90,12 @@ type
   { TCallInstruction }
 
   TCallInstruction = class(TInstruction)
+    Scope: integer;
     Name: string;
     Params: array of string;
     ReturnType: string;
-    constructor Create(AName: string; AParams: array of string; AReturnType: string = 'Void');
-    constructor Create(AName: string; AParams: TStringList; AReturnType: string = 'Void');
+    constructor Create(AScope: integer; AName: string; AParams: array of string; AReturnType: string = 'Void');
+    constructor Create(AScope: integer; AName: string; AParams: TStringList; AReturnType: string = 'Void');
     function Duplicate: TInstruction; override;
   end;
 
@@ -995,10 +996,11 @@ end;
 
 { TCallInstruction }
 
-constructor TCallInstruction.Create(AName: string; AParams: array of string; AReturnType: string = 'Void');
+constructor TCallInstruction.Create(AScope: integer; AName: string; AParams: array of string; AReturnType: string = 'Void');
 var
   i: Integer;
 begin
+  Scope := AScope;
   Name := AName;
   setlength(Params, length(AParams));
   for i := 0 to high(AParams) do
@@ -1006,10 +1008,11 @@ begin
   ReturnType:= AReturnType;
 end;
 
-constructor TCallInstruction.Create(AName: string; AParams: TStringList; AReturnType: string = 'Void');
+constructor TCallInstruction.Create(AScope: integer; AName: string; AParams: TStringList; AReturnType: string = 'Void');
 var
   i: Integer;
 begin
+  Scope := AScope;
   Name := AName;
   setlength(Params, AParams.Count);
   for i := 0 to AParams.Count-1 do
@@ -1020,7 +1023,7 @@ end;
 
 function TCallInstruction.Duplicate: TInstruction;
 begin
-  result := TCallInstruction.Create(Name, Params, ReturnType);
+  result := TCallInstruction.Create(Scope, Name, Params, ReturnType);
 end;
 
 { TCondition }

@@ -754,7 +754,7 @@ end;
 
 procedure ParseInstruction(AScope: integer; ALine: TStringList; AProg: TInstructionList; AThreads: TPlayers; AMainThread: TPlayer; AProcId: integer; AInSubMain: boolean);
 var
-  index, intVal, idxArr, i, idxSound, sw, idxVar, idxMsg, idxClass: integer;
+  index, intVal, idxArr, i, idxSound, idxVar, idxMsg, idxClass: integer;
   params: TStringList;
   name, assignOp, text: String;
   done, boolVal: boolean;
@@ -826,18 +826,17 @@ begin
       end else
       if Procedures[AProcId].ReturnType = 'Boolean' then
       begin
-        idxVar := GetBoolResultVar;
-        sw := BoolVars[idxVar].Switch;
+        idxVar := AllocateTempInt(8);
         if TryBoolean(AThreads, AScope, ALine, index, boolVal) then
         begin
-          AProg.Add( TSetSwitchInstruction.Create(sw, BoolToSwitch[boolVal]) );
+          AProg.Add( TTransferIntegerInstruction.Create(integer(boolVal), itCopyIntoAccumulator) );
         end else
         begin
           conds := ExpectConditions(AScope, ALine, index, AThreads, true);
           AProg.Add( TIfInstruction.Create(conds) );
-          AProg.Add( TSetSwitchInstruction.Create(sw, svSet) );
+          AProg.Add( TTransferIntegerInstruction.Create(1, itCopyIntoAccumulator) );
           AProg.Add( TElseInstruction.Create );
-          AProg.Add( TSetSwitchInstruction.Create(sw, svClear) );
+          AProg.Add( TTransferIntegerInstruction.Create(0, itCopyIntoAccumulator) );
           AProg.Add( TEndIfInstruction.Create );
         end;
       end;
@@ -1107,21 +1106,23 @@ begin
       end;
     end;
 
-    index := 0;
-    if TryNeutralAction(AScope,AProg,ALine,index, AThreads) then
+    if not done then
     begin
-      CheckEndOfLine;
-      done := true;
-    end;
+      index := 0;
+      if TryNeutralAction(AScope,AProg,ALine,index, AThreads) then
+      begin
+        CheckEndOfLine;
+        done := true;
+      end;
 
-    if TryPlayerAction(AScope,AProg,ALine,index,plCurrentPlayer, AThreads) then
-    begin
-      if AThreads = [] then
-        raise exception.Create('You need to specify which players does the action ("Me" for main thread)');
-      CheckEndOfLine;
-      done := true;
+      if TryPlayerAction(AScope,AProg,ALine,index,plCurrentPlayer, AThreads) then
+      begin
+        if AThreads = [] then
+          raise exception.Create('You need to specify which players does the action ("Me" for main thread)');
+        CheckEndOfLine;
+        done := true;
+      end;
     end;
-
 
     if not done then
     begin
@@ -1172,7 +1173,8 @@ begin
           raise exception.Create('Unknown variable or class "' + name + '"')
         else
         begin
-          if TryStringConstant(AThreads, AScope, ALine, index, text) then
+          if (index < ALine.Count) and (copy(ALine[index],1,1) = '"') and
+             TryStringConstant(AThreads, AScope, ALine, index, text) then
             raise exception.Create('Expecting instruction but found string ' + StrToBasic(text))
           else
           if index < ALine.Count then

@@ -24,9 +24,9 @@ begin
   begin
     if HyperWaitVar = -1 then
     begin
-      HyperWaitVar := IntArrayIndexOf(GlobalScope, '_hyperwait');
+      HyperWaitVar := IntArrayIndexOf(RunTimeScope, 'Hyperwait');
       if HyperWaitVar = -1 then
-        HyperWaitVar := CreateIntArray(GlobalScope,'_hyperwait', MaxTriggerPlayers, [], 24);
+        HyperWaitVar := CreateIntArray(RunTimeScope,'Hyperwait', MaxTriggerPlayers, [], 24);
     end;
   end;
 end;
@@ -75,6 +75,8 @@ begin
 end;
 
 procedure ExpandInstructions(AProg: TInstructionList; AInProc: integer; AIsMain: boolean; APlayers: TPlayers; AExpanded: TInstructionList; AEndIP: integer);
+var
+  currentThreads: TPlayers;
 
   function AddWaitCondition(AConditions: TConditionList; ANextIP: integer): TWaitConditionInstruction;
   var
@@ -109,10 +111,19 @@ procedure ExpandInstructions(AProg: TInstructionList; AInProc: integer; AIsMain:
         AExpanded.Add(result);
       end;
     end else
+    if (AConditions.Count = 1) and (AConditions[0] is TCallFunctionCondition) then
+    begin
+      tempExpand := TInstructionList.Create;
+      with TCallFunctionCondition(AConditions[0]) do
+        tempExpand.Add(TCallInstruction.Create(Scope, Name, [], 'Boolean'));
+      ExpandInstructions(tempExpand, AInProc, AIsMain, APlayers, AExpanded, -1);
+      tempExpand.FreeAll;
+      result := TWaitConditionInstruction.Create(CompareAccumulator(icmAtLeast,1), ANextIP);
+      AExpanded.Add(result);
+    end else
     if (AConditions.Count = 1) and (AConditions[0] is TAndCondition) then
     begin
       result := AddWaitCondition(TAndCondition(AConditions[0]).Conditions, ANextIP);
-      exit;
     end else
     begin
       if AConditions.IsComputed then
@@ -153,7 +164,6 @@ var
   endDoAs: TEndDoAsInstruction;
   endDoIP: integer;
   err: string;
-  currentThreads: TPlayers;
 
 begin
   currentThreads := APlayers;
@@ -636,8 +646,8 @@ begin
         if Procedures[i].StartIP <> -1 then
         begin
           if Procedures[i].ReturnType <> 'Void' then
-            MainProgExpanded.Insert(0, TCommentInstruction.Create('Function '+Procedures[i].Name+' As '+Procedures[i].ReturnType))
-            else MainProgExpanded.Insert(0, TCommentInstruction.Create('Sub '+Procedures[i].Name));
+            ProceduresExpanded[i].Insert(0, TCommentInstruction.Create('Function '+Procedures[i].Name+' As '+Procedures[i].ReturnType))
+            else ProceduresExpanded[i].Insert(0, TCommentInstruction.Create('Sub '+Procedures[i].Name));
           WriteProg([plAllPlayers], [noSysIP], ProceduresExpanded[i], Procedures[i].StartIP, EndIP, true);
         end;
       noSysIP.Free;

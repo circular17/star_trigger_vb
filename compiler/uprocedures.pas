@@ -50,6 +50,7 @@ function ProcedureIndexOf(AScope: integer; AName: string; AParamCount: integer):
 function GetProcedureExprTempVarInt(AProcId, ABitCount: integer): integer;
 function ProcedureReturnVar(AProcId: integer): integer;
 function ProcessSubStatement(AScope: integer; ALineNumber: integer; ALine: TStringList; APlayers: TPlayers = []): integer;
+function TryFunction(AScope: integer; ALine: TStringList; var AIndex: integer; out AFuncIdx: integer): boolean;
 
 var
   Events: array of record
@@ -76,6 +77,7 @@ var
 
 function CreateClass(AWiderScope: integer; AThreads: TPlayers; AName: string): integer;
 function ClassIndexOf(AName: string): integer;
+function TryClassName(ALine: TStringList; var AIndex: integer): integer;
 
 procedure ClearProceduresAndEvents;
 
@@ -109,6 +111,16 @@ var
 begin
   for i := 0 to ClassCount-1 do
     if CompareText(AName, ClassDefinitions[i].Name)=0 then
+      exit(i);
+  result := -1;
+end;
+
+function TryClassName(ALine: TStringList; var AIndex: integer): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to ClassCount-1 do
+    if TryToken(ALine, AIndex, ClassDefinitions[i].Name) then
       exit(i);
   result := -1;
 end;
@@ -177,7 +189,7 @@ begin
     StackChecked := false;
     Calls := TIntegerList.Create;
     ExprTempVarInt := -1;
-    InnerScope := NewScope(AWiderScope, 'Name');
+    InnerScope := NewScope(AWiderScope, AName);
     Players:= APlayers;
   end;
 end;
@@ -298,6 +310,27 @@ begin
     exit(-1);
   end else
     result := CreateProcedure(AScope,ALineNumber,name,paramCount,returnType,APlayers);
+end;
+
+function TryFunction(AScope: integer; ALine: TStringList; var AIndex: integer;
+  out AFuncIdx: integer): boolean;
+var
+  i: Integer;
+begin
+  while AScope <> -1 do
+  begin
+    for i := 0 to ProcedureCount-1 do
+    if (Procedures[i].ReturnType <> 'Void') and
+      (Procedures[i].WiderScope = AScope) and
+      TryToken(ALine, AIndex, Procedures[i].Name) then
+      begin
+        AFuncIdx:= i;
+        exit(true);
+      end;
+    AScope := GetWiderScope(AScope);
+  end;
+  AFuncIdx := 0;
+  result := false;
 end;
 
 function ProcessEventStatement(AScope: integer; ALineNumber: integer; ALine: TStringList; APlayers: TPlayers): integer;

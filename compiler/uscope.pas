@@ -13,11 +13,11 @@ var
     WiderScope: integer;
   end;
   ScopeCount: integer;
-  GlobalScope: integer;
+  GlobalScope, RunTimeScope: integer;
 
 function NewScope(AWiderScope: integer; AName: string): integer;
 function GetWiderScope(AScope: integer): integer;
-function GetFullscopeName(AScope: integer): string;
+function GetFullscopeName(AScope: integer; AAppendDot: boolean = false): string;
 procedure InitScopes;
 
 implementation
@@ -40,22 +40,26 @@ begin
     result := -1;
 end;
 
-function GetFullscopeName(AScope: integer): string;
+function GetFullscopeName(AScope: integer; AAppendDot: boolean = false): string;
 begin
   result := '';
   while AScope <> -1 do
   begin
-    if result <> '' then result += '.';
-    result += Scopes[AScope].Name;
+    if Scopes[AScope].Name <> '' then
+    begin
+      if (result <> '') then result := '.' + result;
+      result := Scopes[AScope].Name + result;
+    end;
     AScope:= GetWiderScope(AScope);
   end;
-
+  if AAppendDot and (result <> '') then result += '.';
 end;
 
 procedure InitScopes;
 begin
   ScopeCount:= 0;
   GlobalScope := NewScope(-1, '');
+  RunTimeScope:= NewScope(-1, 'Runtime');
 end;
 
 end.

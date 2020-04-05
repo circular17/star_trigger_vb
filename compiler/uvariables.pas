@@ -36,7 +36,6 @@ var
 function CreateIntArray(AScope: integer; AName: string; ASize: integer; AValues: array of integer; ABitCount: integer; AConstant: boolean = false; AMultithread: boolean = false): integer;
 function PredefineIntArray(AScope: integer; AName: string; AUnitType: TStarcraftUnit; ABitCount: integer): integer;
 function IntArrayIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean = true): integer;
-function GetMultiplicandIntArray(AMaxBitCount: integer): integer;
 
 var
   IntVars: array of record
@@ -56,6 +55,7 @@ var
   CurIntVarUnitNameIndex: integer;
 
 function CreateIntVar(AScope: integer; AName: string; AValue: integer; ABitCount: integer; ARandomize: boolean = false; AConstant: boolean = false): integer;
+function CreateMultithreadIntVar(AThreads: TPlayers; AScope: integer; AName: string; ABitCount: integer): integer;
 function PredefineIntVar(AScope: integer; AName: string; APlayer: TPlayer; AUnitType: TStarcraftUnit; ABitCount: integer): integer;
 function IntVarIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean = true): integer;
 function AllocateTempInt(ABitCount: integer): integer;
@@ -90,7 +90,6 @@ var
 
 function CreateBoolVar(AScope: integer; AName: string; AValue: TSwitchValue; AConstant: boolean = false): integer;
 function BoolVarIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean = true): integer;
-function GetBoolResultVar: integer;
 
 var
   PlayerPresenceVar: array[1..MaxTriggerPlayers] of integer;
@@ -185,8 +184,6 @@ var
   end;
   TempInt24Count: integer;
 
-var BoolResultVar: integer;
-
 procedure InitVariables;
 var
   i: Integer;
@@ -199,7 +196,6 @@ begin
   StringArrayCount := 0;
   UnitPropCount := 0;
   SoundCount := 0;
-  BoolResultVar := -1;
   for i := low(PlayerPresenceVar) to high(PlayerPresenceVar) do
     PlayerPresenceVar[i] := -1;
   PlayerPresenceDefinedVar := -1;
@@ -265,6 +261,7 @@ begin
     setlength(Vars, Size);
     if AMultithread and not AConstant then
     begin
+      Name := AName+'.Thread';
       sharedIntVar := PredefineIntVar(AScope, AName, plCurrentPlayer, UnitType, ABitCount);
       IntVars[sharedIntVar].IntArray := result;
       IntVars[sharedIntVar].Value := Values[0];
@@ -352,15 +349,6 @@ begin
   exit(-1);
 end;
 
-function GetMultiplicandIntArray(AMaxBitCount: integer): integer;
-begin
-  result := IntArrayIndexOf(GlobalScope,'_multiplicand');
-  if result = -1 then
-    result := CreateIntArray(GlobalScope,'_multiplicand', MaxTriggerPlayers, [], AMaxBitCount)
-  else
-    if IntArrays[result].BitCount < AMaxBitCount then IntArrays[result].BitCount := AMaxBitCount;
-end;
-
 function CreateIntVar(AScope: integer; AName: string; AValue: integer;
   ABitCount: integer; ARandomize: boolean; AConstant: boolean): integer;
 begin
@@ -418,6 +406,17 @@ begin
     Randomize:= ARandomize;
     IntArray := -1;
   end;
+end;
+
+function CreateMultithreadIntVar(AThreads: TPlayers; AScope: integer;
+  AName: string; ABitCount: integer): integer;
+var
+  arrIndex, maxPlayer: Integer;
+begin
+  maxPlayer := GetMaxPlayerNumber(AThreads);
+  if maxPlayer > 8 then maxPlayer:= 8;
+  arrIndex := CreateIntArray(AScope, AName, maxPlayer, [], ABitCount, false, true);
+  result := IntArrays[arrIndex].Vars[0];
 end;
 
 function PredefineIntVar(AScope: integer; AName: string; APlayer: TPlayer;
@@ -486,7 +485,8 @@ begin
 
     if TempInt24Count >= length(tempInts24) then
       setlength(TempInts24, TempInt24Count*2+4);
-    TempInts24[TempInt24Count].IntVar:= CreateIntVar(GlobalScope,'_tempInt24('+inttostr(TempInt24Count+1)+')',0,ABitCount);
+    TempInts24[TempInt24Count].IntVar:= CreateMultithreadIntVar([plAllPlayers],
+      RunTimeScope, 'UInt24('+inttostr(TempInt24Count+1)+')', 24);
     TempInts24[TempInt24Count].Used := true;
     result := TempInts24[TempInt24Count].IntVar;
     inc(TempInt24Count);
@@ -502,7 +502,8 @@ begin
 
     if TempInt16Count >= length(tempInts16) then
       setlength(TempInts16, TempInt16Count*2+4);
-    TempInts16[TempInt16Count].IntVar:= CreateIntVar(GlobalScope,'_tempInt16('+inttostr(TempInt16Count+1)+')',0,ABitCount);
+    TempInts16[TempInt16Count].IntVar:= CreateMultithreadIntVar([plAllPlayers],
+      RunTimeScope, 'UInt16('+inttostr(TempInt24Count+1)+')', 16);
     TempInts16[TempInt16Count].Used := true;
     result := TempInts16[TempInt16Count].IntVar;
     inc(TempInt16Count);
@@ -517,7 +518,8 @@ begin
 
     if TempInt8Count >= length(tempInts8) then
       setlength(TempInts8, TempInt8Count*2+4);
-    TempInts8[TempInt8Count].IntVar:= CreateIntVar(GlobalScope,'_tempInt8('+inttostr(TempInt8Count+1)+')',0,ABitCount);
+    TempInts8[TempInt8Count].IntVar:= CreateMultithreadIntVar([plAllPlayers],
+      RunTimeScope, 'UInt8('+inttostr(TempInt24Count+1)+')', 8);
     TempInts8[TempInt8Count].Used := true;
     result := TempInts8[TempInt8Count].IntVar;
     inc(TempInt8Count);
@@ -704,13 +706,6 @@ begin
   exit(-1);
 end;
 
-function GetBoolResultVar: integer;
-begin
-  if BoolResultVar = -1 then
-    BoolResultVar := CreateBoolVar(GlobalScope, '_boolResult', svClear);
-  result := BoolResultVar;
-end;
-
 function GetPlayerPresenceBoolVar(APlayer: TPlayer): integer;
 var
   num: Integer;
@@ -721,9 +716,9 @@ begin
 
   if PlayerPresenceVar[num] = -1 then
   begin
-    PlayerPresenceVar[num] := BoolVarIndexOf(GlobalScope, '_presence'+Inttostr(num));
+    PlayerPresenceVar[num] := BoolVarIndexOf(RunTimeScope, 'Present('+Inttostr(num)+')');
     if PlayerPresenceVar[num] = -1 then
-      PlayerPresenceVar[num] := CreateBoolVar(GlobalScope, '_presence'+Inttostr(num), svClear);
+      PlayerPresenceVar[num] := CreateBoolVar(RunTimeScope, 'Present('+Inttostr(num)+')', svClear);
   end;
   result := PlayerPresenceVar[num];
 end;
@@ -743,9 +738,9 @@ function GetPlayerPresenceDefinedVar: integer;
 begin
   If PlayerPresenceDefinedVar = -1 then
   begin
-    PlayerPresenceDefinedVar := BoolVarIndexOf(GlobalScope, '_presenceDefined');
+    PlayerPresenceDefinedVar := BoolVarIndexOf(RunTimeScope, 'PresenceDefined');
     if PlayerPresenceDefinedVar = -1 then
-      PlayerPresenceDefinedVar := CreateBoolVar(GlobalScope, '_presenceDefined', svClear);
+      PlayerPresenceDefinedVar := CreateBoolVar(RunTimeScope, 'PresenceDefined', svClear);
   end;
   result := PlayerPresenceDefinedVar;
 end;
@@ -754,13 +749,13 @@ function GetPlayerPresentArray: integer;
 var bools: array of integer;
   i: Integer;
 begin
-  result := BoolArrayIndexOf(GlobalScope, 'Present');
+  result := BoolArrayIndexOf(RunTimeScope, 'Present');
   if result = -1 then
   begin
     setlength(bools, MaxTriggerPlayers);
     for i := 0 to high(bools) do
       bools[i] := GetPlayerPresenceBoolVar(TPlayer(ord(plPLayer1)+i));
-    result := PredefineBoolArray(GlobalScope, 'Present',MaxTriggerPlayers,bools);
+    result := PredefineBoolArray(RunTimeScope, 'Present',MaxTriggerPlayers,bools);
   end;
 end;
 
@@ -768,9 +763,9 @@ function GetRunEventBoolVar: integer;
 begin
   if RunEventBoolVar = -1 then
   begin
-    RunEventBoolVar := BoolVarIndexOf(GlobalScope, '_runEvent');
+    RunEventBoolVar := BoolVarIndexOf(RunTimeScope, 'DoEvents');
     if RunEventBoolVar = -1 then
-      RunEventBoolVar := CreateBoolVar(GlobalScope, '_runEvent', svClear);
+      RunEventBoolVar := CreateBoolVar(RunTimeScope, 'DoEvents', svClear);
   end;
   result := RunEventBoolVar;
 end;
@@ -839,7 +834,7 @@ begin
     end;
   end;
   if result = -1 then
-    result := CreateUnitProp(GlobalScope, '_prop'+inttostr(UnitPropCount+1), AProp, True);
+    result := CreateUnitProp(RunTimeScope, 'UnitProperties'+inttostr(UnitPropCount+1), AProp, True);
 end;
 
 procedure CompileUnitProperties;

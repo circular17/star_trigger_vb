@@ -121,9 +121,9 @@ function GetIPVar: integer;
 begin
   if IPVar = -1 then
   begin
-    IPVar := IntArrayIndexOf(GlobalScope, '_ip');
+    IPVar := IntArrayIndexOf(RunTimeScope, 'IP');
     if IPVar = -1 then
-      IPVar := CreateIntArray(GlobalScope, '_ip', MaxTriggerPlayers, [], 16);
+      IPVar := CreateIntArray(RunTimeScope, 'IP', MaxTriggerPlayers, [], 16);
   end;
   result := IPVar;
 end;
@@ -249,9 +249,9 @@ function GetSysIPVar: integer;
 begin
   if SysIPVar = -1 then
   begin
-    SysIPVar := IntArrayIndexOf(GlobalScope, '_sysIp');
+    SysIPVar := IntArrayIndexOf(RunTimeScope, 'SysIP');
     if SysIPVar = -1 then
-      SysIPVar := CreateIntArray(GlobalScope, '_sysIp', MaxTriggerPlayers, [], 16);
+      SysIPVar := CreateIntArray(RunTimeScope, 'SysIP', MaxTriggerPlayers, [], 16);
   end;
   result := SysIPVar;
 end;
@@ -277,9 +277,9 @@ procedure NeedSysParam;
 begin
   if SysParamArray = -1 then
   begin
-    SysParamArray:= IntArrayIndexOf(GlobalScope, '_sysParam');
+    SysParamArray:= IntArrayIndexOf(RunTimeScope, 'SysParam');
     if SysParamArray = -1 then
-      SysParamArray := CreateIntArray(GlobalScope, '_sysParam', MaxTriggerPlayers, [], 16);
+      SysParamArray := CreateIntArray(RunTimeScope, 'SysParam', MaxTriggerPlayers, [], 16);
   end;
 end;
 
@@ -316,9 +316,9 @@ procedure NeedStack;
 begin
   if SPArrayVar = -1 then
   begin
-    SPArrayVar := IntArrayIndexOf(GlobalScope, '_sp');
+    SPArrayVar := IntArrayIndexOf(RunTimeScope, 'SP');
     if SPArrayVar = -1 then
-      SPArrayVar := CreateIntArray(GlobalScope, '_sp', MaxTriggerPlayers, [], 16);
+      SPArrayVar := CreateIntArray(RunTimeScope, 'SP', MaxTriggerPlayers, [], 16);
 
     ReturnSysIP := NewSysIP;
     PushSysIP:= NewSysIP;
@@ -381,9 +381,9 @@ begin
 
   for i := 1 to StackSize do
   begin
-    StackArrays[i]:= IntArrayIndexOf(GlobalScope, '_stackValue'+inttostr(i));
+    StackArrays[i]:= IntArrayIndexOf(RunTimeScope, 'StackValue'+inttostr(i));
     if StackArrays[i] = -1 then
-      StackArrays[i] := CreateIntArray(GlobalScope, '_stackValue'+inttostr(i), MaxTriggerPlayers, [], 16);
+      StackArrays[i] := CreateIntArray(RunTimeScope, 'StackValue'+inttostr(i), MaxTriggerPlayers, [], 16);
   end;
 end;
 
@@ -636,7 +636,7 @@ end;
 procedure AddSysReturn(AInstructions: TInstructionList);
 begin
   AInstructions.Add( SetReturnSysIP );
-  AInstructions.Add( TSplitInstruction.Create(NewIP, WaitReturnIP));
+  AInstructions.Add( TDropThreadInstruction.Create(WaitReturnIP, -1, [plAllPlayers], []));
 end;
 
 procedure WriteStackTriggers;
@@ -682,6 +682,7 @@ begin
   proc.Add(CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[SPArrayVar].UnitType, simSubtract, 1));
   proc.Add(SetNextIP(0));
   WriteProg([plAllPlayers], cond, proc, -1, -1, True);
+  cond.Clear;
   EmptyProc;
 
   //copy stack value to IP

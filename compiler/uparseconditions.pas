@@ -12,7 +12,7 @@ function ExpectConditions(AScope: integer; ALine: TStringList; var AIndex: integ
 implementation
 
 uses
-  uvariables, utriggerconditions, uparsescalar;
+  uvariables, utriggerconditions, uparsescalar, uprocedures, uarithmetic;
 
 function ExpectBooleanConstantImplementation(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): boolean;
 var
@@ -391,7 +391,7 @@ end;
 
 function ExpectCondition(AScope: integer; ALine: TStringList; var AIndex: integer; AThreads: TPlayers): TCondition;
 var
-  intVal, afterNotIndex: Integer;
+  intVal, afterNotIndex, funcIdx: Integer;
   op: TConditionOperator;
   boolNot: Boolean;
   scalar: TScalarVariable;
@@ -424,6 +424,14 @@ begin
       result := TryNeutralConditionFunction(AThreads, AScope, ALine, AIndex, boolNot);
       if result <> nil then exit;
 
+      if TryFunction(AScope, ALine, AIndex, funcIdx) then
+      begin
+        if TryToken(ALine, AIndex, '(') then ExpectToken(ALine, AIndex, ')');
+        if Procedures[funcIdx].ReturnType <> 'Boolean' then
+          raise exception.Create('Expecting boolean value but found ' + Procedures[funcIdx].ReturnType);
+        result := TCallFunctionCondition.Create(AScope, Procedures[funcIdx].Name);
+        exit;
+      end else
       if TryBoolean(AThreads, AScope, ALine,AIndex,boolVal) then
       begin
         if boolVal xor boolNot then

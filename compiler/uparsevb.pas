@@ -34,6 +34,7 @@ procedure ExpectToken(ALine: TStringList; var AIndex: integer; AToken: string);
 function TryConditionOperator(ALine: TStringList; var AIndex: integer): TConditionOperator;
 function ParseRandom(ALine: TStringList; var AIndex: integer): integer;
 function TryParsePlayer(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
+function IsPlayerIdentifier(AName: string): boolean;
 function ExpectPlayers(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TPlayers;
 function GetBitCountOfType(AName: string): integer;
 function IsIntegerType(AName: string): boolean;
@@ -347,6 +348,15 @@ begin
     result := TryParsePlayerExpression(AThreads, AScope, ALine,AIndex)
   else
     result := plNone;
+end;
+
+function IsPlayerIdentifier(AName: string): boolean;
+var
+  pl: TPlayer;
+begin
+  for pl := succ(plNone) to high(TPlayer) do
+    if CompareText(AName, PlayerIdentifiers[pl])=0 then exit(true);
+  result := false;
 end;
 
 function ExpectPlayers(AThreads: TPlayers;AScope: integer; ALine: TStringList; var AIndex: integer): TPlayers;

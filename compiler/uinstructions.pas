@@ -336,72 +336,6 @@ begin
   result := TRandomizeIntegerInstruction.Create(Player,UnitType,Range);
 end;
 
-{ TAndCondition }
-
-destructor TAndCondition.Destroy;
-begin
-  Conditions.FreeAll;
-  inherited Destroy;
-end;
-
-constructor TAndCondition.Create(AConditions: array of TCondition);
-var
-  i: Integer;
-begin
-  Conditions := TConditionList.Create;
-  for i := 0 to high(AConditions) do
-    Conditions.Add(AConditions[i]);
-end;
-
-constructor TAndCondition.Create(AConditions: TConditionList);
-begin
-  Conditions := AConditions;
-end;
-
-function TAndCondition.IsArithmetic: boolean;
-var
-  i: Integer;
-begin
-  for i := 0 to Conditions.Count-1 do
-    if Conditions[i].IsArithmetic then exit(true);
-  exit(false);
-end;
-
-function TAndCondition.IsComputed: boolean;
-begin
-  Result:= true;
-end;
-
-procedure TAndCondition.AddToProgAsAndVar(AProg: TInstructionList;
-  APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean);
-begin
-  raise exception.Create('Not handled');
-end;
-
-function TAndCondition.Priority: integer;
-begin
-  result := -5;
-end;
-
-function TAndCondition.ToBasic(AUseVariables: boolean): string;
-var
-  i: Integer;
-begin
-  result := '';
-  for i := 0 to Conditions.Count-1 do
-  begin
-    if i > 0 then result += ' And ';
-    if Conditions[i].Priority < self.Priority then
-      result += '('+Conditions[i].ToBasic(AUseVariables)+')' else
-      result += Conditions[i].ToBasic(AUseVariables);
-  end;
-end;
-
-function TAndCondition.Duplicate: TCondition;
-begin
-  result := TAndCondition.Create(Conditions.Duplicate);
-end;
-
 { TOrCondition }
 
 destructor TOrCondition.Destroy;
@@ -492,6 +426,72 @@ end;
 function TOrCondition.Duplicate: TCondition;
 begin
   result := TOrCondition.Create(Conditions.Duplicate);
+end;
+
+{ TAndCondition }
+
+destructor TAndCondition.Destroy;
+begin
+  Conditions.FreeAll;
+  inherited Destroy;
+end;
+
+constructor TAndCondition.Create(AConditions: array of TCondition);
+var
+  i: Integer;
+begin
+  Conditions := TConditionList.Create;
+  for i := 0 to high(AConditions) do
+    Conditions.Add(AConditions[i]);
+end;
+
+constructor TAndCondition.Create(AConditions: TConditionList);
+begin
+  Conditions := AConditions;
+end;
+
+function TAndCondition.IsArithmetic: boolean;
+var
+  i: Integer;
+begin
+  for i := 0 to Conditions.Count-1 do
+    if Conditions[i].IsArithmetic then exit(true);
+  exit(false);
+end;
+
+function TAndCondition.IsComputed: boolean;
+begin
+  Result:= true;
+end;
+
+procedure TAndCondition.AddToProgAsAndVar(AProg: TInstructionList;
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean);
+begin
+  raise exception.Create('Not handled');
+end;
+
+function TAndCondition.Priority: integer;
+begin
+  result := -5;
+end;
+
+function TAndCondition.ToBasic(AUseVariables: boolean): string;
+var
+  i: Integer;
+begin
+  result := '';
+  for i := 0 to Conditions.Count-1 do
+  begin
+    if i > 0 then result += ' And ';
+    if Conditions[i].Priority < self.Priority then
+      result += '('+Conditions[i].ToBasic(AUseVariables)+')' else
+      result += Conditions[i].ToBasic(AUseVariables);
+  end;
+end;
+
+function TAndCondition.Duplicate: TCondition;
+begin
+  result := TAndCondition.Create(Conditions.Duplicate);
 end;
 
 { TPrintForAnyPlayerInstruction }

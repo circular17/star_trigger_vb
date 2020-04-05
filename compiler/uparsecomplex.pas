@@ -477,7 +477,7 @@ begin
             (IntArrayIndexOf(AScope, AName, False)<>-1) or (BoolArrayIndexOf(AScope, AName, False)<>-1) or
             (ProcedureIndexOf(AScope, AName,AParamCount)<>-1) or (UnitPropIndexOf(AScope, AName, False) <> -1) or
             (StringIndexOf(AScope, AName, False)<>-1) or (StringArrayIndexOf(AScope, AName, False)<>-1) or
-            (SoundIndexOf(AScope, AName, False)<>-1) or
+            (SoundIndexOf(AScope, AName, False)<>-1) or  (CompareText('Runtime',AName) = 0) or
             (CompareText('AI',AName) = 0) or (CompareText('Present',AName) = 0) or
             (CompareText('CountIf',AName)=0) or IsUnitType(AName) or (CompareText('Alliance',AName) = 0) or
             (CompareText('Unit',AName) = 0) or (CompareText('Leaderboard',AName) = 0) or
@@ -537,8 +537,7 @@ var
   end;
 
   procedure SetupIntVar(AName: string; AValue: integer; ABitCount: integer; AConstant: boolean = false; AExpr : TExpression = nil); overload;
-  var i, intVar, arrayVar: integer;
-    values: array of integer;
+  var intVar: integer;
   begin
     if multiThreadVar and not AConstant then
     begin
@@ -556,12 +555,9 @@ var
         if AValue <> 0 then
           raise exception.Create('Multithread variable cannot be initialized');
       end;
-      setlength(values, MaxTriggerPlayers);
-      for i := 0 to high(values) do values[i] := AValue;
-      arrayVar := CreateIntArray(AScope, '_multi.'+AName, MaxTriggerPlayers,
-        values, ABitCount, false, true);
+      intVar := CreateMultithreadIntVar(AThreads, AScope, AName, ABitCount);
       if AMultithreadInit then
-        SetupIntVar(IntArrays[arrayVar].Vars[0], AExpr);
+        SetupIntVar(intVar, AExpr);
     end else
     begin
       intVar := CreateIntVar(AScope, AName, AValue, ABitCount, false, AConstant);

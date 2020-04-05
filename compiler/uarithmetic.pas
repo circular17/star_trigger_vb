@@ -12,6 +12,7 @@ const
 
 procedure ExpandIntegerTransfer(ATransfer: TTransferIntegerInstruction; AExpanded: TInstructionList);
 function CompareAccumulator(AMode: TIntegerConditionMode; AValue: integer): TCondition;
+function IsAccumulatorVariable(APlayer: TPlayer; AUnit: TStarcraftUnit): boolean;
 procedure InitArithmetic;
 procedure WriteArithmeticTriggers;
 function GetExponentOf2(AValue: integer): integer;
@@ -23,15 +24,102 @@ var
     Used: boolean
   end;
   TempBoolCount: integer;
+  ArithmeticScopeValue: integer;
   ArithmeticMaxInputBits, ExtraShiftBits: integer;
   ShiftUsed1, ShiftUsed2, ShiftUsed4, ShiftUsed8, ShiftUsed16: boolean;
 
+function GetArithmeticScope: integer;
 function AllocateTempBool: integer;
 procedure ReleaseTempBool(ASwitch: integer);
+function GetMultiplicandIntArray(AMaxBitCount: integer): integer;
+
+type
+  { TCallFunctionCondition }
+
+  TCallFunctionCondition = class(TCondition)
+    Scope: integer;
+    Name: string;
+    function IsArithmetic: boolean; override;
+    procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean); override;
+    function ToBasic({%H-}AUseVariables: boolean): string; override;
+    function Priority: integer; override;
+    function Duplicate: TCondition; override;
+    constructor Create(AScope: integer; AName: string);
+  end;
 
 implementation
 
 uses utriggercode, uvariables, math, utriggerinstructions, utriggerconditions;
+
+{ TCallFunctionCondition }
+
+function TCallFunctionCondition.IsArithmetic: boolean;
+begin
+  Result:= true;
+end;
+
+procedure TCallFunctionCondition.AddToProgAsAndVar(AProg: TInstructionList;
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean);
+begin
+  if AFirst then
+  begin
+    AProg.Add(TCallInstruction.Create(Scope, Name, [], 'Boolean'));
+    if not IsAccumulatorVariable(APlayer, AUnitType) then
+    begin
+      AProg.Add(TIfInstruction.Create(CreateIntegerCondition(APlayer, AUnitType, icmAtLeast, 1)));
+      AProg.Add(TTransferIntegerInstruction.Create(1, itCopyIntoAccumulator));
+      AProg.Add(TElseInstruction.Create);
+      AProg.Add(TTransferIntegerInstruction.Create(0, itCopyIntoAccumulator));
+      AProg.Add(TEndIfInstruction.Create);
+    end;
+  end else
+  begin
+    AProg.Add(TIfInstruction.Create(CreateIntegerCondition(APlayer, AUnitType, icmAtLeast, 1)) );
+    AProg.Add(TCallInstruction.Create(Scope, Name, [], 'Boolean'));
+    if not IsAccumulatorVariable(APlayer, AUnitType) then
+      AProg.Add(TFastIfInstruction.Create([CreateIntegerCondition(APlayer, AUnitType, icmAtMost, 0)],
+              [TTransferIntegerInstruction.Create(0, itCopyIntoAccumulator)]));
+    AProg.Add(TEndIfInstruction.Create);
+  end;
+end;
+
+function TCallFunctionCondition.ToBasic(AUseVariables: boolean): string;
+begin
+  result := Name+'()';
+end;
+
+function TCallFunctionCondition.Priority: integer;
+begin
+  result := 10;
+end;
+
+function TCallFunctionCondition.Duplicate: TCondition;
+begin
+  result := TCallFunctionCondition.Create(Scope, Name);
+end;
+
+constructor TCallFunctionCondition.Create(AScope: integer;
+  AName: string);
+begin
+  Scope := AScope;
+  Name := AName;
+end;
+
+function GetMultiplicandIntArray(AMaxBitCount: integer): integer;
+begin
+  result := IntArrayIndexOf(GetArithmeticScope,'Multiplicand');
+  if result = -1 then
+    result := CreateIntArray(GetArithmeticScope,'Multiplicand', MaxTriggerPlayers, [], AMaxBitCount)
+  else
+    if IntArrays[result].BitCount < AMaxBitCount then IntArrays[result].BitCount := AMaxBitCount;
+end;
+
+function GetArithmeticScope: integer;
+begin
+  if ArithmeticScopeValue = -1 then
+    ArithmeticScopeValue := NewScope(RunTimeScope, 'Arithmetic');
+  result := ArithmeticScopeValue;
+end;
 
 function AllocateTempBool: integer;
 var
@@ -47,7 +135,7 @@ begin
   if TempBoolCount >= MaxTempBools then
     raise exception.Create('Too many temporary booleans');
 
-  idx := CreateBoolVar(GlobalScope, '_bool'+intToStr(TempBoolCount+1), svClear);
+  idx := CreateBoolVar(GetArithmeticScope, 'Boolean('+intToStr(TempBoolCount+1)+')', svClear);
   TempBools[TempBoolCount].BoolVar := idx;
   TempBools[TempBoolCount].Used := true;
   inc(TempBoolCount);
@@ -100,9 +188,9 @@ procedure NeedAcc;
 begin
   if AccArray = -1 then
   begin
-    AccArray := IntArrayIndexOf(GlobalScope, '_accumulator');
+    AccArray := IntArrayIndexOf(GetArithmeticScope, 'Accumulator', false);
     if AccArray = -1 then
-      AccArray := CreateIntArray(GlobalScope, '_accumulator', MaxTriggerPlayers, [], 32);
+      AccArray := CreateIntArray(GetArithmeticScope, 'Accumulator', MaxTriggerPlayers, [], 32);
   end;
 end;
 
@@ -669,6 +757,14 @@ begin
   result := CreateIntegerCondition(plCurrentPlayer, IntArrays[AccArray].UnitType, AMode, AValue);
 end;
 
+function IsAccumulatorVariable(APlayer: TPlayer; AUnit: TStarcraftUnit): boolean;
+begin
+  if AccArray <> -1 then
+    result := IntArrays[AccArray].UnitType = AUnit
+  else
+    result := false;
+end;
+
 procedure InitArithmetic;
 var
   i: Integer;
@@ -685,6 +781,7 @@ begin
   ShiftUsed4 := false;
   ShiftUsed8 := false;
   ShiftUsed16 := false;
+  ArithmeticScopeValue:= -1;
 end;
 
 

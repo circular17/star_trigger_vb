@@ -5,14 +5,14 @@ unit utrigeditoutput;
 interface
 
 uses
-  Classes, SysUtils;
+  Classes, SysUtils, uscope;
 
 procedure WriteTrigEditCode(AFilename: string);
 procedure WriteTrigEditUnitProperties(AFilename: string);
 
 implementation
 
-uses uvariables, usctypes, utrigedittypes, utriggercode;
+uses uvariables, usctypes, utrigedittypes, utriggercode, math;
 
 procedure WriteTrigEditCode(AFilename: string);
 var
@@ -26,23 +26,23 @@ begin
     if not IntArrays[i].Predefined and not IntArrays[i].Constant and
       not IntArrays[i].Deleted then
     begin
-      writeln(t, '// ', IntArrays[i].Name, '(1 to '+ intToStr(MaxTriggerPlayers)+') stored in "', StarcraftUnitTrigEditNames[IntArrays[i].UnitType], '" //');
+      writeln(t, '// ', GetFullscopeName(IntArrays[i].Scope, true) + IntArrays[i].Name, '(1 to '+ intToStr(min(IntArrays[i].Size, MaxTriggerPlayers))+') stored in "', StarcraftUnitTrigEditNames[IntArrays[i].UnitType], '" //');
       for j := 1 to IntArrays[i].Size do
         with IntVars[IntArrays[i].Vars[j-1]] do
           if UnitType <> IntArrays[i].UnitType then
-            writeln(t, '// ', IntArrays[i].Name, '('+ intToStr(j)+') stored in "', StarcraftUnitTrigEditNames[UnitType], '" of "', PlayerToTrigEditStr(Player),'" //');
+            writeln(t, '// ', GetFullscopeName(Scope, true) + IntArrays[i].Name, '('+ intToStr(j)+') stored in "', StarcraftUnitTrigEditNames[UnitType], '" of "', PlayerToTrigEditStr(Player),'" //');
     end;
   for i := 0 to IntVarCount-1 do
     if not IntVars[i].Predefined and not IntVars[i].Constant then
-      writeln(t, '// ', IntVars[i].Name, ' stored in "', StarcraftUnitTrigEditNames[IntVars[i].UnitType], '" of "', PlayerToTrigEditStr(IntVars[i].Player),'" //');
+      writeln(t, '// ', GetFullscopeName(IntVars[i].Scope, true) + IntVars[i].Name, ' stored in "', StarcraftUnitTrigEditNames[IntVars[i].UnitType], '" of "', PlayerToTrigEditStr(IntVars[i].Player),'" //');
   for i := 0 to BoolArrayCount-1 do
     if not BoolArrays[i].Constant then
-      writeln(t, '// ', BoolArrays[i].Name, '(1 to '+inttostr(BoolArrays[i].Size)+') stored in ' +
+      writeln(t, '// ', GetFullscopeName(BoolArrays[i].Scope, true) + BoolArrays[i].Name, '(1 to '+inttostr(BoolArrays[i].Size)+') stored in ' +
       '"Switch', BoolVars[BoolArrays[i].Vars[0]].Switch, '" to '+
       '"Switch', BoolVars[BoolArrays[i].Vars[BoolArrays[i].Size-1]].Switch,'" //');
   for i := 0 to BoolVarCount-1 do
     if not BoolVars[i].Constant and (BoolVars[i].BoolArray = -1) then
-      writeln(t, '// ', BoolVars[i].Name, ' stored in "Switch', BoolVars[i].Switch, '" //');
+      writeln(t, '// ',GetFullscopeName(BoolVars[i].Scope, true) +  BoolVars[i].Name, ' stored in "Switch', BoolVars[i].Switch, '" //');
   writeln(t);
   for i := 0 to CompiledTriggers.Count-1 do
   begin

@@ -343,6 +343,9 @@ var
                   exit;
                 end;
 
+                if IsPlayerIdentifier(name) then
+                  raise exception.Create('Unexpected player identifier');
+
                 if AAcceptCalls then  //function call?
                 begin
                   if TryToken(ALine,idx,'(') then ExpectToken(ALine,idx,')');

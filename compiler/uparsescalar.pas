@@ -19,20 +19,20 @@ type
     BoolValue: boolean;
   end;
 
-function TryScalarVariable(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false): TScalarVariable;
+function TryScalarVariable(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): TScalarVariable;
 function ExpectUnitType({%H-}AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
 function IsUnitType(AName: string): boolean;
 function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string; AcceptsReservedWords: boolean): boolean;
 function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
-function TryIntegerVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
-function TryIntegerConstantVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
-function TryIntegerArray(AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false): integer;
+function TryIntegerVariable(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWiderScope: boolean = true): integer;
+function TryIntegerConstantVariable(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWiderScope: boolean = true): integer;
+function TryIntegerArray(AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): integer;
 function TryPredefinedIntegerArray(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 function ExpectInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 function ExpectConstantIndex(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AAcceptNegative: boolean): integer;
 function TryBoolean(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;
-function TryBooleanVariable(AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false): integer;
-function TryBooleanArray(AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false): integer;
+function TryBooleanVariable(AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): integer;
+function TryBooleanArray(AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): integer;
 function TryStringVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 function TryStringArray(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 function TrySoundVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
@@ -52,7 +52,7 @@ var
 
 implementation
 
-uses uparsevb, uvariables;
+uses uparsevb, uvariables, uprocedures;
 
 function ExpectUnitType(AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
 var
@@ -309,46 +309,51 @@ begin
 end;
 
 function TryIntegerVariable(AScope: integer; ALine: TStringList;
-  var AIndex: integer): integer;
+  var AIndex: integer; ACheckWiderScope: boolean = true): integer;
 var
   i: Integer;
 begin
   while AScope <> -1 do
   begin
     for i := 0 to IntVarCount-1 do
-      if (IntVars[i].Scope = AScope) and (IntVars[i].IntArray = -1) and
-        TryToken(ALine, AIndex, IntVars[i].Name) then exit(i);
+      if (IntVars[i].Scope = AScope) and
+       (pos('.', IntVars[i].Name) = 0) and (pos('(', IntVars[i].Name) = 0)
+       and TryToken(ALine, AIndex, IntVars[i].Name) then exit(i);
+    if not ACheckWiderScope then break;
     AScope := GetWiderScope(AScope);
   end;
   result := -1;
 end;
 
 function TryIntegerConstantVariable(AScope: integer; ALine: TStringList;
-  var AIndex: integer): integer;
+  var AIndex: integer; ACheckWiderScope: boolean = true): integer;
 var
   i: Integer;
 begin
   while AScope <> -1 do
   begin
     for i := 0 to IntVarCount-1 do
-      if (IntVars[i].Scope = AScope) and IntVars[i].Constant and
-        TryToken(ALine, AIndex, IntVars[i].Name) then exit(i);
+      if (IntVars[i].Scope = AScope) and
+       (pos('.', IntVars[i].Name) = 0) and (pos('(', IntVars[i].Name) = 0)
+        and IntVars[i].Constant and TryToken(ALine, AIndex, IntVars[i].Name) then exit(i);
+    if not ACheckWiderScope then break;
     AScope := GetWiderScope(AScope);
   end;
   result := -1;
 end;
 
 function TryIntegerArray(AScope: integer; ALine: TStringList;
-  var AIndex: integer; AConstantOnly: boolean = false): integer;
+  var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): integer;
 var
   i: Integer;
 begin
   while AScope <> -1 do
   begin
     for i := 0 to IntArrayCount-1 do
-      if (IntArrays[i].Scope = AScope) and
+      if (IntArrays[i].Scope = AScope) and (pos('.', IntArrays[i].Name) = 0) and
         (not AConstantOnly or IntArrays[i].Constant) and
         TryToken(ALine, AIndex, IntArrays[i].Name) then exit(i);
+    if not ACheckWiderScope then break;
     AScope := GetWiderScope(AScope);
   end;
   result := -1;
@@ -362,7 +367,7 @@ begin
   while AScope <> -1 do
   begin
     for i := 0 to IntArrayCount-1 do
-      if (IntArrays[i].Scope = AScope) and
+      if (IntArrays[i].Scope = AScope) and (pos('.', IntArrays[i].Name) = 0) and
          IntArrays[i].Predefined and TryToken(ALine, AIndex, IntArrays[i].Name) then exit(i);
     AScope := GetWiderScope(AScope);
   end;
@@ -484,7 +489,7 @@ begin
 end;
 
 function TryBooleanVariable(AScope: integer; ALine: TStringList;
-  var AIndex: integer; AConstantOnly: boolean = false): integer;
+  var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): integer;
 var
   i: Integer;
 begin
@@ -494,13 +499,14 @@ begin
       if (BoolVars[i].Scope = AScope) and
         (BoolVars[i].BoolArray = -1) and (not AConstantOnly or BoolVars[i].Constant) and
         TryToken(ALine, AIndex, BoolVars[i].Name) then exit(i);
+    if not ACheckWiderScope then break;
     AScope := GetWiderScope(AScope);
   end;
   result := -1;
 end;
 
 function TryBooleanArray(AScope: integer; ALine: TStringList;
-  var AIndex: integer; AConstantOnly: boolean = false): integer;
+  var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): integer;
 var
   i: Integer;
 begin
@@ -510,6 +516,7 @@ begin
       if (BoolArrays[i].Scope = AScope) and
         (not AConstantOnly or BoolArrays[i].Constant) and
         TryToken(ALine, AIndex, BoolArrays[i].Name) then exit(i);
+    if not ACheckWiderScope then break;
     AScope := GetWiderScope(AScope);
   end;
   if not AConstantOnly and TryToken(ALine,AIndex,'Present') then
@@ -578,15 +585,19 @@ begin
 end;
 
 function TryScalarVariable(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer;
-  AConstantOnly: boolean): TScalarVariable;
-var varIdx, arrayIndex, idx: integer;
+  AConstantOnly: boolean; ACheckWiderScope: boolean): TScalarVariable;
+var
+  idx: integer;
+
+var
+  varIdx, arrayIndex, classIdx: integer;
   pl: TPlayer;
   unitType: TStarcraftUnit;
 begin
   result.VarType := svtNone;
   if AConstantOnly then
-    varIdx := TryIntegerConstantVariable(AScope, ALine, AIndex)
-    else varIdx := TryIntegerVariable(AScope, ALine, AIndex);
+    varIdx := TryIntegerConstantVariable(AScope, ALine, AIndex, ACheckWiderScope)
+    else varIdx := TryIntegerVariable(AScope, ALine, AIndex, ACheckWiderScope);
   if varIdx <> -1 then
   begin
     result.VarType := svtInteger;
@@ -600,7 +611,7 @@ begin
     exit;
   end;
 
-  varIdx := TryBooleanVariable(AScope, ALine, AIndex, AConstantOnly);
+  varIdx := TryBooleanVariable(AScope, ALine, AIndex, AConstantOnly, ACheckWiderScope);
   if varIdx <> -1 then
   begin
     result.VarType := svtSwitch;
@@ -614,7 +625,7 @@ begin
     exit;
   end;
 
-  if not AConstantOnly and TryToken(ALine,AIndex,'Switch') then
+  if not AConstantOnly and ACheckWiderScope and TryToken(ALine,AIndex,'Switch') then
   begin
     ExpectToken(ALine,AIndex,'(');
     result.VarType := svtSwitch;
@@ -630,7 +641,7 @@ begin
     exit;
   end;
 
-  if not AConstantOnly and TryToken(ALine,AIndex,'Present') then
+  if not AConstantOnly and ACheckWiderScope and TryToken(ALine,AIndex,'Present') then
   begin
     if TryToken(ALine,AIndex,'(') then
     begin
@@ -653,7 +664,7 @@ begin
       Dec(AIndex);
   end;
 
-  varIdx := TryBooleanArray(AScope, ALine, AIndex, AConstantOnly);
+  varIdx := TryBooleanArray(AScope, ALine, AIndex, AConstantOnly, ACheckWiderScope);
   if varIdx <> -1 then
   begin
     if TryToken(ALine,AIndex,'(') then
@@ -676,7 +687,7 @@ begin
       Dec(AIndex);
   end;
 
-  varIdx := TryIntegerArray(AScope, ALine, AIndex, AConstantOnly);
+  varIdx := TryIntegerArray(AScope, ALine, AIndex, AConstantOnly, ACheckWiderScope);
   if varIdx <> -1 then
   begin
     if TryToken(ALine,AIndex,'(') then
@@ -719,8 +730,28 @@ begin
       Dec(AIndex);
   end;
 
-  idx := AIndex;
+  if ACheckWiderScope then
+  begin
+    idx := AIndex;
+    classIdx := TryClassName(ALine, idx);
+    if classIdx <> -1 then
+    begin
+      if TryToken(ALine,idx,'.') then
+      begin
+        result := TryScalarVariable(AThreads, ClassDefinitions[classIdx].InnerScope, ALine, idx, AConstantOnly, false);
+        if result.VarType <> svtNone then
+        begin
+          if not IsUniquePlayer(ClassDefinitions[classIdx].Threads) then
+            raise exception.Create('Ambiguous player');
+          AIndex := idx;
+          exit;
+        end;
+      end;
+    end;
+  end;
+
   if AConstantOnly then exit;
+  idx := AIndex;
   pl := TryParsePlayer(AThreads, AScope, ALine,idx);
   if pl <> plNone then
   begin
@@ -747,7 +778,6 @@ begin
         AIndex := idx;
         exit;
       end else
-      if idx < ALine.Count then
       begin
         varIdx := TryPredefinedIntegerArray(AScope, ALine, idx);
         if (varIdx <> -1) and IntArrays[varIdx].Predefined then
@@ -766,10 +796,8 @@ begin
 
           AIndex := idx;
           exit;
-        end else
-          dec(varIdx);
+        end;
       end;
-
     end;
   end;
 end;

@@ -712,6 +712,7 @@ begin
 
     spCond.Free;
   end;
+  returnCond.Free;
 
   //stack overflow handler
   cond.Add(CheckSysIP(PushSysIP));

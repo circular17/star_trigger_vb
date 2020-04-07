@@ -935,7 +935,7 @@ procedure TSetCountdownInstruction.WriteTriggerData(
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType:= atSetCountdown;
-  AData.GenericValue := Value;
+  AData.Duration := Value;
   AData.IntegerOperation:= Mode;
 end;
 
@@ -948,7 +948,7 @@ class function TSetCountdownInstruction.LoadFromData(
   const AData: TTriggerInstructionData): TTriggerInstruction;
 begin
   if AData.ActionType = atSetCountdown then
-    result := TSetCountdownInstruction.Create(AData.IntegerOperation,AData.GenericValue)
+    result := TSetCountdownInstruction.Create(AData.IntegerOperation,AData.Duration)
   else
     result := nil;
 end;

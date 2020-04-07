@@ -309,6 +309,7 @@ begin
     for i := min(SynEdit1.BlockBegin.y,SynEdit1.BlockEnd.y) to
              max(SynEdit1.BlockBegin.y,SynEdit1.BlockEnd.y) do
       ApplyOnRow(i);
+  ErrorsToUpdate := true;
 end;
 
 procedure TFMain.EditCopyExecute(Sender: TObject);
@@ -350,6 +351,7 @@ begin
     for i := min(SynEdit1.BlockBegin.y,SynEdit1.BlockEnd.y) to
              max(SynEdit1.BlockBegin.y,SynEdit1.BlockEnd.y) do
       ApplyOnRow(i);
+  ErrorsToUpdate := true;
 end;
 
 procedure TFMain.FileOpenExecute(Sender: TObject);

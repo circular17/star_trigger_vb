@@ -216,7 +216,8 @@ begin
         AProg.Add(TCreateUnitInstruction.Create(APlayer, expr.ConstElement, unitType, locStr, propIndex))
       else
       begin
-        expr.AddToProgramInAccumulator(AProg);
+        tempInt := AllocateTempInt(8);
+        expr.AddToProgram(AProg, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
         for i := 7 downto 0 do
         begin
           subInstr := TInstructionList.Create;
@@ -224,6 +225,7 @@ begin
           subInstr.Add( CreateSetIntegerInstruction(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
           AProg.Add( TFastIfInstruction.Create( [CreateIntegerCondition( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i)], subInstr) );
         end;
+        ReleaseTempInt(tempInt);
       end;
     finally
       expr.Free;

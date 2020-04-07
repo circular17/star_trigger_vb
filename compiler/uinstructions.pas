@@ -249,6 +249,15 @@ type
     function Duplicate: TInstruction; override;
   end;
 
+  { TAccumulatorBitInstruction }
+
+  TAccumulatorBitInstruction = class(TInstruction)
+    Instructions: TInstructionList;
+    constructor Create(AInstructions: TInstructionList);
+    function Duplicate: TInstruction; override;
+    destructor Destroy; override;
+  end;
+
   /////////////////////////////////////////////////////////////////////////////////////////////
 
 type
@@ -317,6 +326,25 @@ begin
     AParams[i].Condition.Free;
   end;
   AParams := nil;
+end;
+
+{ TAccumulatorBitInstruction }
+
+constructor TAccumulatorBitInstruction.Create(
+  AInstructions: TInstructionList);
+begin
+  Instructions := AInstructions;
+end;
+
+function TAccumulatorBitInstruction.Duplicate: TInstruction;
+begin
+  result := TAccumulatorBitInstruction.Create(Instructions.Duplicate);
+end;
+
+destructor TAccumulatorBitInstruction.Destroy;
+begin
+  Instructions.FreeAll;
+  inherited Destroy;
 end;
 
 { TElseIfInstruction }

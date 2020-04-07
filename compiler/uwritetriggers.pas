@@ -166,6 +166,8 @@ var
   err: string;
   paramCond: TCondition;
   paramExpr: TExpression;
+  accBitInstr: TAccumulatorBitInstruction;
+  transf: TTransferIntegerInstruction;
 
 begin
   currentThreads := APlayers;
@@ -490,6 +492,7 @@ begin
         end;
       end;
       ExpandInstructions(tempPart, AInProc, AIsMain, APlayers, AExpanded, -1);
+      tempPart.FreeAll;
 
       nextIP := NewIP;
       AddSysCall(AExpanded, nextIP, Procedures[procIdx].StartIP);
@@ -501,6 +504,24 @@ begin
       if AInProc<>-1 then AddSysReturn(AExpanded)
       else
         AExpanded.Add( TSplitInstruction.Create(NewIP, -1));
+      continue;
+    end else
+    if AProg[i] is TAccumulatorBitInstruction then
+    begin
+      accBitInstr := TAccumulatorBitInstruction(AProg[i]);
+      tempPart := TInstructionList.Create;
+      for j := accBitInstr.Instructions.Count-1 downto 0 do
+      begin
+        tempExpand := TInstructionList.Create;
+        tempExpand.Add( accBitInstr.Instructions[j].Duplicate );
+        transf := TTransferIntegerInstruction.Create(1 shl j, itSubtractIntoAccumulator);
+        ExpandIntegerTransfer(transf, tempExpand);
+        transf.Free;
+        tempPart.Add( TFastIfInstruction.Create( [CompareAccumulator( icmAtLeast, 1 shl j)],
+                                                  tempExpand) );
+      end;
+      ExpandInstructions(tempPart, AInProc, AIsMain, APlayers, AExpanded, -1);
+      tempPart.FreeAll;
       continue;
     end;
     AExpanded.Add(AProg[i].Duplicate);

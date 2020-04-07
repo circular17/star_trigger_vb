@@ -139,7 +139,7 @@ end;
 
 function TryPlayerAction(AScope: integer; AProg: TInstructionList; ALine: TStringList; var AIndex: Integer; APlayer: TPlayer; AThreads: TPlayers): boolean;
 var
-  intVal, propIndex, propVal, timeMs, tempInt, i: integer;
+  intVal, propIndex, propVal, timeMs, i: integer;
   unitType: TStarcraftUnit;
   locStr, destLocStr, orderStr, filename, text: String;
   textDefined, deathAnim: boolean;
@@ -216,16 +216,11 @@ begin
         AProg.Add(TCreateUnitInstruction.Create(APlayer, expr.ConstElement, unitType, locStr, propIndex))
       else
       begin
-        tempInt := AllocateTempInt(8);
-        expr.AddToProgram(AProg, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
-        for i := 7 downto 0 do
-        begin
-          subInstr := TInstructionList.Create;
+        expr.AddToProgramInAccumulator(AProg);
+        subInstr := TInstructionList.Create;
+        for i := 0 to 7 do
           subInstr.Add( TCreateUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, propIndex) );
-          subInstr.Add( CreateSetIntegerInstruction(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
-          AProg.Add( TFastIfInstruction.Create( [CreateIntegerCondition( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i)], subInstr) );
-        end;
-        ReleaseTempInt(tempInt);
+        AProg.Add(TAccumulatorBitInstruction.Create(subInstr));
       end;
     finally
       expr.Free;
@@ -395,16 +390,11 @@ begin
           AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, deathAnim));
       end else
       begin
-        tempInt := AllocateTempInt(8);
-        expr.AddToProgram(AProg, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
-        for i := 7 downto 0 do
-        begin
-          subInstr := TInstructionList.Create;
+        expr.AddToProgramInAccumulator(AProg);
+        subInstr := TInstructionList.Create;
+        for i := 0 downto 7 do
           subInstr.Add( TKillUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, deathAnim) );
-          subInstr.Add( CreateSetIntegerInstruction(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
-          AProg.Add( TFastIfInstruction.Create( [CreateIntegerCondition( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i)], subInstr) );
-        end;
-        ReleaseTempInt(tempInt);
+        AProg.Add(TAccumulatorBitInstruction.Create(subInstr));
       end;
       expr.Free;
     end else
@@ -428,16 +418,11 @@ begin
           AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
       end else
       begin
-        tempInt := AllocateTempInt(8);
-        expr.AddToProgram(AProg, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
-        for i := 7 downto 0 do
-        begin
-          subInstr := TInstructionList.Create;
+        expr.AddToProgramInAccumulator(AProg);
+        subInstr := TInstructionList.Create;
+        for i := 0 downto 7 do
           subInstr.Add( TGiveUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, destPl) );
-          subInstr.Add( CreateSetIntegerInstruction(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
-          AProg.Add( TFastIfInstruction.Create( [CreateIntegerCondition( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i)], subInstr) );
-        end;
-        ReleaseTempInt(tempInt);
+        AProg.Add(TAccumulatorBitInstruction.Create(subInstr));
       end;
       expr.Free;
     end else

@@ -290,7 +290,9 @@ var
       begin
         scalar:= TryScalarVariable(AThreads, AScope, ALine,idx);
         case scalar.VarType of
-        svtInteger: result := TVariableNode.Create(neg,scalar.Player,scalar.UnitType);
+        svtInteger: if scalar.Constant then
+                        result := TConstantNode.Create(neg, scalar.IntValue)
+                   else result := TVariableNode.Create(neg,scalar.Player,scalar.UnitType);
         svtSwitch:
           begin
             if ARaiseException then

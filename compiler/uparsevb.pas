@@ -32,7 +32,6 @@ function TryToken(ALine: TStringList; var AIndex: integer; AToken: string): bool
 function PeekToken(ALine: TStringList; var AIndex: integer; AToken: string): boolean;
 procedure ExpectToken(ALine: TStringList; var AIndex: integer; AToken: string);
 function TryConditionOperator(ALine: TStringList; var AIndex: integer): TConditionOperator;
-function ParseRandom(ALine: TStringList; var AIndex: integer): integer;
 function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string; AcceptsReservedWords: boolean): boolean;
 function TryParsePlayer(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
 function IsPlayerIdentifier(AName: string): boolean;
@@ -312,30 +311,6 @@ begin
     else result := coEqual;
     end;
   end;
-end;
-
-function ParseRandom(ALine: TStringList; var AIndex: integer): integer;
-var errPos: integer;
-begin
-  if (AIndex < ALine.Count) and (CompareText(ALine[AIndex], 'Rnd') = 0) then
-  begin
-    inc(AIndex);
-    if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
-    if TryToken(ALine,AIndex,'*') then
-    begin
-      if AIndex >= ALine.Count then
-        raise exception.Create('Expecting integer value');
-      val(ALine[AIndex], result, errPos);
-      if errPos > 0 then
-        raise exception.Create('Expecting integer value');
-      inc(AIndex);
-
-      if result < 2 then
-        raise Exception.Create('Value must be greated or equal to 2');
-    end else
-      exit(2);
-  end else
-    exit(-1);
 end;
 
 function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string; AcceptsReservedWords: boolean): boolean;

@@ -28,6 +28,7 @@ function TryIntegerArray(AScope: integer; ALine: TStringList; var AIndex: intege
 function TryPredefinedIntegerArray(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 function ExpectInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 function ExpectConstantIndex(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AAcceptNegative: boolean): integer;
+function ParseRandom(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 function TryBoolean(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;
 function TryBooleanVariable(AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): integer;
 function TryBooleanArray(AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): integer;
@@ -358,6 +359,28 @@ begin
      TryToken(ALine,AIndex,'Me') then
     result := ord(uniquePlayer)-ord(plPlayer1)+1
     else result := ExpectIntegerConstant(AThreads, AScope, ALine,AIndex,AAcceptNegative);
+end;
+
+function ParseRandom(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+begin
+  if (AIndex < ALine.Count) and (CompareText(ALine[AIndex], 'Rnd') = 0) then
+  begin
+    inc(AIndex);
+    if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
+    if TryToken(ALine,AIndex,'*') then
+    begin
+      if AIndex >= ALine.Count then
+        raise exception.Create('Expecting integer value');
+      if not TryInteger(AThreads, AScope, ALine, AIndex, result) then
+        raise exception.Create('Expecting integer constant');
+      inc(AIndex);
+
+      if result < 2 then
+        raise Exception.Create('Value must be greated or equal to 2');
+    end else
+      exit(2);
+  end else
+    exit(-1);
 end;
 
 function TryBoolean(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: boolean): boolean;

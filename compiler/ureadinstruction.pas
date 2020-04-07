@@ -922,7 +922,7 @@ begin
           end;
         svtSwitch:
           begin
-            intVal := ParseRandom(ALine, index);
+            intVal := ParseRandom(AThreads, AScope, ALine, index);
             if intVal > 0 then
             begin
               CheckEndOfLine;

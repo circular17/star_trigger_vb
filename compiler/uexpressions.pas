@@ -284,7 +284,7 @@ var
       result := TConstantNode.Create(neg, intValue);
     end else
     begin
-      rnd := ParseRandom(ALine,idx);
+      rnd := ParseRandom(AThreads, AScope, ALine, idx);
       if rnd <> -1 then
         result := TRandomNode.Create(neg, rnd) else
       begin

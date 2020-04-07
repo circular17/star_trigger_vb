@@ -71,7 +71,7 @@ begin
       AUnit := suNone;
       customName := ExpectStringConstant(AThreads, AScope, ALine, AIndex, true);
       ExpectToken(ALine, AIndex, ')');
-      for u := low(TStarcraftUnit) to high(TStarcraftUnit) do
+      for u := low(TStarcraftUnit) to suFactories do
         if MapInfo.CustomUnitName[u] = customName then
         begin
           AUnit := u;

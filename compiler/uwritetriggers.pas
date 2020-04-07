@@ -301,12 +301,12 @@ begin
         if AProg[j] is TIfInstruction then inc(nesting) else
         if (AProg[j] is TElseInstruction) and (nesting = 1) then
         begin
-          if elseIndex <> -1 then
-          begin
-            err := 'Only one Else is allowed for one If statement';
-            break;
-          end;
-          elseIndex:= j;
+          if elseIndex = -1 then elseIndex:= j
+          else if AProg[elseIndex] is TElseInstruction then
+            begin
+              err := 'Only one Else is allowed for one If statement';
+              break;
+            end;
         end else
         if (AProg[j] is TElseIfInstruction) and (nesting = 1) then
         begin

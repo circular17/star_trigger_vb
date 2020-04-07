@@ -20,7 +20,9 @@ type
   end;
 
 function TryScalarVariable(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): TScalarVariable;
-function ExpectUnitType({%H-}AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
+function TryUnitType(AScope: integer; ALine: TStringList; var AIndex: integer; out AUnit: TStarcraftUnit): boolean;
+function ExpectUnitTypeIdentifier({%H-}AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
+function ExpectUnitType(AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
 function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
 function TryIntegerVariable(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWiderScope: boolean = true): integer;
 function TryIntegerConstantVariable(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWiderScope: boolean = true): integer;
@@ -55,14 +57,18 @@ implementation
 
 uses uparsevb, uvariables, uprocedures;
 
-function ExpectUnitType(AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
+function TryUnitType(AScope: integer; ALine: TStringList; var AIndex: integer; out AUnit: TStarcraftUnit): boolean;
 var
   u: TStarcraftUnit;
-  ident: string;
   i: Integer;
+  wantUnit: Boolean;
 begin
   if TryToken(ALine,AIndex,'Unit') then
+  begin
     ExpectToken(ALine,AIndex,'.');
+    wantUnit := true;
+  end else
+    wantUnit := false;
 
   for i := 0 to StarcraftUnitPrefixes.Count-1 do
     if TryToken(ALine, AIndex, StarcraftUnitPrefixes[i]) then
@@ -71,17 +77,52 @@ begin
       for u := low(TStarcraftUnit) to suFactories do
         if (StarcraftUnitSplitIdentifier[u].Prefix = StarcraftUnitPrefixes[i]) and
           TryToken(ALine, AIndex, StarcraftUnitSplitIdentifier[u].PartialName) then
-            exit(u);
+          begin
+            AUnit := u;
+            exit(true);
+          end;
+      raise exception.Create('Excepting unit name');
     end;
 
   for u := low(TStarcraftUnit) to suFactories do
     if (StarcraftUnitSplitIdentifier[u].Prefix = '') and
       TryToken(ALine, AIndex, StarcraftUnitIdentifier[u]) then
-        exit(u);
+        begin
+          AUnit := u;
+          exit(true);
+        end;
 
-  if not TryIdentifier(ALine, AIndex, ident, false) then
-    raise exception.Create('Expecting identifier')
-    else raise exception.Create('Unknown unit type "' + ident + '"');
+  if wantUnit then raise exception.Create('Excepting unit category');
+  AUnit := suNone;
+  exit(false);
+end;
+
+function ExpectUnitTypeIdentifier(AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
+var
+  ident: string;
+begin
+  if not TryUnitType(AScope, ALine, AIndex, result) then
+  begin
+    if not TryIdentifier(ALine, AIndex, ident, false) then
+      raise exception.Create('Expecting identifier')
+      else raise exception.Create('Unknown unit type "' + ident + '"');
+  end;
+end;
+
+function ExpectUnitType(AScope: integer; ALine: TStringList;
+  var AIndex: integer): TStarcraftUnit;
+var
+  i: Integer;
+begin
+  while AScope <> -1 do
+  begin
+    for i := 0 to UnitConstCount-1 do
+      if (UnitConsts[i].Scope = AScope) and
+        TryToken(ALine, AIndex, UnitConsts[i].Name) then
+        exit(UnitConsts[i].Value);
+    AScope := GetWiderScope(AScope);
+  end;
+  result := ExpectUnitTypeIdentifier(AScope, ALine, AIndex);
 end;
 
 function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;

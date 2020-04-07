@@ -126,6 +126,17 @@ function FindOrCreateUnitProperty(AProp: TUnitProperties): integer;
 procedure CompileUnitProperties;
 
 var
+  UnitConsts: array of record
+    Name: string;
+    Value: TStarcraftUnit;
+    Scope: integer;
+  end;
+  UnitConstCount: integer;
+
+function CreateUnitConst(AScope: integer; AName: string; AValue: TStarcraftUnit): integer;
+function UnitConstIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean = true): integer;
+
+var
   SoundVars: array of record
     Scope: integer;
     Name: string;
@@ -201,6 +212,7 @@ begin
   StringCount := 0;
   StringArrayCount := 0;
   UnitPropCount := 0;
+  UnitConstCount:= 0;
   SoundCount := 0;
   for i := low(PlayerPresenceVar) to high(PlayerPresenceVar) do
     PlayerPresenceVar[i] := -1;
@@ -219,6 +231,7 @@ begin
             (IntArrayIndexOf(AScope, AName, False)<>-1) or (BoolArrayIndexOf(AScope, AName, False)<>-1) or
             (StringIndexOf(AScope, AName, False)<>-1) or (StringArrayIndexOf(AScope, AName, False)<>-1) or
             (UnitPropIndexOf(AScope, AName, False) <> -1) or (SoundIndexOf(AScope, AName, False)<>-1) or
+            (UnitConstIndexOf(AScope, AName, false) <> -1) or
             (CompareText('Runtime',AName) = 0) or (CompareText('Present',AName) = 0) or
             (CompareText('Switch',AName) = 0) or (CompareText('AI',AName) = 0) or
             (CompareText('Unit',AName) = 0) or IsUnitType(AName) or
@@ -885,6 +898,33 @@ begin
   end;
   for i := UnitPropCount to MaxUnitProperties-1 do
     uunitpropchunk.CompiledUnitProperties[i+1].Used := false;
+end;
+
+function CreateUnitConst(AScope: integer; AName: string; AValue: TStarcraftUnit): integer;
+begin
+  if UnitConstCount >= length(UnitConsts) then
+    setlength(UnitConsts, UnitConstCount*2+4);
+  result := UnitConstCount;
+  UnitConsts[result].Name:= AName;
+  UnitConsts[result].Scope:= AScope;
+  UnitConsts[result].Value:= AValue;
+  inc(UnitConstCount);
+end;
+
+function UnitConstIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean): integer;
+var
+  i: Integer;
+begin
+  while AScope <> -1 do
+  begin
+    for i := 0 to UnitConstCount-1 do
+      if (UnitConsts[i].Scope = AScope) and
+        (CompareText(UnitConsts[i].Name, AName)=0) then
+        exit(i);
+    if not ACheckGlobal then break;
+    AScope := GetWiderScope(AScope);
+  end;
+  result := -1;
 end;
 
 function CreateSound(AScope: integer; AName: string; AFilename: string;

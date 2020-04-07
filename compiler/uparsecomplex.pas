@@ -483,6 +483,7 @@ var
   arrBoolValues: ArrayOfSwitchValue;
   Constant, filenameSpecified, multiThreadVar: boolean;
   strValues: ArrayOfString;
+  su: TStarcraftUnit;
 
   procedure ExpectArraySize;
   begin
@@ -647,6 +648,7 @@ begin
         if TryToken(ALine,index,'Boolean') then varType := 'Boolean'
         else if TryToken(ALine,index,'String') then varType := 'String'
         else if TryToken(ALine,index,'UnitProperties') then varType := 'UnitProperties'
+        else if TryToken(ALine,index,'Unit') then varType := 'Unit'
         else if TryToken(ALine,index,'Sound') then varType := 'Sound'
         else
         begin
@@ -657,7 +659,7 @@ begin
         end;
       end;
 
-      if not isArray and (varType <> 'UnitProperties')
+      if not isArray and (varType <> 'UnitProperties') and (varType <> 'Unit')
         and (varType <> 'Sound') and TryToken(ALine,index,'(') then
       begin
         isArray := true;
@@ -771,6 +773,12 @@ begin
         end else
           raise exception.Create('Expecting unit properties');
       end else
+      if varType = 'Unit' then
+      begin
+        if not Constant then raise exception.Create('Unit types are constant');
+        su := ExpectUnitType(AScope, ALine, index);
+        CreateUnitConst(AScope, varName, su);
+      end else
       if varType = 'String' then
       begin
         CreateString(AScope,varName,ExpectStringConstant(AThreads,AScope,ALine,index), Constant);
@@ -792,6 +800,10 @@ begin
       begin
         SetupIntVar(varName, 0, bitCount, Constant,
                     TryExpression(AThreads, AScope, ALine, index, true));
+      end else
+      if Constant and TryUnitType(AScope, ALine, index, su) then
+      begin
+        CreateUnitConst(AScope, varName, su);
       end else
       begin
         if varType <> '?' then raise exception.Create('Unhandled case');

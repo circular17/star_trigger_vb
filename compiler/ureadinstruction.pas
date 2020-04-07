@@ -386,7 +386,7 @@ begin
       begin
         if Assigned(expr) then
           intVal := expr.ConstElement;
-        if intVal > 0 then
+        if intVal <> 0 then
           AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, deathAnim));
       end else
       begin
@@ -414,7 +414,7 @@ begin
       begin
         if Assigned(expr) then
           intVal := expr.ConstElement;
-        if intVal > 0 then
+        if intVal <> 0 then
           AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
       end else
       begin

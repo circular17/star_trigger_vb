@@ -71,6 +71,7 @@ var
   Events: array of record
     LineNumber: integer;
     Players: TPlayers;
+    ConditionsCode: TCodeLine;
     Conditions: TConditionList;
     Instructions: TInstructionList;
     Code: TCodeLineList;
@@ -79,7 +80,7 @@ var
   end;
   EventCount: integer;
 
-function CreateEvent(AWiderScope: integer; ALineNumber: integer; APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
+function CreateEvent(AWiderScope: integer; ALineNumber: integer; APlayers: TPlayers; AConditionsCode: TCodeLine; APreserve: boolean): integer;
 function ProcessEventStatement(AScope: integer; ALineNumber: integer; ALine: TStringList; APlayers: TPlayers): integer;
 
 var
@@ -265,11 +266,8 @@ begin
   result := GetProcedureExprTempVarInt(AProcId, Procedures[AProcId].ReturnBitCount);
 end;
 
-function CreateEvent(AWiderScope: integer; ALineNumber: integer; APlayers: TPlayers; AConditions: TConditionList; APreserve: boolean): integer;
+function CreateEvent(AWiderScope: integer; ALineNumber: integer; APlayers: TPlayers; AConditionsCode: TCodeLine; APreserve: boolean): integer;
 begin
-  if AConditions.IsArithmetic then
-    raise exception.Create('Arithmetic expressions cannot be used in event conditions');
-
   if EventCount >= length(Events) then
     setlength(Events, EventCount*2+4);
   result := EventCount;
@@ -279,7 +277,8 @@ begin
   begin
     LineNumber:= ALineNumber;
     Players := APlayers;
-    Conditions := AConditions;
+    Conditions := nil;
+    ConditionsCode := AConditionsCode;
     Instructions := TInstructionList.Create;
     Code := TCodeLineList.Create;
     Preserve := APreserve;
@@ -451,18 +450,16 @@ end;
 function ProcessEventStatement(AScope: integer; ALineNumber: integer; ALine: TStringList; APlayers: TPlayers): integer;
 var
   index: Integer;
-  conds: TConditionList;
   preserve: Boolean;
+  conds: TCodeLine;
 begin
   index := 0;
   preserve := true;
   ExpectToken(ALine,index,'On');
 
-  conds := ExpectConditions(AScope, ALine,index,APlayers);
+  conds := TCodeLine.Create(ALine, ALineNumber);
+  conds.Tokens.Delete(0);
   result := CreateEvent(AScope, ALineNumber, APlayers, conds, preserve);
-
-  if index < ALine.Count then
-    raise exception.Create('End of line expected');
 end;
 
 procedure ClearProceduresAndEvents;
@@ -485,6 +482,7 @@ begin
     begin
       Instructions.FreeAll;
       Conditions.FreeAll;
+      ConditionsCode.Free;
       Code.FreeAll;
     end;
   EventCount:= 0;

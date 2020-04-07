@@ -19,7 +19,8 @@ procedure AddWarning(ALine: integer; AText: string);
 implementation
 
 uses uparsevb, uvariables, utriggerinstructions,
-  utriggerconditions, umapinfo, uparsescalar, uparsecomplex, ureadinstruction;
+  utriggerconditions, umapinfo, uparsescalar, uparsecomplex, ureadinstruction,
+  uparseconditions;
 
 const MAX_ERRORS = 3;
 const MaxInstructionsPerSub = 65534*63 div 4;
@@ -588,7 +589,7 @@ var
   players: TPlayers;
   pl: TPlayer;
   warning: string;
-  fileScope: integer;
+  fileScope, tempIndex: integer;
 begin
   if not (ADefaultMainThread in[plPlayer1..plPlayer8]) then
     raise exception.Create('This player can''t be used as a main thread');
@@ -859,6 +860,13 @@ begin
       begin
         try
           FillParseCompletionList := inEvent <> -1;
+
+          tempIndex := 0;
+          Events[i].Conditions := ExpectConditions(GetWiderScope(Events[i].Innerscope),
+            Events[i].ConditionsCode.Tokens, tempIndex, Events[i].Players);
+          if Events[i].Conditions.IsArithmetic then
+            raise exception.Create('Arithmetic expressions cannot be used in event conditions');
+
           ParseCode(Events[i].Players, AMainThread, false, -1, i);
           with Events[i] do
             while (Instructions.Count > 0) and (Instructions[Instructions.Count-1] is TReturnInstruction) do

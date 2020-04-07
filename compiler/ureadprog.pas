@@ -218,9 +218,9 @@ var
       isBoolean:= false;
       if TryToken(line,index,'As') then
       begin
-        if TryUnsignedIntegerType(line,index) then
+        if TryUnsignedIntegerType(line,index,varType) then
         begin
-          bitCount := GetBitCountOfType(line[index-1]);
+          bitCount := GetBitCountOfType(varType);
           if bitCount = 0 then bitCount := 24;
         end else
         if not AAcceptBool and PeekToken(line,index,'Boolean') then
@@ -228,8 +228,6 @@ var
         if TryToken(line,index,'Boolean') then isBoolean := true else
         if not AAcceptStr and PeekToken(line,index,'String') then
           raise exception.Create('String type not accepted here') else
-        if PeekToken(line,index,'Integer') or PeekToken(line,index,'UInteger') then
-          raise exception.Create('Please specify the bit count of the integer by using Byte, UInt16 or UInt24') else
         if TryToken(line,index,'String') then isString := true else
         begin
           TryIdentifier(line,index,varType,true);

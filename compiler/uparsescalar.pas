@@ -5,7 +5,7 @@ unit uparsescalar;
 interface
 
 uses
-  Classes, SysUtils, usctypes, uscope;
+  Classes, SysUtils, usctypes, uscope, uinstructions;
 
 type
   TScalarVariableType = (svtNone, svtInteger, svtSwitch);
@@ -21,8 +21,6 @@ type
 
 function TryScalarVariable(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): TScalarVariable;
 function ExpectUnitType({%H-}AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
-function IsUnitType(AName: string): boolean;
-function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string; AcceptsReservedWords: boolean): boolean;
 function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
 function TryIntegerVariable(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWiderScope: boolean = true): integer;
 function TryIntegerConstantVariable(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWiderScope: boolean = true): integer;
@@ -43,12 +41,14 @@ type
   TExpectIntegerConstantFunc = function(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AAcceptNegative: boolean): integer;
   TTryIntegerConstantFunc = function(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
   TExpectStringConstantFunc = function(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): string;
+  TParseProcedureParameterValuesFunc = function(AThreads: TPlayers; AScope: integer; funcName: string; ALine: TStringList; var AIndex: integer): ArrayOfParameterValue;
 
 var
   ExpectBooleanConstant: TExpectBooleanConstantFunc;
   ExpectIntegerConstant: TExpectIntegerConstantFunc;
   TryIntegerConstant: TTryIntegerConstantFunc;
   ExpectStringConstant: TExpectStringConstantFunc;
+  ParseProcedureParameterValues: TParseProcedureParameterValuesFunc;
 
 implementation
 
@@ -81,43 +81,6 @@ begin
   if not TryIdentifier(ALine, AIndex, ident, false) then
     raise exception.Create('Expecting identifier')
     else raise exception.Create('Unknown unit type "' + ident + '"');
-end;
-
-function IsUnitType(AName: string): boolean;
-var
-  u: TStarcraftUnit;
-  posDot, i: integer;
-  partialName: String;
-begin
-  for i := 0 to StarcraftUnitPrefixes.Count-1 do
-    if CompareText(StarcraftUnitPrefixes[i],AName)=0 then exit(true);
-
-  for u := low(TStarcraftUnit) to suFactories do
-  begin
-    posDot := pos('.',StarcraftUnitIdentifier[u]);
-    if posDot <> 0 then
-    begin
-      partialName := copy(StarcraftUnitIdentifier[u], posDot+1,
-                      length(StarcraftUnitIdentifier[u]) - posDot);
-      if CompareText(partialName,AName)=0 then exit(true);
-    end;
-  end;
-  exit(false);
-end;
-
-function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string; AcceptsReservedWords: boolean): boolean;
-begin
-  if (AIndex < ALine.Count) and IsValidVariableName(ALine[AIndex]) and
-   (AcceptsReservedWords or not IsReservedWord(ALine[AIndex])) then
-  begin
-    AIdentifier:= ALine[AIndex];
-    inc(AIndex);
-    exit(true);
-  end else
-  begin
-    AIdentifier:= '';
-    exit(false);
-  end;
 end;
 
 function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
@@ -803,4 +766,3 @@ begin
 end;
 
 end.
-

@@ -921,6 +921,8 @@ const
     suSpellDisruptionWeb,
     suSpellDarkSwarm);
 
+function IsUnitType(AName: string): boolean;
+
 implementation
 
 function IntToPlayer(APlayer: integer): TPlayer;
@@ -1026,6 +1028,28 @@ begin
     end;
 
   end;
+end;
+
+function IsUnitType(AName: string): boolean;
+var
+  u: TStarcraftUnit;
+  posDot, i: integer;
+  partialName: String;
+begin
+  for i := 0 to StarcraftUnitPrefixes.Count-1 do
+    if CompareText(StarcraftUnitPrefixes[i],AName)=0 then exit(true);
+
+  for u := low(TStarcraftUnit) to suFactories do
+  begin
+    posDot := pos('.',StarcraftUnitIdentifier[u]);
+    if posDot <> 0 then
+    begin
+      partialName := copy(StarcraftUnitIdentifier[u], posDot+1,
+                      length(StarcraftUnitIdentifier[u]) - posDot);
+      if CompareText(partialName,AName)=0 then exit(true);
+    end;
+  end;
+  exit(false);
 end;
 
 initialization

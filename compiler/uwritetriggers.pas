@@ -115,7 +115,7 @@ var
     begin
       tempExpand := TInstructionList.Create;
       with TCallFunctionCondition(AConditions[0]) do
-        tempExpand.Add(TCallInstruction.Create(Scope, Name, [], 'Boolean'));
+        tempExpand.Add(TCallInstruction.Create(Scope, Name, DuplicateParameterValues(ParamValues), 'Boolean'));
       ExpandInstructions(tempExpand, AInProc, AIsMain, APlayers, AExpanded, -1);
       tempExpand.FreeAll;
       result := TWaitConditionInstruction.Create(CompareAccumulator(icmAtLeast,1), ANextIP);
@@ -164,6 +164,8 @@ var
   endDoAs: TEndDoAsInstruction;
   endDoIP: integer;
   err: string;
+  paramCond: TCondition;
+  paramExpr: TExpression;
 
 begin
   currentThreads := APlayers;
@@ -426,10 +428,12 @@ begin
     begin
       call := TCallInstruction(AProg[i]);
 
-      procIdx := ProcedureIndexOf(call.Scope, call.Name, length(call.Params));
+      procIdx := ProcedureIndexOf(call.Scope, call.Name, length(call.ParamValues));
       if procIdx = -1 then
       begin
-        err := 'Procedure not found "' + call.Name + '" with ' + Inttostr(length(call.Params)) + ' parameter(s)';
+        if CompareText(call.Name,'Main') = 0 then
+          err := 'Main cannot be called explicitely'
+          else err := 'Procedure not found "' + call.Name + '" with ' + Inttostr(length(call.ParamValues)) + ' parameter(s)';
         break;
       end;
 
@@ -451,6 +455,41 @@ begin
         if Procedures[AInProc].Calls.IndexOf(procIdx)=-1 then
           Procedures[AInProc].Calls.Add(procIdx);
       end;
+
+      tempPart := TInstructionList.Create;
+      for j := 0 to high(call.ParamValues) do
+      begin
+        if Assigned(call.ParamValues[j].Condition) then
+        begin
+          paramCond := call.ParamValues[j].Condition as TCondition;
+          varIdx := BoolVarIndexOf(Procedures[procIdx].InnerScope, Procedures[procIdx].Params[j].Name, false);
+          if varIdx = -1 then raise exception.Create('Cannot find parameter variable "'+Procedures[procIdx].Params[j].Name+'"');
+          if paramCond is TAlwaysCondition then
+            tempPart.Add(TSetSwitchInstruction.Create(BoolVars[varIdx].Switch, svSet))
+          else if paramCond is TNeverCondition then
+            tempPart.Add(TSetSwitchInstruction.Create(BoolVars[varIdx].Switch, svClear))
+          else
+          begin
+            tempPart.Add(TIfInstruction.Create(paramCond.Duplicate));
+            tempPart.Add(TSetSwitchInstruction.Create(BoolVars[varIdx].Switch, svSet));
+            tempPart.Add(TElseInstruction.Create);
+            tempPart.Add(TSetSwitchInstruction.Create(BoolVars[varIdx].Switch, svClear));
+            tempPart.Add(TEndIfInstruction.Create);
+          end;
+        end else
+        if Assigned(call.ParamValues[j].Expression) then
+        begin
+          paramExpr := call.ParamValues[j].Expression as TExpression;
+          varIdx := IntVarIndexOf(Procedures[procIdx].InnerScope, Procedures[procIdx].Params[j].Name, false);
+          if varIdx = -1 then raise exception.Create('Cannot find parameter variable "'+Procedures[procIdx].Params[j].Name+'"');
+          if paramExpr.IsConstant then
+          begin
+            tempPart.Add(CreateSetIntegerInstruction(IntVars[varIdx].Player, IntVars[varIdx].UnitType, simSetTo, paramExpr.ConstElement));
+          end else
+            paramExpr.AddToProgram(tempPart, IntVars[varIdx].Player, IntVars[varIdx].UnitType, simSetTo);
+        end;
+      end;
+      ExpandInstructions(tempPart, AInProc, AIsMain, APlayers, AExpanded, -1);
 
       nextIP := NewIP;
       AddSysCall(AExpanded, nextIP, Procedures[procIdx].StartIP);
@@ -620,7 +659,7 @@ begin
         begin
           allProcDone:= false;
           ProceduresExpanded[i] := TInstructionList.Create;
-          ExpandInstructions(Procedures[i].Instructions, i, false, [plAllPlayers], ProceduresExpanded[i], -1);
+          ExpandInstructions(Procedures[i].Instructions, i, false, Procedures[i].Players, ProceduresExpanded[i], -1);
           Procedures[i].Expanded := true;
         end;
     until allProcDone;
@@ -648,7 +687,7 @@ begin
           if Procedures[i].ReturnType <> 'Void' then
             ProceduresExpanded[i].Insert(0, TCommentInstruction.Create('Function '+Procedures[i].Name+' As '+Procedures[i].ReturnType))
             else ProceduresExpanded[i].Insert(0, TCommentInstruction.Create('Sub '+Procedures[i].Name));
-          WriteProg([plAllPlayers], [noSysIP], ProceduresExpanded[i], Procedures[i].StartIP, EndIP, true);
+          WriteProg(Procedures[i].Players, [noSysIP], ProceduresExpanded[i], Procedures[i].StartIP, EndIP, true);
         end;
       noSysIP.Free;
     end;

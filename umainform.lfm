@@ -522,9 +522,9 @@ object FMain: TFMain
         ''
         'Class Player8'
         ''
-        '  Sub Main()'
+        '    Sub Main()'
         ''
-        '  End Sub'
+        '    End Sub'
         ''
         'End Class'
       )

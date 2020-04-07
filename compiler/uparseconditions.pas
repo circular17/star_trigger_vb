@@ -14,6 +14,18 @@ implementation
 uses
   uvariables, utriggerconditions, uparsescalar, uprocedures, uarithmetic;
 
+function DuplicateParameterValuesImplementation(AParamValues: ArrayOfParameterValue): ArrayOfParameterValue;
+var
+  i: Integer;
+begin
+  setlength(result, length(AParamValues));
+  for i := 0 to high(result) do
+  begin
+    result[i].Condition := (AParamValues[i].Condition as TCondition).Duplicate;
+    result[i].Expression := (AParamValues[i].Expression as TExpression).Duplicate;
+  end;
+end;
+
 function ExpectBooleanConstantImplementation(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): boolean;
 var
   cond: TConditionList;
@@ -397,6 +409,9 @@ var
   scalar: TScalarVariable;
   boolVal: boolean;
   pl: TPlayer;
+  paramValues: ArrayOfParameterValue;
+  funcName: string;
+
 begin
   if TryBoolean(AThreads, AScope, ALine,AIndex,boolVal) then
   begin
@@ -424,12 +439,19 @@ begin
       result := TryNeutralConditionFunction(AThreads, AScope, ALine, AIndex, boolNot);
       if result <> nil then exit;
 
-      if TryFunction(AScope, ALine, AIndex, funcIdx) then
+      if TryFunction(AScope, ALine, AIndex, funcName) then
       begin
-        if TryToken(ALine, AIndex, '(') then ExpectToken(ALine, AIndex, ')');
-        if Procedures[funcIdx].ReturnType <> 'Boolean' then
-          raise exception.Create('Expecting boolean value but found ' + Procedures[funcIdx].ReturnType);
-        result := TCallFunctionCondition.Create(AScope, Procedures[funcIdx].Name);
+        try
+          paramValues := ParseProcedureParameterValues(AThreads, AScope, funcName, ALine, AIndex);
+          funcIdx := ProcedureIndexOf(AScope, funcName, length(paramValues));
+          if funcIdx = -1 then raise exception.Create('Procedure not found');
+          if Procedures[funcIdx].ReturnType <> 'Boolean' then
+            raise exception.Create('Expecting boolean value but found ' + Procedures[funcIdx].ReturnType);
+          result := TCallFunctionCondition.Create(AScope, funcName, paramValues);
+          paramValues := nil;
+        finally
+          FreeParameterValues(paramValues);
+        end;
         exit;
       end else
       if TryBoolean(AThreads, AScope, ALine,AIndex,boolVal) then
@@ -641,9 +663,59 @@ begin
     end;
 end;
 
+function ParseProcedureParameterValuesImplementation(AThreads: TPlayers; AScope: integer; funcName: string; ALine: TStringList; var AIndex: integer): ArrayOfParameterValue;
+var
+  expr: TExpression;
+  cond: TCondition;
+  params: ArrayOfParameterValue;
+  canUInt, canBool: Boolean;
+begin
+  params := nil;
+  try
+    if TryToken(ALine, AIndex, '(') then
+    begin
+      while not PeekToken(ALine, AIndex, ')') do
+      begin
+        canUInt := ProcedureCanHaveUIntParameter(AScope, funcName, length(params));
+        if canUInt then
+        begin
+          expr := TryExpression(AThreads, AScope, ALine, AIndex, false, false);
+          if expr <> nil then
+          begin
+            setlength(params, length(params)+1);
+            params[high(params)].Expression := expr;
+            if not TryToken(ALine, AIndex, ',') then break;
+            continue;
+          end;
+        end;
+        canBool := ProcedureCanHaveBoolParameter(AScope, funcName, length(params));
+        if canBool then
+        begin
+          cond := ExpectCondition(AScope, ALine, AIndex, AThreads);
+          setlength(params, length(params)+1);
+          params[high(params)].Condition := cond;
+          if not TryToken(ALine, AIndex, ',') then break;
+          continue;
+        end;
+        if canUInt then
+          raise exception.Create('Integer parameter expected')
+        else
+          raise exception.Create('No parameter expected here');
+      end;
+      ExpectToken(ALine,AIndex,')');
+    end;
+    result := params;
+    params := nil;
+  finally
+    FreeParameterValues(params);
+  end;
+end;
+
 initialization
 
   ExpectBooleanConstant := @ExpectBooleanConstantImplementation;
+  ParseProcedureParameterValues := @ParseProcedureParameterValuesImplementation;
+  DuplicateParameterValues := @DuplicateParameterValuesImplementation;
 
 end.
 

@@ -8,6 +8,17 @@ uses
   Classes, SysUtils, fgl, usctypes;
 
 type
+  TParameterValue = record
+    Expression: TObject;
+    Condition: TObject;
+  end;
+  ArrayOfParameterValue = array of TParameterValue;
+  TDuplicateParameterValuesFunc = function(AParamValues: ArrayOfParameterValue): ArrayOfParameterValue;
+
+procedure FreeParameterValues(var AParams: ArrayOfParameterValue);
+var DuplicateParameterValues: TDuplicateParameterValuesFunc;
+
+type
   { TInstruction }
 
   TInstruction = class
@@ -92,11 +103,11 @@ type
   TCallInstruction = class(TInstruction)
     Scope: integer;
     Name: string;
-    Params: array of string;
+    ParamValues: ArrayOfParameterValue;
     ReturnType: string;
-    constructor Create(AScope: integer; AName: string; AParams: array of string; AReturnType: string = 'Void');
-    constructor Create(AScope: integer; AName: string; AParams: TStringList; AReturnType: string = 'Void');
+    constructor Create(AScope: integer; AName: string; AParamValues: ArrayOfParameterValue; AReturnType: string = 'Void');
     function Duplicate: TInstruction; override;
+    destructor Destroy; override;
   end;
 
   { TDropThreadInstruction }
@@ -295,6 +306,18 @@ var
   CreateIntegerCondition: TCreateIntegerConditionProc;
 
 implementation
+
+procedure FreeParameterValues(var AParams: ArrayOfParameterValue);
+var
+  i: Integer;
+begin
+  for i := 0 to high(AParams) do
+  begin
+    AParams[i].Expression.Free;
+    AParams[i].Condition.Free;
+  end;
+  AParams := nil;
+end;
 
 { TElseIfInstruction }
 
@@ -996,34 +1019,27 @@ end;
 
 { TCallInstruction }
 
-constructor TCallInstruction.Create(AScope: integer; AName: string; AParams: array of string; AReturnType: string = 'Void');
+constructor TCallInstruction.Create(AScope: integer; AName: string; AParamValues: ArrayOfParameterValue; AReturnType: string = 'Void');
 var
   i: Integer;
 begin
   Scope := AScope;
   Name := AName;
-  setlength(Params, length(AParams));
-  for i := 0 to high(AParams) do
-    Params[i] := AParams[i];
-  ReturnType:= AReturnType;
-end;
-
-constructor TCallInstruction.Create(AScope: integer; AName: string; AParams: TStringList; AReturnType: string = 'Void');
-var
-  i: Integer;
-begin
-  Scope := AScope;
-  Name := AName;
-  setlength(Params, AParams.Count);
-  for i := 0 to AParams.Count-1 do
-    Params[i] := AParams[i];
-  AParams.Free;
+  setlength(ParamValues, length(AParamValues));
+  for i := 0 to high(AParamValues) do
+    ParamValues[i] := AParamValues[i];
   ReturnType:= AReturnType;
 end;
 
 function TCallInstruction.Duplicate: TInstruction;
 begin
-  result := TCallInstruction.Create(Scope, Name, Params, ReturnType);
+  result := TCallInstruction.Create(Scope, Name, DuplicateParameterValues(ParamValues), ReturnType);
+end;
+
+destructor TCallInstruction.Destroy;
+begin
+  FreeParameterValues(ParamValues);
+  inherited Destroy;
 end;
 
 { TCondition }

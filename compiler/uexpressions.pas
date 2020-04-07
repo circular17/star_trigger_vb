@@ -56,7 +56,9 @@ type
   TFunctionCallNode = class(TExpressionNode)
     Scope: integer;
     Name: string;
-    constructor Create(ANegative: boolean; AScope: integer; AName: string);
+    ParamValues: ArrayOfParameterValue;
+    constructor Create(ANegative: boolean; AScope: integer; AName: string; AParamValues: ArrayOfParameterValue);
+    destructor Destroy; override;
     procedure LoadIntoAccumulator(AClearAcc: boolean; AProg: TInstructionList); override;
     procedure LoadIntoVariable(AClearVar: boolean; APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList); override;
     function AlwaysClearAccumulator: boolean; override;
@@ -349,7 +351,8 @@ var
                 if AAcceptCalls then  //function call?
                 begin
                   if TryToken(ALine,idx,'(') then ExpectToken(ALine,idx,')');
-                  result := TFunctionCallNode.Create(neg, AScope, name);
+                  result := TFunctionCallNode.Create(neg, AScope, name,
+                              ParseProcedureParameterValues(AThreads, AScope, name, ALine, idx));
                 end else
                 begin
                   if ARaiseException then
@@ -1254,18 +1257,29 @@ begin
   result := TRandomNode.Create(Negative,Range);
 end;
 
-constructor TFunctionCallNode.Create(ANegative: boolean; AScope: integer; AName: string);
+constructor TFunctionCallNode.Create(ANegative: boolean; AScope: integer; AName: string; AParamValues: ArrayOfParameterValue);
+var
+  i: Integer;
 begin
   inherited Create(ANegative);
   Scope := AScope;
   Name := AName;
+  setlength(ParamValues, length(AParamValues));
+  for i := 0 to high(ParamValues) do
+    ParamValues[i] := AParamValues[i];
+end;
+
+destructor TFunctionCallNode.Destroy;
+begin
+  FreeParameterValues(ParamValues);
+  inherited Destroy;
 end;
 
 procedure TFunctionCallNode.LoadIntoAccumulator(AClearAcc: boolean;
   AProg: TInstructionList);
 begin
   if AClearAcc then
-    AProg.Add(TCallInstruction.Create(Scope, Name, [], 'UInt24'))
+    AProg.Add(TCallInstruction.Create(Scope, Name, ParamValues, 'UInt24'))
   else
     raise exception.Create('Unhandled case');
 end;
@@ -1273,7 +1287,7 @@ end;
 procedure TFunctionCallNode.LoadIntoVariable(AClearVar: boolean;
   APlayer: TPlayer; AUnitType: TStarcraftUnit; AProg: TInstructionList);
 begin
-  AProg.Add(TCallInstruction.Create(Scope, Name, [], 'UInt24'));
+  AProg.Add(TCallInstruction.Create(Scope, Name, ParamValues, 'UInt24'));
   if AClearVar then
     AProg.Add(TTransferIntegerInstruction.Create(APlayer, AUnitType, itCopyAccumulator))
   else
@@ -1297,7 +1311,7 @@ end;
 
 function TFunctionCallNode.Duplicate: TExpressionNode;
 begin
-  result := TFunctionCallNode.Create(Negative, Scope, Name);
+  result := TFunctionCallNode.Create(Negative, Scope, Name, DuplicateParameterValues(ParamValues));
 end;
 
 { TVariableNode }

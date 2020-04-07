@@ -12,7 +12,7 @@ const
 
 procedure ExpandIntegerTransfer(ATransfer: TTransferIntegerInstruction; AExpanded: TInstructionList);
 function CompareAccumulator(AMode: TIntegerConditionMode; AValue: integer): TCondition;
-function IsAccumulatorVariable(APlayer: TPlayer; AUnit: TStarcraftUnit): boolean;
+function IsAccumulatorVariable({%H-}APlayer: TPlayer; AUnit: TStarcraftUnit): boolean;
 procedure InitArithmetic;
 procedure WriteArithmeticTriggers;
 function GetExponentOf2(AValue: integer): integer;
@@ -39,12 +39,14 @@ type
   TCallFunctionCondition = class(TCondition)
     Scope: integer;
     Name: string;
+    ParamValues: ArrayOfParameterValue;
     function IsArithmetic: boolean; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean); override;
     function ToBasic({%H-}AUseVariables: boolean): string; override;
     function Priority: integer; override;
     function Duplicate: TCondition; override;
-    constructor Create(AScope: integer; AName: string);
+    constructor Create(AScope: integer; AName: string; AParamValues: ArrayOfParameterValue);
+    destructor Destroy; override;
   end;
 
 implementation
@@ -63,7 +65,7 @@ procedure TCallFunctionCondition.AddToProgAsAndVar(AProg: TInstructionList;
 begin
   if AFirst then
   begin
-    AProg.Add(TCallInstruction.Create(Scope, Name, [], 'Boolean'));
+    AProg.Add(TCallInstruction.Create(Scope, Name, DuplicateParameterValues(ParamValues), 'Boolean'));
     if not IsAccumulatorVariable(APlayer, AUnitType) then
     begin
       AProg.Add(TIfInstruction.Create(CreateIntegerCondition(APlayer, AUnitType, icmAtLeast, 1)));
@@ -75,7 +77,7 @@ begin
   end else
   begin
     AProg.Add(TIfInstruction.Create(CreateIntegerCondition(APlayer, AUnitType, icmAtLeast, 1)) );
-    AProg.Add(TCallInstruction.Create(Scope, Name, [], 'Boolean'));
+    AProg.Add(TCallInstruction.Create(Scope, Name, DuplicateParameterValues(ParamValues), 'Boolean'));
     if not IsAccumulatorVariable(APlayer, AUnitType) then
       AProg.Add(TFastIfInstruction.Create([CreateIntegerCondition(APlayer, AUnitType, icmAtMost, 0)],
               [TTransferIntegerInstruction.Create(0, itCopyIntoAccumulator)]));
@@ -95,14 +97,25 @@ end;
 
 function TCallFunctionCondition.Duplicate: TCondition;
 begin
-  result := TCallFunctionCondition.Create(Scope, Name);
+  result := TCallFunctionCondition.Create(Scope, Name, DuplicateParameterValues(ParamValues));
 end;
 
 constructor TCallFunctionCondition.Create(AScope: integer;
-  AName: string);
+  AName: string; AParamValues: ArrayOfParameterValue);
+var
+  i: Integer;
 begin
   Scope := AScope;
   Name := AName;
+  setlength(ParamValues, length(AParamValues));
+  for i := 0 to high(ParamValues) do
+    ParamValues[i] := AParamValues[i];
+end;
+
+destructor TCallFunctionCondition.Destroy;
+begin
+  FreeParameterValues(ParamValues);
+  inherited Destroy;
 end;
 
 function GetMultiplicandIntArray(AMaxBitCount: integer): integer;

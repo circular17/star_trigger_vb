@@ -83,20 +83,29 @@ var
   ident: string;
 
   procedure AddCall(AProcName: string);
+  var
+    paramValues: ArrayOfParameterValue;
   begin
-    if TryToken(ALine, AIndex, '(') then
-      ExpectToken(ALine, AIndex, ')');
-    if AreThreadsEqual(AThreads, targetThreads) then
-      AProg.Add(TCallInstruction.Create(classScope, AProcName, []))
-    else
-    begin
-      if AThreads <> [AMainThread] then
-        raise exception.Create('Cannot call other thread except from main thread');
-      if plAllPlayers in targetThreads then
-        targetThreads := [plPlayer1,plPlayer2,plPlayer3,plPlayer4,plPlayer5,plPlayer6,plPlayer7,plPlayer8];
-      AProg.Add(TDoAsInstruction.Create(targetThreads));
-      AProg.Add(TCallInstruction.Create(classScope, AProcName, []));
-      AProg.Add(TEndDoAsInstruction.Create(targetThreads));
+    paramValues := ParseProcedureParameterValues(AThreads, AScope, AProcName, ALine, AIndex);
+    try
+      if AreThreadsEqual(AThreads, targetThreads) then
+      begin
+        AProg.Add(TCallInstruction.Create(classScope, AProcName, paramValues));
+        paramValues := nil;
+      end
+      else
+      begin
+        if AThreads <> [AMainThread] then
+          raise exception.Create('Cannot call other thread except from main thread');
+        if plAllPlayers in targetThreads then
+          targetThreads := [plPlayer1,plPlayer2,plPlayer3,plPlayer4,plPlayer5,plPlayer6,plPlayer7,plPlayer8];
+        AProg.Add(TDoAsInstruction.Create(targetThreads));
+        AProg.Add(TCallInstruction.Create(classScope, AProcName, paramValues));
+        paramValues := nil;
+        AProg.Add(TEndDoAsInstruction.Create(targetThreads));
+      end;
+    finally
+      FreeParameterValues(paramValues);
     end;
   end;
 
@@ -207,8 +216,7 @@ begin
         AProg.Add(TCreateUnitInstruction.Create(APlayer, expr.ConstElement, unitType, locStr, propIndex))
       else
       begin
-        tempInt := AllocateTempInt(8);
-        expr.AddToProgram(AProg, IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSetTo);
+        expr.AddToProgramInAccumulator(AProg);
         for i := 7 downto 0 do
         begin
           subInstr := TInstructionList.Create;
@@ -216,7 +224,6 @@ begin
           subInstr.Add( CreateSetIntegerInstruction(IntVars[tempInt].Player,IntVars[tempInt].UnitType, simSubtract, 1 shl i) );
           AProg.Add( TFastIfInstruction.Create( [CreateIntegerCondition( IntVars[tempInt].Player,IntVars[tempInt].UnitType, icmAtLeast, 1 shl i)], subInstr) );
         end;
-        ReleaseTempInt(tempInt);
       end;
     finally
       expr.Free;
@@ -755,7 +762,6 @@ end;
 procedure ParseInstruction(AScope: integer; ALine: TStringList; AProg: TInstructionList; AThreads: TPlayers; AMainThread: TPlayer; AProcId: integer; AInSubMain: boolean);
 var
   index, intVal, idxArr, i, idxSound, idxVar, idxMsg, idxClass: integer;
-  params: TStringList;
   name, assignOp, text: String;
   done, boolVal: boolean;
   scalar: TScalarVariable;
@@ -765,6 +771,7 @@ var
   pl: TPlayer;
   expr: TExpression;
   bools: ArrayOfSwitchValue;
+  params: ArrayOfParameterValue;
 
   procedure CheckEndOfLine;
   begin
@@ -1142,29 +1149,13 @@ begin
         ((index = ALine.Count) or
          PeekToken(ALine, index, '(')) then
       begin
-        params := TStringList.Create;
+        params := ParseProcedureParameterValues(AThreads, AScope, name, ALine, index);
         try
-          if TryToken(ALine,index,'(') then
-          begin
-            while not TryToken(ALine,index,')') do
-            begin
-              if params.Count > 0 then ExpectToken(ALine,index,',');
-              if TryToken(ALine,index,',') then
-                raise exception.Create('Empty parameters not allowed');
-              if index < ALine.Count then
-                params.Add(ALine[index])
-              else
-                raise exception.Create('Parameter expected but end of line found');
-
-              inc(index);
-            end;
-          end;
           CheckEndOfLine;
-
           AProg.Add(TCallInstruction.Create(AScope, name, params));
           params := nil;
         finally
-          params.Free;
+          FreeParameterValues(params);
         end;
       end else
       if scalar.VarType = svtNone then

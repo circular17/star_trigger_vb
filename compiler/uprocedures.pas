@@ -1,6 +1,7 @@
 unit uprocedures;
 
 {$mode objfpc}{$H+}
+{$modeswitch advancedrecords}
 
 interface
 
@@ -26,12 +27,20 @@ type
     procedure FreeAll;
   end;
 
-var
-  Procedures: array of record
+type
+  TParameterDefinition = record
+    Name: string;
+    VarType: string;
+  end;
+
+type
+    { TProcedureDefinition }
+
+  TProcedureDefinition = record
     Name: string;
     WiderScope: integer;
     LineNumber: integer;
-    ParamCount: integer;
+    Params: array of TParameterDefinition;
     Instructions: TInstructionList;
     Code: TCodeLineList;
     StartIP: integer;
@@ -42,15 +51,21 @@ var
     ExprTempVarInt: integer;
     InnerScope: integer;
     Players: TPlayers;
+    function GetParamCount: integer;
   end;
+
+var
+  Procedures: array of TProcedureDefinition;
   ProcedureCount: integer;
 
-function CreateProcedure(AWiderScope: integer; ALineNumber: integer; AName: string; AParamCount: integer; AReturnType: string; APlayers: TPlayers): integer;
+function CreateProcedure(AWiderScope: integer; ALineNumber: integer; AName: string; AParams: array of TParameterDefinition; AReturnType: string; APlayers: TPlayers): integer;
 function ProcedureIndexOf(AScope: integer; AName: string; AParamCount: integer): integer;
 function GetProcedureExprTempVarInt(AProcId, ABitCount: integer): integer;
 function ProcedureReturnVar(AProcId: integer): integer;
 function ProcessSubStatement(AScope: integer; ALineNumber: integer; ALine: TStringList; APlayers: TPlayers = []): integer;
-function TryFunction(AScope: integer; ALine: TStringList; var AIndex: integer; out AFuncIdx: integer): boolean;
+function TryFunction(AScope: integer; ALine: TStringList; var AIndex: integer; out AFuncName: string): boolean;
+function ProcedureCanHaveUIntParameter(AScope: integer; AName: string; AParamIndex: integer): boolean;
+function ProcedureCanHaveBoolParameter(AScope: integer; AName: string; AParamIndex: integer): boolean;
 
 var
   Events: array of record
@@ -90,8 +105,7 @@ implementation
 
 uses uparsevb, utriggerinstructions, uvariables, uparseconditions, utriggerconditions;
 
-function CreateClass(AWiderScope: integer; AThreads: TPlayers; AName: string
-  ): integer;
+function CreateClass(AWiderScope: integer; AThreads: TPlayers; AName: string): integer;
 begin
   if ClassCount >= length(ClassDefinitions) then
     setlength(ClassDefinitions, length(ClassDefinitions)*2+4);
@@ -125,6 +139,13 @@ begin
   result := -1;
 end;
 
+{ TProcedureDefinition }
+
+function TProcedureDefinition.GetParamCount: integer;
+begin
+  result := length(Params);
+end;
+
 { TCodeLine }
 
 constructor TCodeLine.Create(ATokens: TStringList; ALineNumber: integer);
@@ -154,9 +175,12 @@ begin
   end;
 end;
 
-function CreateProcedure(AWiderScope: integer; ALineNumber: integer; AName: string; AParamCount: integer; AReturnType: string; APlayers: TPlayers): integer;
+function CreateProcedure(AWiderScope: integer; ALineNumber: integer; AName: string; AParams: array of TParameterDefinition; AReturnType: string; APlayers: TPlayers): integer;
+var
+  i: Integer;
+  scopeName: String;
 begin
-  if ProcedureIndexOf(AWiderScope, AName, AParamCount)<>-1 then
+  if ProcedureIndexOf(AWiderScope, AName, length(AParams))<>-1 then
     raise exception.Create('Procedure already declared with this signature');
   CheckReservedWord(AName);
 
@@ -169,6 +193,10 @@ begin
     or ([plPlayer1,plPlayer2,plPlayer3,plPlayer4,plPlayer5,plPlayer6,plPlayer7,plPlayer8] <= APlayers)
   then APlayers := [plAllPlayers];
 
+  for i := 0 to high(AParams) do
+    if (AParams[i].VarType = 'Boolean') and not IsUniquePlayer(APlayers) then
+      raise exception.Create('Boolean parameters not allowed for multithreading');
+
   if ProcedureCount >= length(Procedures) then
     setlength(Procedures, ProcedureCount*2+4);
   result := ProcedureCount;
@@ -179,7 +207,15 @@ begin
     Name := AName;
     WiderScope := AWiderScope;
     LineNumber:= ALineNumber;
-    ParamCount:= AParamCount;
+    scopeName := Name+'(';
+    setlength(Params, length(AParams));
+    for i := 0 to high(Params) do
+    begin
+      Params[i] := AParams[i];
+      if i > 0 then scopeName += ', ';
+      scopeName += Params[i].VarType;
+    end;
+    scopeName += ')';
     Instructions := TInstructionList.Create;
     Code := TCodeLineList.Create;
     StartIP := -1;
@@ -189,7 +225,7 @@ begin
     StackChecked := false;
     Calls := TIntegerList.Create;
     ExprTempVarInt := -1;
-    InnerScope := NewScope(AWiderScope, AName);
+    InnerScope := NewScope(AWiderScope, scopeName);
     Players:= APlayers;
   end;
 end;
@@ -204,7 +240,7 @@ begin
     begin
       if (Procedures[i].WiderScope = AScope) and
         (CompareText(AName, Procedures[i].Name)=0) and
-        (AParamCount = Procedures[i].ParamCount) then
+        (AParamCount = Procedures[i].GetParamCount) then
         exit(i);
     end;
     AScope := GetWiderScope(AScope);
@@ -253,11 +289,11 @@ end;
 
 function ProcessSubStatement(AScope: integer; ALineNumber: integer; ALine: TStringList; APlayers: TPlayers): integer;
 var
-  index: Integer;
+  index, i: Integer;
   name: String;
   isFunc: boolean;
-  returnType: string;
-  paramCount: integer;
+  returnType, varName, varType: string;
+  params: array of TParameterDefinition;
 begin
   index := 0;
   isFunc := TryToken(ALine,index,'Function');
@@ -271,9 +307,33 @@ begin
     raise exception.Create('Invalid procedure name');
   inc(index);
 
-  paramCount := 0;
   if TryToken(ALine,index,'(') then
   begin
+    repeat
+      if PeekToken(ALine,index,'ByVal') or PeekToken(ALine,index,'ByRef') then
+        raise exception.Create('Parameters are always passed by value');
+      if TryIdentifier(ALine,index, varName, false) then
+      begin
+        if IsVarNameUsed(AScope, varName, 0) then
+          raise exception.Create('Name already used in this scope');
+        ExpectToken(ALine,index,'As');
+        if not TryUnsignedIntegerType(ALine, index, varType) then
+        begin
+          if TryToken(ALine, index, 'Boolean') then
+            varType := 'Boolean'
+          else
+          if TryToken(ALine, index, 'String') then
+            raise exception.Create('String type not accepted here')
+          else
+            raise exception.Create('Expecting variable type');
+        end;
+        params := nil;
+        setlength(params, length(params)+1);
+        params[high(params)].Name:= varName;
+        params[high(params)].VarType:= varType;
+      end else
+       break;
+    until not TryToken(ALine, index, ',');
     ExpectToken(ALine,index,')');
   end;
 
@@ -305,15 +365,32 @@ begin
   begin
     if returnType <> 'Void' then
       raise exception.Create('The sub Main cannot have a return value');
-    if paramCount <> 0 then
+    if length(params) <> 0 then
       raise exception.Create('The sub Main takes no parameter');
     exit(-1);
   end else
-    result := CreateProcedure(AScope,ALineNumber,name,paramCount,returnType,APlayers);
+  begin
+    result := CreateProcedure(AScope,ALineNumber,name,params,returnType,APlayers);
+    if IsUniquePlayer(APlayers) then
+    begin
+      for i := 0 to high(params) do
+      begin
+        if params[i].VarType = 'Boolean' then
+          CreateBoolVar(Procedures[result].InnerScope, params[i].Name, svClear)
+        else
+          CreateIntVar(Procedures[result].InnerScope, params[i].Name,
+                       0, GetBitCountOfType(params[i].VarType));
+      end;
+    end else
+      for i := 0 to high(params) do
+        CreateMultithreadIntVar(Procedures[result].Players,
+                                Procedures[result].InnerScope,
+                                params[i].Name, GetBitCountOfType(params[i].VarType));
+  end;
 end;
 
 function TryFunction(AScope: integer; ALine: TStringList; var AIndex: integer;
-  out AFuncIdx: integer): boolean;
+  out AFuncName: string): boolean;
 var
   i: Integer;
 begin
@@ -324,12 +401,50 @@ begin
       (Procedures[i].WiderScope = AScope) and
       TryToken(ALine, AIndex, Procedures[i].Name) then
       begin
-        AFuncIdx:= i;
+        AFuncName:= Procedures[i].Name;
         exit(true);
       end;
     AScope := GetWiderScope(AScope);
   end;
-  AFuncIdx := 0;
+  AFuncName := '';
+  result := false;
+end;
+
+function ProcedureCanHaveUIntParameter(AScope: integer; AName: string; AParamIndex: integer): boolean;
+var
+  i: Integer;
+begin
+  while AScope <> -1 do
+  begin
+    for i := 0 to ProcedureCount-1 do
+      if (Procedures[i].WiderScope = AScope) and
+        (CompareText(AName, Procedures[i].Name)=0) then
+      begin
+        if (length(Procedures[i].Params) > AParamIndex) and
+           IsIntegerType(Procedures[i].Params[AParamIndex].VarType) then
+           exit(true);
+      end;
+    AScope := GetWiderScope(AScope);
+  end;
+  result := false;
+end;
+
+function ProcedureCanHaveBoolParameter(AScope: integer; AName: string; AParamIndex: integer): boolean;
+var
+  i: Integer;
+begin
+  while AScope <> -1 do
+  begin
+    for i := 0 to ProcedureCount-1 do
+      if (Procedures[i].WiderScope = AScope) and
+        (CompareText(AName, Procedures[i].Name)=0) then
+      begin
+        if (length(Procedures[i].Params) > AParamIndex) and
+           (Procedures[i].Params[AParamIndex].VarType = 'Boolean') then
+           exit(true);
+      end;
+    AScope := GetWiderScope(AScope);
+  end;
   result := false;
 end;
 
@@ -381,10 +496,19 @@ begin
   MainSubScope := -1;
 end;
 
+function IsProcOrClassNameUsedImplementation(AScope: integer; AName: string; AParamCount: integer): boolean;
+begin
+  result := (ProcedureIndexOf(AScope, AName, AParamCount) <> -1) or
+            (ClassIndexOf(AName) <> -1) or
+            (CompareText('CountIf',AName)=0) or (CompareText('UnitCount',AName) = 0) or
+            (CompareText('KillCount',AName) = 0) or (CompareText('DeathCount',AName) = 0);
+end;
+
 initialization
 
   MainProg := TInstructionList.Create;
   MainCode := TCodeLineList.Create;
+  IsProcOrClassNameUsed:= @IsProcOrClassNameUsedImplementation;
 
 finalization
 

@@ -33,12 +33,13 @@ function PeekToken(ALine: TStringList; var AIndex: integer; AToken: string): boo
 procedure ExpectToken(ALine: TStringList; var AIndex: integer; AToken: string);
 function TryConditionOperator(ALine: TStringList; var AIndex: integer): TConditionOperator;
 function ParseRandom(ALine: TStringList; var AIndex: integer): integer;
+function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string; AcceptsReservedWords: boolean): boolean;
 function TryParsePlayer(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
 function IsPlayerIdentifier(AName: string): boolean;
 function ExpectPlayers(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TPlayers;
 function GetBitCountOfType(AName: string): integer;
 function IsIntegerType(AName: string): boolean;
-function TryUnsignedIntegerType(ALine: TStringList; var AIndex: integer): boolean;
+function TryUnsignedIntegerType(ALine: TStringList; var AIndex: integer; out AType: string): boolean;
 function BitCountNeededFor(AValue: integer): integer;
 function IsTokenOverEndOfLine(ALastToken:string): boolean;
 
@@ -337,6 +338,21 @@ begin
     exit(-1);
 end;
 
+function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier: string; AcceptsReservedWords: boolean): boolean;
+begin
+  if (AIndex < ALine.Count) and IsValidVariableName(ALine[AIndex]) and
+   (AcceptsReservedWords or not IsReservedWord(ALine[AIndex])) then
+  begin
+    AIdentifier:= ALine[AIndex];
+    inc(AIndex);
+    exit(true);
+  end else
+  begin
+    AIdentifier:= '';
+    exit(false);
+  end;
+end;
+
 function TryParsePlayer(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
 var
   pl: TPlayer;
@@ -405,12 +421,17 @@ begin
   else result := 0;
 end;
 
-function TryUnsignedIntegerType(ALine: TStringList; var AIndex: integer): boolean;
+function TryUnsignedIntegerType(ALine: TStringList; var AIndex: integer; out AType: string): boolean;
 begin
+  if PeekToken(ALine,AIndex,'Integer') or PeekToken(ALine,AIndex,'UInteger') then
+    raise exception.Create('Please specify the bit count of the integer by using Byte, UInt16 or UInt24');
+
   result := TryToken(ALine,AIndex,'Byte') or TryToken(ALine,AIndex,'UInt8') or
           TryToken(ALine,AIndex,'UShort') or TryToken(ALine,AIndex,'UInt16') or
           TryToken(ALine,AIndex,'UInt24') or
           TryToken(ALine,AIndex,'UInteger');
+
+  if result then AType := ALine[AIndex-1] else AType := '';
 end;
 
 function IsIntegerType(AName: string): boolean;

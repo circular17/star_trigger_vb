@@ -16,7 +16,13 @@ const
 var
   HyperTriggersOption: boolean;
 
+type
+  TIsVarNameUsedFunc = function(AScope: integer; AName: string; AParamCount: integer): boolean;
+
 procedure InitVariables;
+function IsVarNameUsed(AScope: integer; AName: string; AParamCount: integer): boolean;
+var
+  IsProcOrClassNameUsed: TIsVarNameUsedFunc;
 
 var
   IntArrays: array of record
@@ -205,6 +211,22 @@ begin
   TempInt16Count := 0;
   TempInt24Count := 0;
   HyperTriggersOption := false;
+end;
+
+function IsVarNameUsed(AScope: integer; AName: string; AParamCount: integer): boolean;
+begin
+  result := (IntVarIndexOf(AScope, AName, False)<>-1) or (BoolVarIndexOf(AScope, AName, False)<>-1) or
+            (IntArrayIndexOf(AScope, AName, False)<>-1) or (BoolArrayIndexOf(AScope, AName, False)<>-1) or
+            (StringIndexOf(AScope, AName, False)<>-1) or (StringArrayIndexOf(AScope, AName, False)<>-1) or
+            (UnitPropIndexOf(AScope, AName, False) <> -1) or (SoundIndexOf(AScope, AName, False)<>-1) or
+            (CompareText('Runtime',AName) = 0) or (CompareText('Present',AName) = 0) or
+            (CompareText('Switch',AName) = 0) or (CompareText('AI',AName) = 0) or
+            (CompareText('Unit',AName) = 0) or IsUnitType(AName) or
+            (CompareText('Color',AName) = 0) or (CompareText('Align',AName) = 0) or
+            (CompareText('ElapsedTime',AName) = 0) or (CompareText('OpponentCount',AName) = 0);
+
+  if not result and Assigned(IsProcOrClassNameUsed) then
+    result := IsProcOrClassNameUsed(AScope, AName, AParamCount);
 end;
 
 function CreateIntArray(AScope: integer; AName: string; ASize: integer;

@@ -19,7 +19,6 @@ function ParseIntArray(AThreads: TPlayers; AScope: integer; ALine: TStringList; 
 function TryStringConstant(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AStr: string; ARaiseException: boolean = false): boolean;
 function TryClass(ALine: TStringList; var AIndex: integer): integer;
 
-function IsVarNameUsed(AScope: integer; AName: string; AParamCount: integer): boolean;
 procedure ProcessDim(AThreads: TPlayers; AScope: integer; ADeclaration: string; AProg: TInstructionList; AInit0, AAllowMultithread: boolean; out AWarning: string);
 procedure ProcessDim(AThreads: TPlayers; AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0, AMultithreadInit: boolean; out AWarning: string);
 
@@ -471,19 +470,6 @@ begin
   end;
 end;
 
-function IsVarNameUsed(AScope: integer; AName: string; AParamCount: integer): boolean;
-begin
-  result := (IntVarIndexOf(AScope, AName, False)<>-1) or (BoolVarIndexOf(AScope, AName, False)<>-1) or
-            (IntArrayIndexOf(AScope, AName, False)<>-1) or (BoolArrayIndexOf(AScope, AName, False)<>-1) or
-            (ProcedureIndexOf(AScope, AName,AParamCount)<>-1) or (UnitPropIndexOf(AScope, AName, False) <> -1) or
-            (StringIndexOf(AScope, AName, False)<>-1) or (StringArrayIndexOf(AScope, AName, False)<>-1) or
-            (SoundIndexOf(AScope, AName, False)<>-1) or  (CompareText('Runtime',AName) = 0) or
-            (CompareText('AI',AName) = 0) or (CompareText('Present',AName) = 0) or
-            (CompareText('CountIf',AName)=0) or IsUnitType(AName) or (CompareText('Alliance',AName) = 0) or
-            (CompareText('Unit',AName) = 0) or (CompareText('Leaderboard',AName) = 0) or
-            (CompareText('Switch',AName) = 0) or (CompareText('Color',AName) = 0) or (CompareText('Align',AName) = 0);
-end;
-
 procedure ProcessDim(AThreads: TPlayers; AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0, AMultithreadInit: boolean; out AWarning: string);
 var
   index: Integer;
@@ -653,11 +639,8 @@ begin
       if PeekToken(ALine,index,'Integer') or PeekToken(ALine,index,'UInteger') then
         raise exception.Create('Please specify the bit count of the integer by using Byte, UInt16 or UInt24');
 
-      if TryUnsignedIntegerType(ALine,index) then
-      begin
-        varType := ALine[index-1];
-        bitCount := GetBitCountOfType(varType);
-      end
+      if TryUnsignedIntegerType(ALine,index,varType) then
+        bitCount := GetBitCountOfType(varType)
       else
       begin
         bitCount := 0;

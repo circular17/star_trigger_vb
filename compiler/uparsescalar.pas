@@ -559,7 +559,7 @@ begin
     if not ACheckWiderScope then break;
     AScope := GetWiderScope(AScope);
   end;
-  if not AConstantOnly and TryToken(ALine,AIndex,'Present') then
+  if not AConstantOnly and ACheckWiderScope and TryToken(ALine,AIndex,'Present') then
     exit(GetPlayerPresentArray);
   result := -1;
 end;
@@ -790,7 +790,7 @@ begin
     end;
   end;
 
-  if AConstantOnly then exit;
+  if AConstantOnly or not ACheckWiderScope then exit;
   idx := AIndex;
   pl := TryParsePlayer(AThreads, AScope, ALine,idx);
   if pl <> plNone then

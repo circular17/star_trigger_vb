@@ -1095,7 +1095,16 @@ begin
               CheckEndOfLine;
               break;
             end else
-              index := 0;
+            begin
+              pl := GetUniquePlayer(ClassDefinitions[idxClass].Threads);
+              if (pl <> plNone) and
+                 TryPlayerAction(AScope, AProg, ALine, index, pl, AThreads) then
+              begin
+                done := true;
+                CheckEndOfLine;
+              end else
+                index := 0;
+            end;
           end;
       end;
     end;

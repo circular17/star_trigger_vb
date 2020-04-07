@@ -188,7 +188,7 @@ function TryExpression(AThreads: TPlayers; AScope: integer; ALine: TStringList; 
 
 implementation
 
-uses uparsevb, uvariables, uarithmetic, utriggerconditions, uparsescalar;
+uses uparsevb, uvariables, uarithmetic, utriggerconditions, uparsescalar, uprocedures;
 
 function TryIntegerConstantImplementation(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out
   AValue: integer): boolean;
@@ -334,6 +334,11 @@ var
               ExpectToken(ALine,idx,')');
             end else
             begin
+              if AAcceptCalls and TryFunction(AScope, ALine, idx, name) then
+              begin
+                result := TFunctionCallNode.Create(neg, AScope, name,
+                            ParseProcedureParameterValues(AThreads, AScope, name, ALine, idx));
+              end else
               if TryIdentifier(ALine,idx, name, false) then
               begin
                 idxVar := StringIndexOf(AScope,name);
@@ -348,17 +353,9 @@ var
                 if IsPlayerIdentifier(name) then
                   raise exception.Create('Unexpected player identifier');
 
-                if AAcceptCalls then  //function call?
-                begin
-                  if TryToken(ALine,idx,'(') then ExpectToken(ALine,idx,')');
-                  result := TFunctionCallNode.Create(neg, AScope, name,
-                              ParseProcedureParameterValues(AThreads, AScope, name, ALine, idx));
-                end else
-                begin
-                  if ARaiseException then
-                    raise exception.Create('Integer expected');
-                  exit;
-                end;
+                if ARaiseException then
+                  raise exception.Create('Integer expected');
+                exit;
               end;
             end;
           end;

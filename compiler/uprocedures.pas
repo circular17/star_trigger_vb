@@ -307,6 +307,7 @@ begin
     raise exception.Create('Invalid procedure name');
   inc(index);
 
+  params := nil;
   if TryToken(ALine,index,'(') then
   begin
     repeat
@@ -327,7 +328,6 @@ begin
           else
             raise exception.Create('Expecting variable type');
         end;
-        params := nil;
         setlength(params, length(params)+1);
         params[high(params)].Name:= varName;
         params[high(params)].VarType:= varType;

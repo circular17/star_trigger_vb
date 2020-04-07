@@ -318,7 +318,7 @@ begin
          raise exception.Create('Cannot be applied to specific quantity of units');
        if not (unitType in [suMen, suAnyUnit]) then
          raise exception.Create('Available only for Men or AnyUnit');
-       if TryToken(ALine,AIndex,')') then
+       if TryToken(ALine,AIndex,'(') then
          ExpectToken(ALine,AIndex,')');
 
        AProg.Add(TRunAIScriptInstruction.Create('EnTr', locStr));
@@ -330,7 +330,7 @@ begin
          raise exception.Create('Cannot be applied to specific quantity of units');
        if not (unitType in [suMen, suAnyUnit]) then
          raise exception.Create('Available only for Men or AnyUnit');
-       if TryToken(ALine,AIndex,')') then
+       if TryToken(ALine,AIndex,'(') then
          ExpectToken(ALine,AIndex,')');
 
        AProg.Add(TRunAIScriptInstruction.Create('ExTr', locStr));

@@ -93,7 +93,7 @@ begin
   begin
     if TryToken(ALine,AIndex,'(') then
     begin
-      unitType := ExpectUnitType(AScope, ALine,AIndex);
+      unitType := ExpectUnitType(AThreads, AScope, ALine,AIndex);
       if TryToken(ALine,AIndex,',') then
         locStr := ExpectStringConstant(AThreads, AScope, ALine,AIndex)
       else
@@ -170,7 +170,7 @@ begin
   begin
     if TryToken(ALine,AIndex,'(') then
     begin
-      unitType := ExpectUnitType(AScope, ALine,AIndex);
+      unitType := ExpectUnitType(AThreads, AScope, ALine,AIndex);
       ExpectToken(ALine,AIndex,')');
     end else
     begin
@@ -241,7 +241,7 @@ begin
   begin
     if TryToken(ALine,AIndex,'(') then
     begin
-      unitType := ExpectUnitType(AScope, ALine,AIndex);
+      unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
       ExpectToken(ALine,AIndex,')');
     end else
     begin

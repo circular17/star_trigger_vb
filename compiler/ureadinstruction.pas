@@ -187,7 +187,7 @@ begin
     end;
     try
       ExpectToken(ALine,AIndex,',');
-      unitType := ExpectUnitType(AScope,ALine,AIndex);
+      unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
       if TryToken(ALine,AIndex,',') then
         locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex)
       else
@@ -252,7 +252,7 @@ begin
   begin
     ExpectToken(ALine,AIndex,'(');
     intVal := ParseOptionalQuantity;
-    unitType := ExpectUnitType(AScope, ALine, AIndex);
+    unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
     if not TryToken(ALine,AIndex,',') then
       locStr := MapInfo.AnywhereLocationName
     else
@@ -514,7 +514,7 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      unitType := ExpectUnitType(AScope,ALine,AIndex);
+      unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
       ExpectToken(ALine,AIndex,',');
       timeMs := ExpectIntegerConstant(AThreads, AScope, ALine, AIndex, false);
       ExpectToken(ALine,AIndex,')');
@@ -627,7 +627,7 @@ begin
           begin
             if TryToken(ALine,AIndex,'(') then
             begin
-              unitType := ExpectUnitType(AScope,ALine,AIndex);
+              unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
               ExpectToken(ALine,AIndex,')');
             end else
             begin
@@ -640,7 +640,7 @@ begin
           begin
             if TryToken(ALine,AIndex,'(') then
             begin
-              unitType := ExpectUnitType(AScope,ALine,AIndex);
+              unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
               if TryToken(ALine,AIndex,',') then
                 locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex)
               else

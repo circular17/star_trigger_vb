@@ -776,7 +776,7 @@ begin
       if varType = 'Unit' then
       begin
         if not Constant then raise exception.Create('Unit types are constant');
-        su := ExpectUnitType(AScope, ALine, index);
+        su := ExpectUnitType(AThreads, AScope, ALine, index);
         CreateUnitConst(AScope, varName, su);
       end else
       if varType = 'String' then
@@ -801,7 +801,7 @@ begin
         SetupIntVar(varName, 0, bitCount, Constant,
                     TryExpression(AThreads, AScope, ALine, index, true));
       end else
-      if Constant and TryUnitType(AScope, ALine, index, su) then
+      if Constant and TryUnitType(AThreads, AScope, ALine, index, su) then
       begin
         CreateUnitConst(AScope, varName, su);
       end else

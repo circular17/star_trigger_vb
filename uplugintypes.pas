@@ -42,8 +42,8 @@ type
     function GetLocationIndex(AName: string): integer;
     function LocationExists(AIndex: integer): boolean;
     function GetForceName(AForce: integer): string;
-    function GetStandardUnitName(AIndex: integer): string;
-    function GetCustomUnitName(AIndex: integer): string;
+    function GetStandardUnitName(AUnitType: TStarcraftUnit): string;
+    function GetCustomUnitName(AUnitType: TStarcraftUnit): string;
     function GetWavFilename(AIndex: integer): string;
     function GetWavIndex(AFilename: string): integer;
     function GetSwitchName(AIndex: integer): string;
@@ -65,6 +65,8 @@ type
     function GetWavName(AIndex: integer): string; override;
     function GetSwitchName(AIndexBase1: integer): string; override;
     function GetProgramMapEmbedded: boolean; override;
+    function GetCustomUnitName(AUnitType: TStarcraftUnit): string; override;
+    function GetStandardUnitName(AUnitType: TStarcraftUnit): string; override;
   public
     constructor Create(const AContext: TPluginContext);
     function RetrieveStoredProgram: string; override;
@@ -306,14 +308,14 @@ begin
   result := EngineData^.GetForceName(AForce);
 end;
 
-function TPluginContext.GetStandardUnitName(AIndex: integer): string;
+function TPluginContext.GetStandardUnitName(AUnitType: TStarcraftUnit): string;
 begin
-  result := EngineData^.GetStandardUnitName(AIndex);
+  result := EngineData^.GetStandardUnitName(ord(AUnitType));
 end;
 
-function TPluginContext.GetCustomUnitName(AIndex: integer): string;
+function TPluginContext.GetCustomUnitName(AUnitType: TStarcraftUnit): string;
 begin
-  result := EngineData^.GetCustomUnitName(AIndex);
+  result := EngineData^.GetCustomUnitName(ord(AUnitType));
 end;
 
 function TPluginContext.GetWavFilename(AIndex: integer): string;
@@ -373,6 +375,16 @@ end;
 function TPluginMapInfo.GetProgramMapEmbedded: boolean;
 begin
   result := true;
+end;
+
+function TPluginMapInfo.GetCustomUnitName(AUnitType: TStarcraftUnit): string;
+begin
+  result := FContext.GetCustomUnitName(AUnitType);
+end;
+
+function TPluginMapInfo.GetStandardUnitName(AUnitType: TStarcraftUnit): string;
+begin
+  result := FContext.GetStandardUnitName(AUnitType);
 end;
 
 constructor TPluginMapInfo.Create(const AContext: TPluginContext);

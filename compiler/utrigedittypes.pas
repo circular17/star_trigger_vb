@@ -250,7 +250,7 @@ const
     'ore and gas',
     'Units',
     'Buildings',
-    'Units a nd buildings',
+    'Units and buildings',
     'Kills',
     'Razings',
     'Kills and razings',

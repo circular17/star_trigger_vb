@@ -20,9 +20,9 @@ type
   end;
 
 function TryScalarVariable(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): TScalarVariable;
-function TryUnitType(AScope: integer; ALine: TStringList; var AIndex: integer; out AUnit: TStarcraftUnit): boolean;
-function ExpectUnitTypeIdentifier({%H-}AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
-function ExpectUnitType(AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
+function TryUnitType(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AUnit: TStarcraftUnit): boolean;
+function ExpectUnitTypeIdentifier(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
+function ExpectUnitType(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
 function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
 function TryIntegerVariable(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWiderScope: boolean = true): integer;
 function TryIntegerConstantVariable(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWiderScope: boolean = true): integer;
@@ -55,16 +55,30 @@ var
 
 implementation
 
-uses uparsevb, uvariables, uprocedures;
+uses uparsevb, uvariables, uprocedures, umapinfo;
 
-function TryUnitType(AScope: integer; ALine: TStringList; var AIndex: integer; out AUnit: TStarcraftUnit): boolean;
+function TryUnitType(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AUnit: TStarcraftUnit): boolean;
 var
   u: TStarcraftUnit;
   i: Integer;
   wantUnit: Boolean;
+  customName: string;
 begin
   if TryToken(ALine,AIndex,'Unit') then
   begin
+    if TryToken(ALine, AIndex, '(') then
+    begin
+      AUnit := suNone;
+      customName := ExpectStringConstant(AThreads, AScope, ALine, AIndex, true);
+      ExpectToken(ALine, AIndex, ')');
+      for u := low(TStarcraftUnit) to high(TStarcraftUnit) do
+        if MapInfo.CustomUnitName[u] = customName then
+        begin
+          AUnit := u;
+          exit(true);
+        end;
+      raise exception.Create('Custom unit name not found');
+    end;
     ExpectToken(ALine,AIndex,'.');
     wantUnit := true;
   end else
@@ -97,11 +111,11 @@ begin
   exit(false);
 end;
 
-function ExpectUnitTypeIdentifier(AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
+function ExpectUnitTypeIdentifier(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
 var
   ident: string;
 begin
-  if not TryUnitType(AScope, ALine, AIndex, result) then
+  if not TryUnitType(AThreads, AScope, ALine, AIndex, result) then
   begin
     if not TryIdentifier(ALine, AIndex, ident, false) then
       raise exception.Create('Expecting identifier')
@@ -109,7 +123,7 @@ begin
   end;
 end;
 
-function ExpectUnitType(AScope: integer; ALine: TStringList;
+function ExpectUnitType(AThreads: TPlayers; AScope: integer; ALine: TStringList;
   var AIndex: integer): TStarcraftUnit;
 var
   i: Integer;
@@ -122,7 +136,7 @@ begin
         exit(UnitConsts[i].Value);
     AScope := GetWiderScope(AScope);
   end;
-  result := ExpectUnitTypeIdentifier(AScope, ALine, AIndex);
+  result := ExpectUnitTypeIdentifier(AThreads, AScope, ALine, AIndex);
 end;
 
 function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
@@ -414,7 +428,6 @@ begin
         raise exception.Create('Expecting integer value');
       if not TryInteger(AThreads, AScope, ALine, AIndex, result) then
         raise exception.Create('Expecting integer constant');
-      inc(AIndex);
 
       if result < 2 then
         raise Exception.Create('Value must be greated or equal to 2');
@@ -788,7 +801,7 @@ begin
       begin
         if TryToken(ALine,idx,'(') then
         begin
-          unitType := ExpectUnitType(AScope, ALine,idx);
+          unitType := ExpectUnitType(AThreads, AScope, ALine,idx);
           ExpectToken(ALine,idx,')');
         end else
           unitType := suAnyUnit;

@@ -5,7 +5,7 @@ unit umapinfo;
 interface
 
 uses
-  Classes, SysUtils;
+  Classes, SysUtils, usctypes;
 
 const
   AnywhereLocationIndex = 63;
@@ -26,6 +26,8 @@ type
     function GetLocationName(AIndex: integer): string; virtual; abstract;
     function GetWavName(AIndex: integer): string; virtual; abstract;
     function GetSwitchName(AIndexBase1: integer): string; virtual; abstract;
+    function GetCustomUnitName(AUnitType: TStarcraftUnit): string; virtual; abstract;
+    function GetStandardUnitName(AUnitType: TStarcraftUnit): string; virtual; abstract;
   public
     function StrictLocations: boolean; virtual; abstract;
     function RetrieveStoredProgram: string; virtual; abstract;
@@ -43,6 +45,8 @@ type
     property SwitchName[AIndexBase1: integer]: string read GetSwitchName;
     property LocationName[AIndex: integer]: string read GetLocationName;
     property WavName[AIndex: integer]: string read GetWavName;
+    property StandardUnitName[AUnitType: TStarcraftUnit]: string read GetStandardUnitName;
+    property CustomUnitName[AUnitType: TStarcraftUnit]: string read GetCustomUnitName;
     property AnywhereLocationName: string read GetAnywhereLocationName;
     property ProgramMapEmbedded: boolean read GetProgramMapEmbedded;
   end;
@@ -57,6 +61,8 @@ type
     function GetLocationName(AIndex: integer): string; override;
     function GetWavName({%H-}AIndex: integer): string; override;
     function GetSwitchName(AIndexBase1: integer): string; override;
+    function GetStandardUnitName(AUnitType: TStarcraftUnit): string; override;
+    function GetCustomUnitName(AUnitType: TStarcraftUnit): string; override;
   public
     function StrictLocations: boolean; override;
     function RetrieveStoredProgram: string; override;
@@ -115,6 +121,16 @@ end;
 function TDefaultMapInfo.GetSwitchName(AIndexBase1: integer): string;
 begin
   result := 'Switch'+inttostr(AIndexBase1);
+end;
+
+function TDefaultMapInfo.GetStandardUnitName(AUnitType: TStarcraftUnit): string;
+begin
+  result := '';
+end;
+
+function TDefaultMapInfo.GetCustomUnitName(AUnitType: TStarcraftUnit): string;
+begin
+  result := '';
 end;
 
 function TDefaultMapInfo.StrictLocations: boolean;

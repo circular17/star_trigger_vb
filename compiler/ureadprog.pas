@@ -455,7 +455,9 @@ begin
           if inEvent<>-1 then
             Events[inEvent].Instructions.Add(TDoAsInstruction.Create(doPlayers)) else
           if inSubMain then
-            MainProg.Add(TDoAsInstruction.Create(doPlayers))
+            MainProg.Add(TDoAsInstruction.Create(doPlayers)) else
+          if inSub <> -1 then
+            Procedures[inSub].Instructions.Add(TDoAsInstruction.Create(doPlayers))
           else
             raise exception.Create('Unhandled case');
 
@@ -476,6 +478,8 @@ begin
               MainProg.Add(TEndDoAsInstruction.Create(doPlayers) ) else
             if (inEvent<>-1) then
               Events[inEvent].Instructions.Add(TEndDoAsInstruction.Create(doPlayers) )
+            else if (inSub <> -1) then
+              Procedures[inSub].Instructions.Add(TEndDoAsInstruction.Create(doPlayers) )
             else
               raise exception.Create('Unhandled case');
           end

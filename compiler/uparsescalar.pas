@@ -22,6 +22,7 @@ type
 function TryScalarVariable(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): TScalarVariable;
 function TryUnitType(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AUnit: TStarcraftUnit): boolean;
 function ExpectUnitTypeIdentifier(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
+function TryUnitTypeConst(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AWiderScope: boolean = true): TStarcraftUnit;
 function ExpectUnitType(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
 function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
 function TryIntegerVariable(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWiderScope: boolean = true): integer;
@@ -123,10 +124,11 @@ begin
   end;
 end;
 
-function ExpectUnitType(AThreads: TPlayers; AScope: integer; ALine: TStringList;
-  var AIndex: integer): TStarcraftUnit;
+function TryUnitTypeConst(AThreads: TPlayers; AScope: integer;
+  ALine: TStringList; var AIndex: integer; AWiderScope: boolean
+  ): TStarcraftUnit;
 var
-  i: Integer;
+  i, classIdx: Integer;
 begin
   while AScope <> -1 do
   begin
@@ -134,9 +136,30 @@ begin
       if (UnitConsts[i].Scope = AScope) and
         TryToken(ALine, AIndex, UnitConsts[i].Name) then
         exit(UnitConsts[i].Value);
+    if not AWiderScope then break;
     AScope := GetWiderScope(AScope);
   end;
-  result := ExpectUnitTypeIdentifier(AThreads, AScope, ALine, AIndex);
+
+  if AWiderScope then
+  begin
+    classIdx := TryClassName(ALine, AIndex);
+    if classIdx <> -1 then
+    begin
+      ExpectToken(ALine, AIndex, '.');
+      result := TryUnitTypeConst(AThreads, ClassDefinitions[classIdx].InnerScope, ALine, AIndex, false);
+      exit;
+    end;
+  end;
+
+  result := suNone;
+end;
+
+function ExpectUnitType(AThreads: TPlayers; AScope: integer; ALine: TStringList;
+  var AIndex: integer): TStarcraftUnit;
+begin
+  result := TryUnitTypeConst(AThreads, AScope, ALine, AIndex, true);
+  if result = suNone then
+    result := ExpectUnitTypeIdentifier(AThreads, AScope, ALine, AIndex);
 end;
 
 function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;

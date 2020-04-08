@@ -184,7 +184,7 @@ type
     function Duplicate: TCondition; override;
   end;
 
-function TryExpression(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; ARaiseException: boolean; AAcceptCalls: boolean = true): TExpression;
+function TryExpression(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; ARaiseException: boolean; AAcceptCalls: boolean = true; AConstOnly: boolean = false): TExpression;
 
 implementation
 
@@ -197,10 +197,10 @@ var
   oldIndex: integer;
 begin
   oldIndex := AIndex;
-  expr := TryExpression(AThreads, AScope, ALine,AIndex,false,false);
+  expr := TryExpression(AThreads, AScope, ALine,AIndex, false, false, true);
   if expr = nil then
   begin
-    result := TryInteger(AThreads, AScope, ALine,AIndex,AValue);
+    result := TryInteger(AThreads, AScope, ALine, AIndex, AValue);
     exit;
   end;
   if expr.Elements.Count > 0 then
@@ -248,7 +248,7 @@ begin
   expr.Free;
 end;
 
-function TryExpression(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; ARaiseException: boolean; AAcceptCalls: boolean): TExpression;
+function TryExpression(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; ARaiseException: boolean; AAcceptCalls: boolean; AConstOnly: boolean): TExpression;
 var
   intValue: integer;
   neg, boolVal: boolean;
@@ -288,7 +288,7 @@ var
       if rnd <> -1 then
         result := TRandomNode.Create(neg, rnd) else
       begin
-        scalar:= TryScalarVariable(AThreads, AScope, ALine,idx);
+        scalar:= TryScalarVariable(AThreads, AScope, ALine, idx, AConstOnly);
         case scalar.VarType of
         svtInteger: if scalar.Constant then
                         result := TConstantNode.Create(neg, scalar.IntValue)
@@ -301,7 +301,7 @@ var
           end
         else
           begin
-            if TryToken(ALine,idx,'CountIf') then
+            if not AConstOnly and TryToken(ALine,idx,'CountIf') then
             begin
               ExpectToken(ALine,idx,'(');
               idxVar := TryBooleanArray(AScope,ALine,idx);

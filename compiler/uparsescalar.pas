@@ -447,8 +447,6 @@ begin
     if TryToken(ALine,AIndex,'(') then ExpectToken(ALine,AIndex,')');
     if TryToken(ALine,AIndex,'*') then
     begin
-      if AIndex >= ALine.Count then
-        raise exception.Create('Expecting integer value');
       if not TryInteger(AThreads, AScope, ALine, AIndex, result) then
         raise exception.Create('Expecting integer constant');
 

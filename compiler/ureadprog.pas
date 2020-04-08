@@ -207,16 +207,19 @@ var
   var j: integer;
     loopValues: array of string;
     fromValue, stepValue, nesting, toValue, bitCount: integer;
-    isString, isBoolean: boolean;
+    isString, isBoolean, isPlayer: boolean;
     intValues: ArrayOfInteger;
     loopVar, varType: string;
     boolValues: ArrayOfSwitchValue;
+    playerValues: TPlayers;
+    pl: TPlayer;
 
-    procedure ParseLoopVarType(AAcceptBool, AAcceptStr: boolean);
+    procedure ParseLoopVarType(AAcceptBool, AAcceptStr, AAcceptPlayer: boolean);
     begin
       bitCount := 0;
       isString := false;
       isBoolean:= false;
+      isPlayer := false;
       if TryToken(line,index,'As') then
       begin
         if TryUnsignedIntegerType(line,index,varType) then
@@ -230,6 +233,9 @@ var
         if not AAcceptStr and PeekToken(line,index,'String') then
           raise exception.Create('String type not accepted here') else
         if TryToken(line,index,'String') then isString := true else
+        if not AAcceptPlayer and PeekToken(line,index,'Player') then
+          raise exception.Create('Player type not accepted here') else
+        if TryToken(line,index,'Player') then isPlayer := true else
         begin
           TryIdentifier(line,index,varType,true);
           if varType = '' then raise exception.Create('Expecting loop variable type')
@@ -255,7 +261,7 @@ var
     begin
       if IsVarNameUsed(scope, loopVar, 0) then
         raise exception.Create('The name "'+loopVar+'" is already in use');
-      ParseLoopVarType(False,False);
+      ParseLoopVarType(False,False,False);
       ExpectToken(line,index,'=');
       fromValue := ExpectIntegerConstant(AThreads, scope, line, index, true);
       CheckIntBounds(fromValue);
@@ -288,7 +294,7 @@ var
       begin
         if IsVarNameUsed(scope, loopVar, 0) then
           raise exception.Create('The name "'+loopVar+'" is already in use');
-        ParseLoopVarType(true,true);
+        ParseLoopVarType(true,true,true);
         ExpectToken(line,index,'In');
         if bitCount > 0 then
         begin
@@ -308,6 +314,22 @@ var
           CheckLoopCount(length(loopValues));
           for j := 0 to high(loopValues) do
             loopValues[j] := '"'+stringreplace(loopValues[j],'"','""',[rfReplaceAll])+'"';
+        end else
+        if isPlayer then
+        begin
+          playerValues := ExpectPlayers(AThreads, scope, line, index);
+          j := 0;
+          for pl := succ(plNone) to high(TPlayer) do
+            if pl in playerValues then inc(j);
+          CheckLoopCount(j);
+          setlength(loopValues, j);
+          j := 0;
+          for pl := succ(plNone) to high(TPlayer) do
+            if pl in playerValues then
+            begin
+              loopValues[j] := PlayerIdentifiers[pl];
+              inc(j);
+            end;
         end else
         if isBoolean then
         begin

@@ -236,7 +236,8 @@ begin
             (CompareText('Switch',AName) = 0) or (CompareText('AI',AName) = 0) or
             (CompareText('Unit',AName) = 0) or IsUnitType(AName) or
             (CompareText('Color',AName) = 0) or (CompareText('Align',AName) = 0) or
-            (CompareText('ElapsedTime',AName) = 0) or (CompareText('OpponentCount',AName) = 0);
+            (CompareText('ElapsedTime',AName) = 0) or (CompareText('OpponentCount',AName) = 0) or
+            (CompareText('Player',AName) = 0);
 
   if not result and Assigned(IsProcOrClassNameUsed) then
     result := IsProcOrClassNameUsed(AScope, AName, AParamCount);

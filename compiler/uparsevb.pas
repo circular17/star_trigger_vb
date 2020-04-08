@@ -158,7 +158,6 @@ begin
   if IsReservedWord(AText) then raise exception.Create('"' + AText + '" is a reserved word');
   for pl := low(TPlayer) to high(TPlayer) do
     if CompareText(PlayerIdentifiers[pl], AText)=0 then raise exception.Create('"' + PlayerIdentifiers[pl] + '" is a player identifier');
-  if CompareText(AText,'Player')=0 then raise exception.Create('"' + PlayerIdentifiers[pl] + '" is a player identifier');
 end;
 
 function IsReservedWord(AText: string): boolean;

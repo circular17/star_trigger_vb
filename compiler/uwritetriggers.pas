@@ -325,61 +325,70 @@ begin
             thenPart := TInstructionList.Create;
             elsePart := TInstructionList.Create;
 
-            if elseIndex = -1 then
-            begin
-              for k := i+1 to j-1 do
-                thenPart.Add(AProg[k].Duplicate);
-            end else
-            begin
-              for k := i+1 to elseIndex-1 do
-                thenPart.Add(AProg[k].Duplicate);
-              for k := elseIndex+1 to j-1 do
-                elsePart.Add(AProg[k].Duplicate);
-
-              if AProg[elseIndex] is TElseIfInstruction then
+            try
+              if elseIndex = -1 then
               begin
-                elsePart.Insert(0, TIfInstruction.Create(TElseIfInstruction(AProg[elseIndex]).Conditions.Duplicate));
-                elsePart.Add(TEndIfInstruction.Create);
+                for k := i+1 to j-1 do
+                  thenPart.Add(AProg[k].Duplicate);
+              end else
+              begin
+                for k := i+1 to elseIndex-1 do
+                  thenPart.Add(AProg[k].Duplicate);
+                for k := elseIndex+1 to j-1 do
+                  elsePart.Add(AProg[k].Duplicate);
+
+                if AProg[elseIndex] is TElseIfInstruction then
+                begin
+                  elsePart.Insert(0, TIfInstruction.Create(TElseIfInstruction(AProg[elseIndex]).Conditions.Duplicate));
+                  elsePart.Add(TEndIfInstruction.Create);
+                end;
               end;
-            end;
 
-            ifInstr := TIfInstruction(AProg[i]);
-            nextIP := NewIP;
-            //if condition is a Not, it can be done be swapping Then part and Else part
-            if (ifInstr.Conditions.Count = 1) and (ifInstr.Conditions[0] is TNotCondition) then
-            begin
-              tempPart := thenPart;
-              thenPart := elsePart;
-              elsePart := tempPart;
-
-              notCond := TNotCondition(ifInstr.Conditions[0]);
-              AddWaitCondition(notCond.Conditions, nextIP);
-            end
-            else
-              AddWaitCondition(ifInstr.Conditions, nextIP);
-
-            ExpandInstructions(thenPart, AInProc, AIsMain, APlayers, AExpanded, -1);
-            thenPart.FreeAll;
-
-            splitInstr := TSplitInstruction.Create(nextIP,-1);
-            AExpanded.Add(splitInstr);
-
-            if (j = AProg.Count-1) and (AEndIP <> -1) then
-            begin
-              splitInstr.EndIP:= AEndIP;
-              ExpandInstructions(elsePart, AInProc, AIsMain, APlayers, AExpanded, AEndIP);
-              elsePart.FreeAll;
-            end
-            else
-            begin
+              ifInstr := TIfInstruction(AProg[i]);
               nextIP := NewIP;
-              splitInstr.EndIP:= nextIP;
-              ExpandInstructions(elsePart, AInProc, AIsMain, APlayers, AExpanded, nextIP);
-              elsePart.FreeAll;
-              AExpanded.Add(TChangeIPInstruction.Create(nextIP, 0));
-            end;
+              //if condition is a Not, it can be done be swapping Then part and Else part
+              if (ifInstr.Conditions.Count = 1) and (ifInstr.Conditions[0] is TNotCondition) then
+              begin
+                tempPart := thenPart;
+                thenPart := elsePart;
+                elsePart := tempPart;
 
-            i := j;
+                notCond := TNotCondition(ifInstr.Conditions[0]);
+                AddWaitCondition(notCond.Conditions, nextIP);
+              end
+              else
+                AddWaitCondition(ifInstr.Conditions, nextIP);
+
+              ExpandInstructions(thenPart, AInProc, AIsMain, APlayers, AExpanded, -1);
+              thenPart.FreeAll;
+              thenPart := nil;
+
+              splitInstr := TSplitInstruction.Create(nextIP,-1);
+              AExpanded.Add(splitInstr);
+
+              if (j = AProg.Count-1) and (AEndIP <> -1) then
+              begin
+                splitInstr.EndIP:= AEndIP;
+                ExpandInstructions(elsePart, AInProc, AIsMain, APlayers, AExpanded, AEndIP);
+                elsePart.FreeAll;
+                elsePart := nil;
+              end
+              else
+              begin
+                nextIP := NewIP;
+                splitInstr.EndIP:= nextIP;
+                ExpandInstructions(elsePart, AInProc, AIsMain, APlayers, AExpanded, nextIP);
+                elsePart.FreeAll;
+                elsePart := nil;
+                AExpanded.Add(TChangeIPInstruction.Create(nextIP, 0));
+              end;
+
+              i := j;
+
+            finally
+              if Assigned(thenPart) then thenPart.FreeAll;
+              if Assigned(elsePart) then elsePart.FreeAll;
+            end;
             break;
           end;
         end;

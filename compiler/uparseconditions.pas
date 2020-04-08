@@ -21,8 +21,10 @@ begin
   setlength(result, length(AParamValues));
   for i := 0 to high(result) do
   begin
-    result[i].Condition := (AParamValues[i].Condition as TCondition).Duplicate;
-    result[i].Expression := (AParamValues[i].Expression as TExpression).Duplicate;
+    if Assigned(AParamValues[i].Condition) then
+      result[i].Condition := (AParamValues[i].Condition as TCondition).Duplicate;
+    if Assigned(AParamValues[i].Expression) then
+      result[i].Expression := (AParamValues[i].Expression as TExpression).Duplicate;
   end;
 end;
 

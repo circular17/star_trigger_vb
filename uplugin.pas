@@ -58,6 +58,7 @@ begin
       fMain := TFMain.Create(nil);
       try
         fMain.Position := poDefault;
+        fMain.WindowState := wsMaximized;
         fMain.ShowModal;
       except
         on ex: Exception do

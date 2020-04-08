@@ -72,6 +72,7 @@ type
     procedure SynEdit1Change(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
   private
+    PrevCaret: TPoint;
     function GetModified: boolean;
     procedure SetCurFilename(AValue: string);
     procedure SetModified(AValue: boolean);
@@ -487,7 +488,63 @@ begin
 end;
 
 procedure TFMain.SynEdit1Change(Sender: TObject);
+const IdOrNumber : set of char = ['A'..'Z','a'..'z','_','0'..'9'];
+  function IsIdOrNumber(AText: string; APos: integer): boolean;
+  begin
+    if (APos < 1) or (APos > length(AText)) then exit(false)
+    else exit(AText[APos] in IdOrNumber);
+  end;
+
+  function FixCase(var AText: string; AIndexEnd: integer; out ADeltaX: integer): boolean;
+  var
+    indexStart, i: Integer;
+    w: string;
+  begin
+    ADeltaX := 0;
+    if not IsIdOrNumber(AText, AIndexEnd) then exit(false);
+    indexStart := AIndexEnd;
+    while (indexStart > 1) and IsIdOrNumber(AText, indexStart-1) do
+      dec(indexStart);
+    w := copy(AText, indexStart, AIndexEnd-indexStart+1);
+    if CompareText(w, 'EndIf')=0 then
+    begin
+      AText := Copy(AText, 1, indexStart-1) + 'End If' +
+          Copy(AText, AIndexEnd+1, length(AText)-AIndexEnd);
+      ADeltaX := 1;
+      exit(true);
+    end;
+    for i := low(ImplementedReservedWords) to high(ImplementedReservedWords) do
+       if CompareText(w, ImplementedReservedWords[i])=0 then
+       begin
+         AText := Copy(AText, 1, indexStart-1) + ImplementedReservedWords[i]
+            + Copy(AText, AIndexEnd+1, length(AText)-AIndexEnd);
+         exit(true);
+       end;
+    result := false;
+  end;
+
+var
+  s: String;
+  newCaret: TPoint;
+  deltaX: integer;
 begin
+  newCaret := SynEdit1.LogicalCaretXY;
+  if (((newCaret.X > prevCaret.X) and (newCaret.Y = prevCaret.Y)) or
+     (newCaret.Y > prevCaret.Y)) and
+     (prevCaret.Y >= 1) and (prevCaret.Y <= SynEdit1.Lines.Count) then
+  begin
+    s := SynEdit1.Lines[prevCaret.Y-1];
+    if not IsIdOrNumber(s, prevCaret.X) and FixCase(s, prevCaret.X-1, deltaX) then
+    begin
+      SynEdit1.Lines[prevCaret.Y-1] := s;
+      if prevCaret.Y = newCaret.Y then
+      begin
+        Synedit1.CaretX:= Synedit1.CaretX + deltaX;
+        newCaret := SynEdit1.LogicalCaretXY;
+      end;
+    end;
+  end;
+  prevCaret := newCaret;
   ErrorsToUpdate:= true;
 end;
 

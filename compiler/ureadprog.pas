@@ -206,7 +206,8 @@ var
 
   var j: integer;
     loopValues: array of string;
-    fromValue, stepValue, nesting, toValue, bitCount: integer;
+    fromValue, stepValue, nesting, toValue, bitCount, classIdx,
+      arrIndex: integer;
     isString, isBoolean, isPlayer: boolean;
     intValues: ArrayOfInteger;
     loopVar, varType: string;
@@ -298,7 +299,10 @@ var
         ExpectToken(line,index,'In');
         if bitCount > 0 then
         begin
-          intValues := ParseIntArray(AThreads, scope, line, index);
+          arrIndex := TryIntegerArray(scope, line, index, true);
+          if arrIndex <> -1 then
+            intValues := copy(IntArrays[arrIndex].Values, 1, length(IntArrays[arrIndex].Values))
+            else intValues := ParseIntArray(AThreads, scope, line, index);
           CheckLoopCount(length(intValues));
           if bitCount <> 0 then
             for j := 0 to high(intValues) do
@@ -310,14 +314,20 @@ var
         end else
         if isString then
         begin
-          loopValues := ParseStringArray(AThreads, scope, line, index);
+          arrIndex := TryStringArray(scope, line, index);
+          if arrIndex <> -1 then
+            loopValues := copy(StringArrays[arrIndex].Values, 1, length(StringArrays[arrIndex].Values))
+            else loopValues := ParseStringArray(AThreads, scope, line, index);
           CheckLoopCount(length(loopValues));
           for j := 0 to high(loopValues) do
             loopValues[j] := '"'+stringreplace(loopValues[j],'"','""',[rfReplaceAll])+'"';
         end else
         if isPlayer then
         begin
-          playerValues := ExpectPlayers(AThreads, scope, line, index);
+          classIdx := TryClass(line, index);
+          if classIdx <> -1 then
+            playerValues:= ClassDefinitions[classIdx].Threads
+            else playerValues := ExpectPlayers(AThreads, scope, line, index);
           j := 0;
           for pl := succ(plNone) to high(TPlayer) do
             if pl in playerValues then inc(j);
@@ -333,7 +343,10 @@ var
         end else
         if isBoolean then
         begin
-          boolValues := ParseBoolArray(AThreads, scope, line, index);
+          arrIndex := TryBooleanArray(scope, line, index, true);
+          if arrIndex <> -1 then
+            boolValues := copy(BoolArrays[arrIndex].Values, 1, length(BoolArrays[arrIndex].Values))
+            else boolValues := ParseBoolArray(AThreads, scope, line, index);
           CheckLoopCount(length(boolValues));
           setlength(loopValues, length(boolValues));
           for j := 0 to high(loopValues) do

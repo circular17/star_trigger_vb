@@ -396,7 +396,15 @@ var
           lastNode.Free;
         end
         else
-          mult := TMultiplyNode.Create(TExpression.Create(lastNode), AValue);
+        begin
+          if lastNode.Negative then
+          begin
+            lastNode.Negative:= not lastNode.Negative;
+            mult := TMultiplyNode.Create(TExpression.Create(lastNode), AValue);
+            mult.Negative := true;
+          end else
+            mult := TMultiplyNode.Create(TExpression.Create(lastNode), AValue);
+        end;
         result.Elements[result.Elements.Count-1] := mult;
       end;
     end;
@@ -1022,7 +1030,7 @@ procedure TExpression.AddToProgram(AProg: TInstructionList;
   ADestPlayer: TPlayer; ADestUnitType: TStarcraftUnit; AMode: TSetIntegerMode);
 var
   i: LongInt;
-  firstElem: Boolean;
+  firstAccElem: Boolean;
   removedElem: TExpressionNode;
   bitCount: integer;
 begin
@@ -1101,57 +1109,85 @@ begin
   end
   else
   begin
-    if AMode = simSetTo then
-    begin
-      if ConstElement > 0 then
-      begin
-        AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simSetTo, ConstElement) );
-        ConstElement := 0;
-      end else
-      begin
-        AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simSetTo, 0) );
-      end;
-    end else
-    begin
-      if ConstElement > 0 then
-      begin
-        AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simAdd, ConstElement) );
-        ConstElement := 0;
-      end;
-    end;
-
-    firstElem := true;
+    firstAccElem := true;
     for i := 0 to Elements.Count-1 do
       if not Elements[i].Negative then
       begin
-        if not firstElem and Elements[i].AlwaysClearAccumulator then
+        if not firstAccElem and Elements[i].AlwaysClearAccumulator then
         begin
-          AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itAddAccumulator ) );
-          firstElem := true;
+          if AMode = simSetTo then
+          begin
+            AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itCopyAccumulator ) );
+            AMode := simAdd;
+          end else
+            AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itAddAccumulator ) );
+          firstAccElem := true;
         end;
-        Elements[i].LoadIntoAccumulator(firstElem, AProg);
-        firstElem := false;
+        Elements[i].LoadIntoAccumulator(firstAccElem, AProg);
+        firstAccElem := false;
       end;
-    if not firstElem then
-      AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itAddAccumulator ) );
 
-    firstElem := true;
+    if ConstElement > 0 then
+    begin
+      if not firstAccElem then
+        AProg.Add( TTransferIntegerInstruction.Create( ConstElement, itAddIntoAccumulator ) )
+        else
+        begin
+          if AMode = simSetTo then
+          begin
+            AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simSetTo, ConstElement ) );
+            AMode := simAdd;
+          end
+            else AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simAdd, ConstElement ) );
+        end;
+    end;
+
+    if not firstAccElem then
+    begin
+      if AMode = simSetTo then // always copy accumulator because afterwards its value is negative
+      begin
+        AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itCopyAccumulator ) );
+        AMode := simAdd;
+      end else
+        AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itAddAccumulator ) );
+      firstAccElem := true;
+    end;
+
     for i := 0 to Elements.Count-1 do
       if Elements[i].Negative then
       begin
-        if not firstElem and Elements[i].AlwaysClearAccumulator then
+        if not firstAccElem and Elements[i].AlwaysClearAccumulator then
         begin
-          AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itSubtractAccumulator ) );
-          firstElem:= true;
+          if AMode = simSetTo then
+          begin
+            AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simSetTo, 0) );
+            AMode := simAdd;
+          end else
+            AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itSubtractAccumulator ) );
+          firstAccElem:= true;
         end;
-        Elements[i].LoadIntoAccumulator(firstElem, AProg);
-        firstElem := false;
+        Elements[i].LoadIntoAccumulator(firstAccElem, AProg);
+        firstAccElem := false;
       end;
-    if not firstElem then
-      AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itSubtractAccumulator ) );
+    if not firstAccElem then
+    begin
+      if AMode = simSetTo then
+      begin
+        AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simSetTo, 0) );
+        AMode := simAdd;
+      end else
+        AProg.Add( TTransferIntegerInstruction.Create( ADestPlayer, ADestUnitType, itSubtractAccumulator ) );
+    end;
 
     if ConstElement < 0 then
-      AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simSubtract, -ConstElement) );
+    begin
+      if AMode = simSetTo then
+      begin
+        AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simSetTo, 0) );
+        AMode := simAdd;
+      end else
+        AProg.Add( CreateSetIntegerInstruction( ADestPlayer, ADestUnitType, simSubtract, -ConstElement) );
+    end;
   end;
 
   if assigned(removedElem) then Elements.Add(removedElem);

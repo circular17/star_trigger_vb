@@ -687,7 +687,7 @@ begin
     if TransferProcs[i].SubAcc then
     begin
       condVar := CheckSysParam(i);
-      proc.Add( CreateSetIntegerInstruction(IntVars[i].Player, IntVars[i].UnitType, simSubtract, (1 shl TotalBits )-1) );
+      proc.Add( CreateSetIntegerInstruction(IntVars[i].Player, IntVars[i].UnitType, simSubtract, (1 shl TransferProcs[i].BitCount )-1) );
       WriteProg([plAllPlayers], [condSub, condVar], proc, -1,-1, True);
       EmptyProc;
       condVar.Free;

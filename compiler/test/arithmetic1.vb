@@ -37,6 +37,36 @@ Sub Main()
   Else
     Print("Error")
   End If
+  
+  c = 40
+  b = 200
+  a = b - c
+  if a = 160 Then
+    Print("OK")
+  Else
+    Print("Error")
+  End If
+  Me.CustomScore = a
+  Leaderboard.Show(CustomScore)
+  
+  c = 40
+  a = 200 - 2*c
+  if a = 120 Then
+    Print("OK")
+  Else
+    Print("Error")
+  End If
+  Me.Minerals = a
+
+  c = 40
+  a = 200 - c*2
+  if a = 120 Then
+    Print("OK")
+  Else
+    Print("Error")
+  End If
+  Me.Gas = a
+
 End Sub
 
 

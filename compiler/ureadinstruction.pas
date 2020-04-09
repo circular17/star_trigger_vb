@@ -78,9 +78,8 @@ end;
 
 function TryClassFunction({%H-}AScope: integer; AProg: TInstructionList; ALine: TStringList; var AIndex: Integer; AClass: integer; AThreads: TPlayers; AMainThread: TPlayer): boolean;
 var
-  i, classScope, oldIndex: Integer;
+  i, classScope: Integer;
   targetThreads: TPlayers;
-  ident: string;
 
   procedure AddCall(AProcName: string);
   var
@@ -110,7 +109,6 @@ var
   end;
 
 begin
-  oldIndex := AIndex;
   classScope := ClassDefinitions[AClass].InnerScope;
   targetThreads := ClassDefinitions[AClass].Threads;
   for i := 0 to ProcedureCount-1 do
@@ -121,20 +119,6 @@ begin
       exit(true);
     end;
   result := false;
-
-  if TryIdentifier(ALine, AIndex, ident, false) then
-  begin
-    if not IsVarNameUsed(classScope, ident, 0) then
-    begin
-      AddCall(ident);
-      result := true;
-    end else
-    begin
-      AIndex := oldIndex;
-      result := false;
-    end;
-  end else
-    result := false;
 end;
 
 function TryPlayerAction(AScope: integer; AProg: TInstructionList; ALine: TStringList; var AIndex: Integer; APlayer: TPlayer; AThreads: TPlayers): boolean;
@@ -1157,7 +1141,17 @@ begin
       if scalar.VarType = svtNone then
       begin
         if name <> '' then
-          raise exception.Create('Unknown variable or class "' + name + '"')
+        begin
+          idxClass:= ClassIndexOf(name);
+          if idxClass <> -1 then
+          begin
+            if not IsUniquePlayer(ClassDefinitions[idxClass].Threads) then
+              raise exception.Create('Multithread class cannot be used this way')
+            else
+              raise exception.Create('Class cannot be used this way');
+          end else
+            raise exception.Create('Unknown variable or class "' + name + '"');
+        end
         else
         begin
           if (index < ALine.Count) and (copy(ALine[index],1,1) = '"') and

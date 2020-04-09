@@ -405,7 +405,7 @@ end;
 
 function ExpectCondition(AScope: integer; ALine: TStringList; var AIndex: integer; AThreads: TPlayers): TCondition;
 var
-  intVal, afterNotIndex, funcIdx: Integer;
+  intVal, afterNotIndex, funcIdx, idxClass: Integer;
   op: TConditionOperator;
   boolNot: Boolean;
   scalar: TScalarVariable;
@@ -430,6 +430,11 @@ begin
     if scalar.VarType = svtNone then
     begin
       pl := TryParsePlayer(AThreads, AScope, ALine,AIndex);
+      if pl = plNone then
+      begin
+        idxClass := TryClassName(ALine, AIndex, true);
+        if idxClass <> -1 then pl := GetUniquePlayer(ClassDefinitions[idxClass].Threads);
+      end;
       if pl <> plNone then
       begin
         ExpectToken(ALine,AIndex,'.');

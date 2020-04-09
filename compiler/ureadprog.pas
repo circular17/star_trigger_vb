@@ -324,7 +324,7 @@ var
         end else
         if isPlayer then
         begin
-          classIdx := TryClass(line, index);
+          classIdx := TryClassName(line, index);
           if classIdx <> -1 then
             playerValues:= ClassDefinitions[classIdx].Threads
             else playerValues := ExpectPlayers(AThreads, scope, line, index);
@@ -478,7 +478,7 @@ begin
           raise exception.Create('Nested multi-thread instruction not allowed');
         if not inDoAs and TryToken(line,index,'As') then
         begin
-          refClass := TryClass(line, index);
+          refClass := TryClassName(line, index);
           if refClass <> -1 then doPlayers := ClassDefinitions[refClass].Threads
           else doPlayers := ExpectPlayers(AThreads, scope, line, index);
           if (plAllPlayers in doPlayers) or ([plForce1,plForce2,plForce3,plForce4] <= doPlayers) then
@@ -742,7 +742,7 @@ begin
         else if (inSub = -1) and (inEvent = -1) and not inSubMain and (inClass = -1) and
             TryToken(line,index,'As') then
         begin
-          refClass := TryClass(line, index);
+          refClass := TryClassName(line, index);
           if refClass <> -1 then players := ClassDefinitions[refClass].Threads
           else players := ExpectPlayers([], ALastScope, line, index);
           if index < line.Count then

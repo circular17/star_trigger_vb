@@ -17,7 +17,6 @@ function ParseStringArray(AThreads: TPlayers; AScope: integer; ALine: TStringLis
 function ParseBoolArray(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfSwitchValue;
 function ParseIntArray(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfInteger;
 function TryStringConstant(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AStr: string; ARaiseException: boolean = false): boolean;
-function TryClass(ALine: TStringList; var AIndex: integer): integer;
 
 procedure ProcessDim(AThreads: TPlayers; AScope: integer; ADeclaration: string; AProg: TInstructionList; AInit0, AAllowMultithread: boolean; out AWarning: string);
 procedure ProcessDim(AThreads: TPlayers; AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0, AMultithreadInit: boolean; out AWarning: string);
@@ -438,16 +437,6 @@ begin
   until not TryToken(ALine,idx,'&');
   AIndex := idx;
   result := true;
-end;
-
-function TryClass(ALine: TStringList; var AIndex: integer): integer;
-var
-  i: Integer;
-begin
-  for i := 0 to ClassCount-1 do
-    if TryToken(ALine, AIndex, ClassDefinitions[i].Name) then
-      exit(i);
-  result := -1;
 end;
 
 function ExpectStringConstantImplementation(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): string;

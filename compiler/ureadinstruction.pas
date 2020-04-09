@@ -1069,27 +1069,26 @@ begin
         CheckEndOfLine;
       end else
       begin
-        for idxClass := 0 to ClassCount-1 do
-          if TryToken(ALine,index,ClassDefinitions[idxClass].Name) then
+        idxClass := TryClassName(ALine,index);
+        if idxClass <> -1 then
+        begin
+          ExpectToken(ALine,index,'.');
+          if TryClassFunction(AScope, AProg, ALine, index, idxClass, AThreads, AMainThread) then
           begin
-            ExpectToken(ALine,index,'.');
-            if TryClassFunction(AScope, AProg, ALine, index, idxClass, AThreads, AMainThread) then
+            done := true;
+            CheckEndOfLine;
+          end else
+          begin
+            pl := GetUniquePlayer(ClassDefinitions[idxClass].Threads);
+            if (pl <> plNone) and
+               TryPlayerAction(AScope, AProg, ALine, index, pl, AThreads) then
             begin
               done := true;
               CheckEndOfLine;
-              break;
             end else
-            begin
-              pl := GetUniquePlayer(ClassDefinitions[idxClass].Threads);
-              if (pl <> plNone) and
-                 TryPlayerAction(AScope, AProg, ALine, index, pl, AThreads) then
-              begin
-                done := true;
-                CheckEndOfLine;
-              end else
-                index := 0;
-            end;
+              index := 0;
           end;
+        end;
       end;
     end;
 

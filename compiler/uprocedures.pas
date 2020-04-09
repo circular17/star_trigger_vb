@@ -88,12 +88,13 @@ var
     Name: string;
     Threads: TPlayers;
     InnerScope: integer;
+    UniqueThread: boolean;
   end;
   ClassCount: integer;
 
 function CreateClass(AWiderScope: integer; AThreads: TPlayers; AName: string): integer;
 function ClassIndexOf(AName: string): integer;
-function TryClassName(ALine: TStringList; var AIndex: integer): integer;
+function TryClassName(ALine: TStringList; var AIndex: integer; AUniqueThreadOnly: boolean = false): integer;
 
 procedure ClearProceduresAndEvents;
 
@@ -116,6 +117,7 @@ begin
     Name:= AName;
     Threads:= AThreads;
     InnerScope:= NewScope(AWiderScope, AName);
+    UniqueThread:= IsUniquePlayer(AThreads);
   end;
   inc(ClassCount);
 end;
@@ -130,12 +132,13 @@ begin
   result := -1;
 end;
 
-function TryClassName(ALine: TStringList; var AIndex: integer): integer;
+function TryClassName(ALine: TStringList; var AIndex: integer; AUniqueThreadOnly: boolean = false): integer;
 var
   i: Integer;
 begin
   for i := 0 to ClassCount-1 do
-    if TryToken(ALine, AIndex, ClassDefinitions[i].Name) then
+    if (not AUniqueThreadOnly or ClassDefinitions[i].UniqueThread) and
+       TryToken(ALine, AIndex, ClassDefinitions[i].Name) then
       exit(i);
   result := -1;
 end;

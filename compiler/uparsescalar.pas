@@ -431,7 +431,7 @@ function ExpectConstantIndex(AThreads: TPlayers; AScope: integer;
   ALine: TStringList; var AIndex: integer; AAcceptNegative: boolean): integer;
 var
   uniquePlayer, pl: TPlayer;
-  oldIndex, i: Integer;
+  oldIndex, idxClass: Integer;
 begin
   oldIndex := AIndex;
   for pl := plPlayer1 to plPlayer12 do
@@ -445,18 +445,15 @@ begin
         break;
       end;
     end;
-  for i := 0 to ClassCount-1 do
-    if IsUniquePlayer(ClassDefinitions[i].Threads) and
-       TryToken(ALine,AIndex,ClassDefinitions[i].Name) then
-    begin
-      if not PeekToken(ALine,AIndex,'.') then
-        exit(ord(GetUniquePlayer(ClassDefinitions[i].Threads))-ord(plPlayer1)+1)
-      else
-      begin
-        AIndex := oldIndex;
-        break;
-      end;
-    end;
+
+  idxClass := TryClassName(ALine,AIndex,true);
+  if idxClass <> -1 then
+  begin
+    if not PeekToken(ALine,AIndex,'.') then
+      exit(ord(GetUniquePlayer(ClassDefinitions[idxClass].Threads))-ord(plPlayer1)+1)
+    else
+      AIndex := oldIndex;
+  end;
   uniquePlayer := GetUniquePlayer(AThreads);
   if (uniquePlayer in [plPlayer1..plPlayer12]) and
      TryToken(ALine,AIndex,'Me') then

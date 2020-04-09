@@ -18,6 +18,7 @@ procedure WriteTrigEditCode(AFilename: string);
 var
   t: TextFile;
   i, j: Integer;
+  pl: TPlayer;
 begin
   AssignFile(t, AFilename);
   Rewrite(t);
@@ -45,10 +46,19 @@ begin
       writeln(t, '// ',GetFullscopeName(BoolVars[i].Scope, true) +  BoolVars[i].Name, ' stored in "Switch', BoolVars[i].Switch, '" //');
   writeln(t);
   for i := 0 to CompiledTriggers.Count-1 do
-  begin
-    writeln(t,CompiledTriggers[i].ToTrigEdit);
-    writeln(t);
-  end;
+    if CompiledTriggers[i].IsMultithread then
+    begin
+      for pl := succ(plNone) to high(TPlayer) do
+        if pl in CompiledTriggers[i].Players then
+        begin
+          writeln(t,CompiledTriggers[i].ToTrigEditFor(pl));
+          writeln(t);
+        end;
+    end else
+    begin
+      writeln(t,CompiledTriggers[i].ToTrigEdit);
+      writeln(t);
+    end;
   CloseFile(t);
 end;
 

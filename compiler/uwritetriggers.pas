@@ -795,7 +795,7 @@ begin
       ProceduresExpanded[i].FreeAll;
   end;
 
-  if CompiledTriggers.Count > 65534 then
+  if CompiledTriggersMultiCount > MAX_TRIGGER_COUNT then
     raise exception.Create('Too many triggers');
 end;
 

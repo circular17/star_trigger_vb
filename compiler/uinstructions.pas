@@ -8,6 +8,7 @@ uses
   Classes, SysUtils, fgl, usctypes;
 
 type
+  TMultistring = array[TPlayer] of string;
   TParameterValue = record
     Expression: TObject;
     Condition: TObject;

@@ -45,6 +45,7 @@ type
   TExpectIntegerConstantFunc = function(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AAcceptNegative: boolean): integer;
   TTryIntegerConstantFunc = function(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
   TExpectStringConstantFunc = function(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): string;
+  TExpectMultiStringConstantFunc = function(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): TMultistring;
   TParseProcedureParameterValuesFunc = function(AThreads: TPlayers; AScope: integer; funcName: string; ALine: TStringList; var AIndex: integer): ArrayOfParameterValue;
 
 var
@@ -52,6 +53,7 @@ var
   ExpectIntegerConstant: TExpectIntegerConstantFunc;
   TryIntegerConstant: TTryIntegerConstantFunc;
   ExpectStringConstant: TExpectStringConstantFunc;
+  ExpectMultiStringConstant: TExpectMultiStringConstantFunc;
   ParseProcedureParameterValues: TParseProcedureParameterValuesFunc;
 
 implementation

@@ -137,6 +137,7 @@ var
   subInstr: TInstructionList;
   players: TPlayers;
   unitOrder: TUnitOrder;
+  multiText: TMultistring;
 
   procedure CheckCurrentPlayer;
   begin
@@ -490,9 +491,9 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      text := ExpectStringConstant(AThreads, AScope, ALine, AIndex, true);
+      multiText := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex, true);
       ExpectToken(ALine,AIndex,')');
-      AProg.Add(TDisplayTextMessageInstruction.Create(true, text));
+      AProg.Add(TDisplayTextMessageMultiInstruction.Create(AThreads, true, multiText));
     end else
     if TryToken(ALine,AIndex,'TalkingPortrait') then
     begin

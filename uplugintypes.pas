@@ -153,21 +153,37 @@ end;
 procedure TPluginContext.AddCompiledTriggers;
 var
   t: PTriggerData;
-  from, i, totalCount: Integer;
+  from, i, j, totalCount: Integer;
+  pl: TPlayer;
 begin
-  if CompiledTriggers.Count = 0 then exit;
+  if CompiledTriggersMultiCount = 0 then exit;
   from := TriggerCount;
-  totalCount := from + CompiledTriggers.Count;
-  if totalCount > 65534 then
+  totalCount := from + CompiledTriggersMultiCount;
+  if totalCount > MAX_TRIGGER_COUNT then
     raise exception.Create('Too many triggers');
 
   Triggers^.Size := totalCount*sizeof(TTriggerData);
   Triggers^.Data := ReAllocRam(Triggers^.Data, Triggers^.Size);
+  j := from;
   for i := 0 to CompiledTriggers.Count-1 do
   begin
-    t := Trigger[from+i];
-    fillchar(t^, sizeof(TTriggerData), 0);
-    CompiledTriggers[i].WriteTriggerData(t^);
+    if CompiledTriggers[i].IsMultithread then
+    begin
+      for pl := succ(plNone) to high(TPlayer) do
+        if pl in CompiledTriggers[i].Players then
+        begin
+          t := Trigger[j];
+          fillchar(t^, sizeof(TTriggerData), 0);
+          CompiledTriggers[i].WriteTriggerDataFor(pl, t^);
+          inc(j);
+        end;
+    end else
+    begin
+      t := Trigger[j];
+      fillchar(t^, sizeof(TTriggerData), 0);
+      CompiledTriggers[i].WriteTriggerData(t^);
+      inc(j);
+    end;
   end;
 end;
 

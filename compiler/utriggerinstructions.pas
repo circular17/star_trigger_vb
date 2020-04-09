@@ -11,11 +11,27 @@ type
   { TTriggerInstruction }
 
   TTriggerInstruction = class(TInstruction)
-    function ToTrigEditAndFree: string;
+    function IsMultithread: boolean; virtual;
     function ToBasic: string; virtual;
     function ToTrigEdit: string; virtual; abstract;
+    function ToTrigEditAndFree: string;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); virtual; abstract;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+  end;
+
+  { TTriggerMultiInstruction }
+
+  TTriggerMultiInstruction = class(TTriggerInstruction)
+    function IsMultithread: boolean; override;
+    function ToBasic: string; override;
+    function ToTrigEdit: string; override;
+    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
+
+    function GetUniformPlayer: TPlayer; virtual; abstract;
+    function ToBasicFor(APlayer: TPlayer): string; virtual;
+    function ToTrigEditFor(APlayer: TPlayer): string; virtual; abstract;
+    procedure WriteTriggerDataFor(APlayer: TPlayer; var AData: TTriggerInstructionData); virtual; abstract;
   end;
 
   { TPreserveTriggerInstruction }
@@ -111,6 +127,20 @@ type
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
+  end;
+
+  { TDisplayTextMessageMultiInstruction }
+
+  TDisplayTextMessageMultiInstruction = class(TTriggerMultiInstruction)
+    Threads: TPlayers;
+    Always: boolean;
+    Text: TMultistring;
+    constructor Create(AThreads: TPlayers; AAlways: boolean; AText: TMultistring);
+    function GetUniformPlayer: TPlayer; override;
+    function ToBasicFor(APlayer: TPlayer): string; override;
+    function ToTrigEditFor(APlayer: TPlayer): string; override;
+    procedure WriteTriggerDataFor(APlayer: TPlayer; var AData: TTriggerInstructionData); override;
+    function Duplicate: TInstruction; override;
   end;
 
   { TWaitInstruction }
@@ -558,6 +588,102 @@ begin
     Result:= TSetDeathInstruction.Create(APlayer, AUnitType, AMode, AValue);
 end;
 
+{ TDisplayTextMessageMultiInstruction }
+
+constructor TDisplayTextMessageMultiInstruction.Create(AThreads: TPlayers;
+  AAlways: boolean; AText: TMultistring);
+begin
+  Threads := AThreads;
+  Always := AAlways;
+  Text := AText;
+end;
+
+function TDisplayTextMessageMultiInstruction.GetUniformPlayer: TPlayer;
+var
+  first, pl: TPlayer;
+begin
+  first := plNone;
+  for pl := succ(plNone) to high(TPlayer) do
+    if pl in Threads then
+    begin
+      if first = plNone then first := pl
+      else if Text[pl] <> Text[first] then exit(plNone);
+    end;
+  exit(first);
+end;
+
+function TDisplayTextMessageMultiInstruction.ToBasicFor(APlayer: TPlayer ): string;
+begin
+  result := 'Print('+StrToBasic(Text[APlayer]);
+  if not Always then result += ', False';
+  result += ')';
+end;
+
+function TDisplayTextMessageMultiInstruction.ToTrigEditFor(APlayer: TPlayer): string;
+begin
+  Result := 'Display Text Message(' + BoolToStr(Always, 'Always Display', 'Don''t Always Display') +
+            ', ' + AddTrigEditQuotes(Text[APlayer]) + ')';
+end;
+
+procedure TDisplayTextMessageMultiInstruction.WriteTriggerDataFor(
+  APlayer: TPlayer; var AData: TTriggerInstructionData);
+begin
+  AData.ActionType   := atDisplayText;
+  AData.AlwaysDisplay:= Always;
+  AData.StringIndex  := MapInfo.TrigStringAllocate(Text[APlayer]);
+end;
+
+function TDisplayTextMessageMultiInstruction.Duplicate: TInstruction;
+begin
+  result := TDisplayTextMessageMultiInstruction.Create(Threads, Always, Text);
+end;
+
+{ TTriggerMultiInstruction }
+
+function TTriggerMultiInstruction.IsMultithread: boolean;
+begin
+  result := GetUniformPlayer = plNone;
+end;
+
+function TTriggerMultiInstruction.ToBasic: string;
+var
+  pl: TPlayer;
+begin
+  pl := GetUniformPlayer;
+  if pl = plNone then raise exception.Create('Thread not specified but needed here');
+  result := ToBasicFor(pl);
+end;
+
+function TTriggerMultiInstruction.ToTrigEdit: string;
+var
+  pl: TPlayer;
+begin
+  pl := GetUniformPlayer;
+  if pl = plNone then raise exception.Create('Thread not specified but needed here');
+  result := ToTrigEditFor(pl);
+end;
+
+procedure TTriggerMultiInstruction.WriteTriggerData(
+  var AData: TTriggerInstructionData);
+var
+  pl: TPlayer;
+begin
+  pl := GetUniformPlayer;
+  if pl = plNone then raise exception.Create('Thread not specified but needed here');
+  WriteTriggerDataFor(pl, AData);
+end;
+
+class function TTriggerMultiInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
+begin
+  raise exception.Create('Not available for multithread instruction');
+end;
+
+function TTriggerMultiInstruction.ToBasicFor(APlayer: TPlayer): string;
+begin
+  result := ToTrigEditFor(APlayer);
+end;
+
 { TCommentInstruction }
 
 constructor TCommentInstruction.Create(AText: string);
@@ -659,6 +785,11 @@ end;
 function TTriggerInstruction.ToBasic: string;
 begin
   result := ToTrigEdit;
+end;
+
+function TTriggerInstruction.IsMultithread: boolean;
+begin
+  result := false;
 end;
 
 class function TTriggerInstruction.LoadFromData(

@@ -5,7 +5,7 @@ unit uparsecomplex;
 interface
 
 uses
-  Classes, SysUtils, uvariables, usctypes, uinstructions, uscope;
+  Classes, SysUtils, uvariables, usctypes, uinstructions, uscope, uparsescalar;
 
 type
   ArrayOfInteger = array of integer;
@@ -17,13 +17,14 @@ function ParseStringArray(AThreads: TPlayers; AScope: integer; ALine: TStringLis
 function ParseBoolArray(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfSwitchValue;
 function ParseIntArray(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): ArrayOfInteger;
 function TryStringConstant(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AStr: string; ARaiseException: boolean = false): boolean;
+function TryMultiStringConstant(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AMultiStr: TMultiString; ARaiseException: boolean = false): boolean;
 
 procedure ProcessDim(AThreads: TPlayers; AScope: integer; ADeclaration: string; AProg: TInstructionList; AInit0, AAllowMultithread: boolean; out AWarning: string);
 procedure ProcessDim(AThreads: TPlayers; AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0, AMultithreadInit: boolean; out AWarning: string);
 
 implementation
 
-uses uparsevb, uparsescalar, uexpressions, utriggerinstructions, uprocedures,
+uses uparsevb, uexpressions, utriggerinstructions, uprocedures,
   umapinfo;
 
 function TryUnitPropertiesDefinition(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
@@ -439,6 +440,33 @@ begin
   result := true;
 end;
 
+function TryMultiStringConstant(AThreads: TPlayers; AScope: integer;
+  ALine: TStringList; var AIndex: integer; out AMultiStr: TMultiString;
+  ARaiseException: boolean): boolean;
+var
+  endIndex, oldIndex: Integer;
+  pl: TPlayer;
+begin
+  oldIndex := AIndex;
+  endIndex := -1;
+  for pl := succ(plNone) to high(TPlayer) do
+    if pl in AThreads then
+    begin
+      AIndex := oldIndex;
+      if not TryStringConstant([pl], AScope, ALine, AIndex, AMultiStr[pl], ARaiseException) then
+        exit(false);
+      if endIndex = -1 then endIndex := AIndex else
+      if endIndex <> AIndex then
+      begin
+        if ARaiseException then
+          raise exception.Create('Inconsistent string expression length');
+        exit(false);
+      end;
+    end else
+      AMultiStr[pl] := '';
+  result := true;
+end;
+
 function ExpectStringConstantImplementation(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): string;
 var
   intVal: integer;
@@ -457,6 +485,25 @@ begin
     end else
       raise exception.Create('No string found');
   end;
+end;
+
+function ExpectMultiStringConstantImplementation(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): TMultistring;
+var
+  endIndex, oldIndex: Integer;
+  pl: TPlayer;
+begin
+  oldIndex := AIndex;
+  endIndex := -1;
+  for pl := succ(plNone) to high(TPlayer) do
+    if pl in AThreads then
+    begin
+      AIndex := oldIndex;
+      result[pl] := ExpectStringConstantImplementation([pl], AScope, ALine, AIndex, AConvertToString);
+      if endIndex = -1 then endIndex := AIndex else
+      if endIndex <> AIndex then
+        raise exception.Create('Inconsistent string expression length');
+    end else
+      result[pl] := '';
 end;
 
 procedure ProcessDim(AThreads: TPlayers; AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0, AMultithreadInit: boolean; out AWarning: string);
@@ -859,6 +906,7 @@ end;
 initialization
 
   ExpectStringConstant := @ExpectStringConstantImplementation;
+  ExpectMultiStringConstant := @ExpectMultiStringConstantImplementation;
 
 end.
 

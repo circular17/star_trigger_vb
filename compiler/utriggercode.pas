@@ -10,6 +10,7 @@ uses
 
 const
   MaxStackSize = 6;
+  MAX_TRIGGER_COUNT = 65534;
 
 type
   TTriggerConditionList = specialize TFPGObjectList<TTriggerCondition>;
@@ -23,6 +24,8 @@ type
     function GetActionCount: integer;
     function GetCondition(AIndex: integer): TTriggerCondition;
     function GetConditionCount: integer;
+    function GetIsMultithread: boolean;
+    function GetThreadCount: integer;
     procedure SetPreserve(AValue: boolean);
   protected
     FPlayers: TPlayers;
@@ -39,7 +42,9 @@ type
     procedure AddAction(AInstruction: TInstruction);
     procedure DeleteAction(AIndex: integer);
     function ToTrigEdit: string;
+    function ToTrigEditFor(APlayer: TPlayer): string;
     procedure WriteTriggerData(var AData: TTriggerData);
+    procedure WriteTriggerDataFor(APlayer: TPlayer; var AData: TTriggerData);
     procedure ReadTriggerData(const AData: TTriggerData);
     function ToBasic: string;
 
@@ -49,11 +54,14 @@ type
     property Players: TPlayers read FPlayers write FPlayers;
     property Condition[AIndex: integer]: TTriggerCondition read GetCondition;
     property Action[AIndex: integer]: TTriggerInstruction read GetAction;
+    property IsMultithread: boolean read GetIsMultithread;
+    property ThreadCount: integer read GetThreadCount;
   end;
   TTriggerList = specialize TFPGObjectList<TTrigger>;
 
 var
   CompiledTriggers: TTriggerList;
+  CompiledTriggersMultiCount: integer;
 
 procedure InitTriggerCode;
 
@@ -197,7 +205,7 @@ procedure WriteTrigger(APlayers: TPlayers;
                        APreserve: boolean);
 var
   t: TTrigger;
-  i: Integer;
+  i, multiCount: Integer;
   setNext, preserve: TTriggerInstruction;
   always: TAlwaysCondition;
 begin
@@ -236,7 +244,21 @@ begin
    end;
   end;
 
-  CompiledTriggers.Add(t);
+  if t.IsMultithread then
+  begin
+    multiCount := t.ThreadCount;
+    if CompiledTriggersMultiCount+multiCount > MAX_TRIGGER_COUNT then
+      raise exception.Create('Too many triggers');
+    CompiledTriggers.Add(t);
+    inc(CompiledTriggersMultiCount, multiCount);
+  end
+  else
+  begin
+    if CompiledTriggersMultiCount >= MAX_TRIGGER_COUNT then
+      raise exception.Create('Too many triggers');
+    CompiledTriggers.Add(t);
+    inc(CompiledTriggersMultiCount);
+  end;
 end;
 
 // instruction pointer for system calls
@@ -773,6 +795,7 @@ begin
 
   BusyIPValue := -1;
   CompiledTriggers.Clear;
+  CompiledTriggersMultiCount := 0;
 end;
 
 { TTrigger }
@@ -795,6 +818,24 @@ end;
 function TTrigger.GetConditionCount: integer;
 begin
   result := FConditions.Count;
+end;
+
+function TTrigger.GetIsMultithread: boolean;
+var
+  i: Integer;
+begin
+  for i := 0 to ActionCount-1 do
+    if Action[i].IsMultithread then exit(true);
+  result := false;
+end;
+
+function TTrigger.GetThreadCount: integer;
+var
+  pl: TPlayer;
+begin
+  result := 0;
+  for pl := succ(plNone) to high(TPlayer) do
+    if pl in Players then inc(result);
 end;
 
 procedure TTrigger.SetPreserve(AValue: boolean);
@@ -883,38 +924,59 @@ begin
 end;
 
 function TTrigger.ToTrigEdit: string;
+begin
+  result := ToTrigEditFor(plNone);
+end;
+
+function TTrigger.ToTrigEditFor(APlayer: TPlayer): string;
 var
   i: Integer;
   pl: TPlayer;
   firstPl: boolean;
 begin
   result := 'Trigger(';
-  firstPl:= true;
-  for pl := low(TPlayer) to high(TPlayer) do
-    if pl in FPlayers then
-    begin
-      if not firstPl then result += ',';
-      result += '"' + PlayerToTrigEditStr(pl) + '"';
-      firstPl:= false;
-    end;
+  if APlayer <> plNone then
+    result += '"' + PlayerToTrigEditStr(APlayer) + '"'
+  else
+  begin
+    firstPl:= true;
+    for pl := low(TPlayer) to high(TPlayer) do
+      if pl in FPlayers then
+      begin
+        if not firstPl then result += ',';
+        result += '"' + PlayerToTrigEditStr(pl) + '"';
+        firstPl:= false;
+      end;
+  end;
   result += '){'+LineEnding+'Conditions:'+LineEnding;
   for i := 0 to FConditions.Count-1 do
     result+= #9 + FConditions[i].ToTrigEdit + ';'+LineEnding;
   result += 'Actions:'+LineEnding;
   for i := 0 to FActions.Count-1 do
-    result += #9 + FActions[i].ToTrigEdit + ';'+LineEnding;
+    if (APlayer <> plNone) and FActions[i].IsMultithread then
+      result += #9 + (FActions[i] as TTriggerMultiInstruction).ToTrigEditFor(APlayer) + ';'+LineEnding
+      else result += #9 + FActions[i].ToTrigEdit + ';'+LineEnding;
   result += '}';
 end;
 
 procedure TTrigger.WriteTriggerData(var AData: TTriggerData);
+begin
+  WriteTriggerDataFor(plNone, AData);
+end;
+
+procedure TTrigger.WriteTriggerDataFor(APlayer: TPlayer; var AData: TTriggerData);
 var
   i: Integer;
 begin
   for i := 0 to FConditions.Count-1 do
     FConditions[i].WriteTriggerData(AData.Conditions[i]);
   for i := 0 to FActions.Count-1 do
-    FActions[i].WriteTriggerData(AData.Actions[i]);
-  AData.Players := FPlayers;
+    if (APlayer <> plNone) and FActions[i].IsMultithread then
+      (FActions[i] as TTriggerMultiInstruction).WriteTriggerDataFor(APlayer, AData.Actions[i])
+      else FActions[i].WriteTriggerData(AData.Actions[i]);
+  if APlayer <> plNone then
+    AData.Players := [APlayer]
+    else AData.Players := FPlayers;
   AData.PreserveTrigger := Preserve;
 end;
 

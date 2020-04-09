@@ -23,7 +23,7 @@ uses uparsevb, uvariables, utriggerinstructions,
   uparseconditions;
 
 const MAX_ERRORS = 3;
-const MaxInstructionsPerSub = 65534*63 div 4;
+const MaxInstructionsPerSub = 65534*63 div 8;
 
 procedure AddError(ALine: integer; AText: string);
 begin

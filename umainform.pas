@@ -82,9 +82,13 @@ type
     procedure SynEdit1Change(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
   private
-    PrevCaret: TPoint;
+    FPrevCaret: TPoint;
     FSearch : TFSearch;
     FSearchDefined : boolean;
+    FCurFilename: string;
+    FAllCompletion: TStringList;
+    FHasErrors: boolean;
+    FErrorsToUpdate: boolean;
     function GetModified: boolean;
     procedure SetCurFilename(AValue: string);
     procedure SetModified(AValue: boolean);
@@ -94,14 +98,13 @@ type
     procedure DoSearch(APrevious: boolean);
 
   public
-    AllCompletion: TStringList;
-    ErrorsToUpdate, HasErrors: boolean;
-    FCurFilename: string;
     procedure ClearLocations;
     procedure UpdateAutoCompleteList;
     procedure AddLocation(AName: string; AIsText: boolean);
+    procedure InvalidateErrors;
     property CurFilename: string read FCurFilename write SetCurFilename;
     property Modified: boolean read GetModified write SetModified;
+    property HasErrors: boolean read FHasErrors;
   end;
 
 var
@@ -156,7 +159,7 @@ var
   success: Boolean;
   LastScope: integer;
 begin
-  ErrorsToUpdate := false;
+  FErrorsToUpdate := false;
 
   //full program for validation
   success := ureadprog.ReadProg(SynEdit1.Lines, MainThread, LastScope, DefaultMainThread);
@@ -188,7 +191,7 @@ begin
       ListBox_Errors.Items.Delete(i);
   ListBox_Errors.Items.EndUpdate;
 
-  HasErrors := ReadProgErrors.Count>0;
+  FHasErrors := ReadProgErrors.Count>0;
 end;
 
 procedure TFMain.TryOpenFile(AFilename: string);
@@ -198,7 +201,7 @@ begin
     CurFilename := AFilename;
     OpenDialog1.InitialDir := ExtractFilePath(AFilename);
     Modified := false;
-    ErrorsToUpdate:= true;
+    InvalidateErrors;
   except
     on ex: Exception do
       ShowMessage(ex.Message);
@@ -233,8 +236,8 @@ procedure TFMain.UpdateAutoCompleteList;
     i: Integer;
   begin
     for i := 0 to high(AWords) do
-      if AllCompletion.IndexOf(AWords[i])=-1 then
-        AllCompletion.Add(AWords[i]);
+      if FAllCompletion.IndexOf(AWords[i])=-1 then
+        FAllCompletion.Add(AWords[i]);
   end;
 var
   programUpToCursor: TStringList;
@@ -264,9 +267,9 @@ begin
   end;
   programUpToCursor.Free;
 
-  AllCompletion.Clear;
-  AllCompletion.AddStrings(uparsevb.ParseCompletionList);
-  AllCompletion.Sort;
+  FAllCompletion.Clear;
+  FAllCompletion.AddStrings(uparsevb.ParseCompletionList);
+  FAllCompletion.Sort;
 end;
 
 procedure TFMain.AddLocation(AName: string; AIsText: boolean);
@@ -275,9 +278,14 @@ begin
   ListBox_Locations.Items.Add(AName);
 end;
 
+procedure TFMain.InvalidateErrors;
+begin
+  FErrorsToUpdate:= true;
+end;
+
 procedure TFMain.CompileExecute(Sender: TObject);
 begin
-  If ErrorsToUpdate then UpdateErrors;
+  If FErrorsToUpdate then UpdateErrors;
   if HasErrors then
     ShowMessage('There are errors in the program so that triggers cannot be generated')
   else
@@ -340,7 +348,7 @@ begin
     for i := min(SynEdit1.BlockBegin.y,SynEdit1.BlockEnd.y) to
              max(SynEdit1.BlockBegin.y,SynEdit1.BlockEnd.y) do
       ApplyOnRow(i);
-  ErrorsToUpdate := true;
+  InvalidateErrors;
 end;
 
 procedure TFMain.EditCopyExecute(Sender: TObject);
@@ -416,7 +424,7 @@ begin
     for i := min(SynEdit1.BlockBegin.y,SynEdit1.BlockEnd.y) to
              max(SynEdit1.BlockBegin.y,SynEdit1.BlockEnd.y) do
       ApplyOnRow(i);
-  ErrorsToUpdate := true;
+  InvalidateErrors;
 end;
 
 procedure TFMain.FileOpenExecute(Sender: TObject);
@@ -475,7 +483,7 @@ procedure TFMain.FormCreate(Sender: TObject);
 var
   i: Integer;
 begin
-  AllCompletion := TStringList.Create;
+  FAllCompletion := TStringList.Create;
 
   ListBox_Locations.Items.BeginUpdate;
   AddLocation('Anywhere', False);
@@ -495,7 +503,7 @@ end;
 
 procedure TFMain.FormDestroy(Sender: TObject);
 begin
-  AllCompletion.Free;
+  FAllCompletion.Free;
 end;
 
 procedure TFMain.FormDropFiles(Sender: TObject; const FileNames: array of String);
@@ -542,10 +550,10 @@ begin
   SynCompletion1.ItemList.Clear;
 
   if length(cur) > 0 then cur[1] := upcase(cur[1]);
-  for i := 0 to AllCompletion.Count-1 do
-    if (CompareText(cur, copy(AllCompletion[i],1,length(cur)))= 0) or
-      (pos(cur, AllCompletion[i])<>0) then
-      SynCompletion1.ItemList.Add(AllCompletion[i]);
+  for i := 0 to FAllCompletion.Count-1 do
+    if (CompareText(cur, copy(FAllCompletion[i],1,length(cur)))= 0) or
+      (pos(cur, FAllCompletion[i])<>0) then
+      SynCompletion1.ItemList.Add(FAllCompletion[i]);
   if ((SynCompletion1.Position < 0) or (SynCompletion1.Position >= SynCompletion1.ItemList.Count))
      and (SynCompletion1.ItemList.Count > 0) then
     SynCompletion1.Position := 0;
@@ -601,28 +609,28 @@ var
   deltaX: integer;
 begin
   newCaret := SynEdit1.LogicalCaretXY;
-  if (((newCaret.X > PrevCaret.X) and (newCaret.Y = PrevCaret.Y)) or
-     (newCaret.Y > PrevCaret.Y)) and
-     (PrevCaret.Y >= 1) and (PrevCaret.Y <= SynEdit1.Lines.Count) then
+  if (((newCaret.X > FPrevCaret.X) and (newCaret.Y = FPrevCaret.Y)) or
+     (newCaret.Y > FPrevCaret.Y)) and
+     (FPrevCaret.Y >= 1) and (FPrevCaret.Y <= SynEdit1.Lines.Count) then
   begin
-    s := SynEdit1.Lines[PrevCaret.Y-1];
-    if not IsIdOrNumber(s, PrevCaret.X) and FixCase(s, PrevCaret.X-1, deltaX) then
+    s := SynEdit1.Lines[FPrevCaret.Y-1];
+    if not IsIdOrNumber(s, FPrevCaret.X) and FixCase(s, FPrevCaret.X-1, deltaX) then
     begin
-      SynEdit1.Lines[PrevCaret.Y-1] := s;
-      if PrevCaret.Y = newCaret.Y then
+      SynEdit1.Lines[FPrevCaret.Y-1] := s;
+      if FPrevCaret.Y = newCaret.Y then
       begin
         Synedit1.CaretX:= Synedit1.CaretX + deltaX;
         newCaret := SynEdit1.LogicalCaretXY;
       end;
     end;
   end;
-  PrevCaret := newCaret;
-  ErrorsToUpdate:= true;
+  FPrevCaret := newCaret;
+  InvalidateErrors;
 end;
 
 procedure TFMain.Timer1Timer(Sender: TObject);
 begin
-  if ErrorsToUpdate then
+  if FErrorsToUpdate then
   begin
     UpdateErrors;
     UpdateTitleBar;

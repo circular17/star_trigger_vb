@@ -499,9 +499,17 @@ const IdOrNumber : set of char = ['A'..'Z','a'..'z','_','0'..'9'];
   var
     indexStart, i: Integer;
     w: string;
+    inStr: boolean;
   begin
     ADeltaX := 0;
     if not IsIdOrNumber(AText, AIndexEnd) then exit(false);
+
+    inStr := false;
+    for i := 1 to AIndexEnd do
+      if AText[i] = '"' then inStr := not inStr
+      else if AText[i] = '''' then exit(false);
+    if inStr then exit(false);
+
     indexStart := AIndexEnd;
     while (indexStart > 1) and IsIdOrNumber(AText, indexStart-1) do
       dec(indexStart);

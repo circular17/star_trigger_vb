@@ -9,7 +9,7 @@ uses
   Interfaces, // this includes the LCL widgetset
   Forms,
   umainform,
-  umapinfo;
+  umapinfo, usearch;
 
 {$R *.res}
 

@@ -1,0 +1,99 @@
+object FSearch: TFSearch
+  Left = 445
+  Height = 251
+  Top = 179
+  Width = 480
+  BorderStyle = bsDialog
+  Caption = 'Search & replace'
+  ClientHeight = 251
+  ClientWidth = 480
+  DesignTimePPI = 144
+  Position = poOwnerFormCenter
+  LCLVersion = '2.0.2.0'
+  object Label1: TLabel
+    Left = 14
+    Height = 25
+    Top = 11
+    Width = 71
+    Caption = 'Look for:'
+    ParentColor = False
+  end
+  object Edit_SearchFor: TEdit
+    Left = 105
+    Height = 33
+    Top = 9
+    Width = 360
+    OnChange = Edit_SearchForChange
+    TabOrder = 0
+  end
+  object CheckBox_CaseSensitive: TCheckBox
+    Left = 16
+    Height = 29
+    Top = 54
+    Width = 139
+    Caption = 'Case sensitive'
+    TabOrder = 1
+  end
+  object CheckBox_WholeWord: TCheckBox
+    Left = 232
+    Height = 29
+    Top = 54
+    Width = 127
+    Caption = 'Whole word'
+    TabOrder = 2
+  end
+  object CheckBox_RegExp: TCheckBox
+    Left = 16
+    Height = 29
+    Top = 96
+    Width = 179
+    Caption = 'Regular expression'
+    TabOrder = 3
+  end
+  object CheckBox_Backwards: TCheckBox
+    Left = 232
+    Height = 29
+    Top = 96
+    Width = 113
+    Caption = 'Backwards'
+    TabOrder = 4
+  end
+  object CheckBox_Replace: TCheckBox
+    Left = 14
+    Height = 29
+    Top = 144
+    Width = 120
+    Caption = 'Replace by:'
+    OnChange = CheckBox_ReplaceChange
+    TabOrder = 5
+  end
+  object Edit_ReplaceBy: TEdit
+    Left = 144
+    Height = 33
+    Top = 143
+    Width = 321
+    Enabled = False
+    TabOrder = 6
+  end
+  object Button_Ok: TButton
+    Left = 99
+    Height = 37
+    Top = 195
+    Width = 125
+    Caption = 'Ok'
+    Default = True
+    Enabled = False
+    ModalResult = 1
+    TabOrder = 7
+  end
+  object Button_Cancel: TButton
+    Left = 240
+    Height = 37
+    Top = 195
+    Width = 125
+    Cancel = True
+    Caption = 'Cancel'
+    ModalResult = 2
+    TabOrder = 8
+  end
+end

@@ -5,14 +5,19 @@ unit umainform;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, SynEdit, SynHighlighterVB, SynCompletion, Forms,
-  Controls, Graphics, Dialogs, StdCtrls, ComCtrls, ActnList, ExtCtrls, Menus, LCLType;
+  Classes, SysUtils, FileUtil, SynEdit, SynHighlighterVB, SynCompletion,
+  SynEditTypes, Forms, Controls, Graphics, Dialogs, StdCtrls, ComCtrls,
+  ActnList, ExtCtrls, Menus, LCLType, usearch;
 
 type
 
   { TFMain }
 
   TFMain = class(TForm)
+    EditSearchPrevious: TAction;
+    EditSearchNext: TAction;
+    EditSearch: TAction;
+    EditSearchReplace: TAction;
     EditUncomment: TAction;
     EditComment: TAction;
     EditPaste: TAction;
@@ -52,11 +57,16 @@ type
     ActionList1: TActionList;
     ImageList1: TImageList;
     ToolBar1: TToolBar;
+    ToolButton7: TToolButton;
     procedure CompileExecute(Sender: TObject);
     procedure EditCommentExecute(Sender: TObject);
     procedure EditCopyExecute(Sender: TObject);
     procedure EditCutExecute(Sender: TObject);
     procedure EditPasteExecute(Sender: TObject);
+    procedure EditSearchExecute(Sender: TObject);
+    procedure EditSearchNextExecute(Sender: TObject);
+    procedure EditSearchPreviousExecute(Sender: TObject);
+    procedure EditSearchReplaceExecute(Sender: TObject);
     procedure EditUncommentExecute(Sender: TObject);
     procedure FileOpenExecute(Sender: TObject);
     procedure FileSaveAsExecute(Sender: TObject);
@@ -73,12 +83,15 @@ type
     procedure Timer1Timer(Sender: TObject);
   private
     PrevCaret: TPoint;
+    FSearch : TFSearch;
+    FSearchDefined : boolean;
     function GetModified: boolean;
     procedure SetCurFilename(AValue: string);
     procedure SetModified(AValue: boolean);
     procedure UpdateTitleBar;
     procedure UpdateErrors;
     procedure TryOpenFile(AFilename: string);
+    procedure DoSearch(APrevious: boolean);
 
   public
     AllCompletion: TStringList;
@@ -190,6 +203,23 @@ begin
     on ex: Exception do
       ShowMessage(ex.Message);
   end;
+end;
+
+procedure TFMain.DoSearch(APrevious: boolean);
+var
+  options: TSynSearchOptions;
+begin
+  if not FSearchDefined then exit;
+  options := [];
+  if FSearch.CheckBox_CaseSensitive.Checked then options += [ssoMatchCase];
+  if FSearch.CheckBox_WholeWord.Checked then options += [ssoWholeWord];
+  if FSearch.CheckBox_RegExp.Checked then options += [ssoRegExpr];
+  if FSearch.CheckBox_Backwards.Checked xor APrevious then options += [ssoBackwards];
+  if FSearch.CheckBox_Replace.Checked then options += [ssoReplace];
+  if ssoBackwards in options then
+    SynEdit1.LogicalCaretXY := SynEdit1.BlockBegin
+    else SynEdit1.LogicalCaretXY := SynEdit1.BlockEnd;
+  SynEdit1.SearchReplace(FSearch.Edit_SearchFor.Text, FSearch.Edit_ReplaceBy.Text, options);
 end;
 
 procedure TFMain.ClearLocations;
@@ -326,6 +356,40 @@ end;
 procedure TFMain.EditPasteExecute(Sender: TObject);
 begin
   SynEdit1.PasteFromClipboard;
+end;
+
+procedure TFMain.EditSearchExecute(Sender: TObject);
+begin
+  if not Assigned(FSearch) then
+    FSearch := TFSearch.Create(self);
+  FSearch.CheckBox_Replace.Checked := false;
+  if FSearch.ShowModal = mrOK then
+  begin
+    FSearchDefined := true;
+    EditSearchNext.Execute;
+  end;
+end;
+
+procedure TFMain.EditSearchNextExecute(Sender: TObject);
+begin
+  DoSearch(false);
+end;
+
+procedure TFMain.EditSearchPreviousExecute(Sender: TObject);
+begin
+  DoSearch(true);
+end;
+
+procedure TFMain.EditSearchReplaceExecute(Sender: TObject);
+begin
+  if not Assigned(FSearch) then
+    FSearch := TFSearch.Create(self);
+  FSearch.CheckBox_Replace.Checked := true;
+  if FSearch.ShowModal = mrOK then
+  begin
+    FSearchDefined := true;
+    EditSearchNext.Execute;
+  end;
 end;
 
 procedure TFMain.EditUncommentExecute(Sender: TObject);
@@ -537,22 +601,22 @@ var
   deltaX: integer;
 begin
   newCaret := SynEdit1.LogicalCaretXY;
-  if (((newCaret.X > prevCaret.X) and (newCaret.Y = prevCaret.Y)) or
-     (newCaret.Y > prevCaret.Y)) and
-     (prevCaret.Y >= 1) and (prevCaret.Y <= SynEdit1.Lines.Count) then
+  if (((newCaret.X > PrevCaret.X) and (newCaret.Y = PrevCaret.Y)) or
+     (newCaret.Y > PrevCaret.Y)) and
+     (PrevCaret.Y >= 1) and (PrevCaret.Y <= SynEdit1.Lines.Count) then
   begin
-    s := SynEdit1.Lines[prevCaret.Y-1];
-    if not IsIdOrNumber(s, prevCaret.X) and FixCase(s, prevCaret.X-1, deltaX) then
+    s := SynEdit1.Lines[PrevCaret.Y-1];
+    if not IsIdOrNumber(s, PrevCaret.X) and FixCase(s, PrevCaret.X-1, deltaX) then
     begin
-      SynEdit1.Lines[prevCaret.Y-1] := s;
-      if prevCaret.Y = newCaret.Y then
+      SynEdit1.Lines[PrevCaret.Y-1] := s;
+      if PrevCaret.Y = newCaret.Y then
       begin
         Synedit1.CaretX:= Synedit1.CaretX + deltaX;
         newCaret := SynEdit1.LogicalCaretXY;
       end;
     end;
   end;
-  prevCaret := newCaret;
+  PrevCaret := newCaret;
   ErrorsToUpdate:= true;
 end;
 

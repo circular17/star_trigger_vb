@@ -14,6 +14,7 @@ type
   { TFMain }
 
   TFMain = class(TForm)
+    FileQuit: TAction;
     EditSearchPrevious: TAction;
     EditSearchNext: TAction;
     EditSearch: TAction;
@@ -58,6 +59,7 @@ type
     ImageList1: TImageList;
     ToolBar1: TToolBar;
     ToolButton7: TToolButton;
+    ToolButton8: TToolButton;
     procedure CompileExecute(Sender: TObject);
     procedure EditCommentExecute(Sender: TObject);
     procedure EditCopyExecute(Sender: TObject);
@@ -69,6 +71,7 @@ type
     procedure EditSearchReplaceExecute(Sender: TObject);
     procedure EditUncommentExecute(Sender: TObject);
     procedure FileOpenExecute(Sender: TObject);
+    procedure FileQuitExecute(Sender: TObject);
     procedure FileSaveAsExecute(Sender: TObject);
     procedure FileSaveExecute(Sender: TObject);
     procedure FileSaveUpdate(Sender: TObject);
@@ -320,7 +323,6 @@ begin
         MapInfo.UpdateTriggers;
         MapInfo.UpdateUnitProperties;
         if CurFilename = '' then Modified:= false; //stored in map
-        ShowMessage('Triggers have been updated. The source code has been stored in the map so that it will be retrieved next time you open this editor.');
         Close;
       except
         on ex:Exception do
@@ -431,6 +433,11 @@ procedure TFMain.FileOpenExecute(Sender: TObject);
 begin
   OpenDialog1.FileName := '';
   if OpenDialog1.Execute then TryOpenFile(OpenDialog1.FileName);
+end;
+
+procedure TFMain.FileQuitExecute(Sender: TObject);
+begin
+  Close;
 end;
 
 procedure TFMain.FileSaveAsExecute(Sender: TObject);

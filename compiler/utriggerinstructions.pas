@@ -7,6 +7,15 @@ interface
 uses
   Classes, SysUtils, uinstructions, usctypes, utriggerchunk;
 
+const
+  AllThreads : TPlayers = [plPlayer1, plPlayer2, plPlayer3, plPlayer4,
+             plPlayer5, plPlayer6, plPlayer7, plPlayer8,
+             plPlayer9, plPlayer10, plPlayer11, plPlayer12,
+             plCurrentPlayer, plFoes, plAllies,
+             plNeutralPlayers, plAllPlayers,
+             plForce1, plForce2, plForce3, plForce4,
+             plNonAlliedVictoryPlayers];
+
 type
   { TTriggerInstruction }
 
@@ -22,16 +31,17 @@ type
   { TTriggerMultiInstruction }
 
   TTriggerMultiInstruction = class(TTriggerInstruction)
+    Threads: TPlayers;
+    constructor Create(AThreads: TPlayers);
     function IsMultithread: boolean; override;
     function ToBasic: string; override;
     function ToTrigEdit: string; override;
     procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; virtual;
 
     function GetUniformPlayer: TPlayer; virtual; abstract;
-    function ToBasicFor(APlayer: TPlayer): string; virtual;
-    function ToTrigEditFor(APlayer: TPlayer): string; virtual; abstract;
-    procedure WriteTriggerDataFor(APlayer: TPlayer; var AData: TTriggerInstructionData); virtual; abstract;
+    function ToBasicFor(AThread: TPlayer): string; virtual;
+    function ToTrigEditFor(AThread: TPlayer): string; virtual; abstract;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); virtual; abstract;
   end;
 
   { TPreserveTriggerInstruction }
@@ -118,29 +128,17 @@ type
 
   { TDisplayTextMessageInstruction }
 
-  TDisplayTextMessageInstruction = class(TTriggerInstruction)
-    Always: boolean;
-    Text: string;
-    constructor Create(AAlways: boolean; AText: string);
-    function ToBasic: string; override;
-    function ToTrigEdit: string; override;
-    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
-    function Duplicate: TInstruction; override;
-    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
-  end;
-
-  { TDisplayTextMessageMultiInstruction }
-
-  TDisplayTextMessageMultiInstruction = class(TTriggerMultiInstruction)
-    Threads: TPlayers;
+  TDisplayTextMessageInstruction = class(TTriggerMultiInstruction)
     Always: boolean;
     Text: TMultistring;
+    constructor Create(AAlways: boolean; AText: string);
     constructor Create(AThreads: TPlayers; AAlways: boolean; AText: TMultistring);
     function GetUniformPlayer: TPlayer; override;
-    function ToBasicFor(APlayer: TPlayer): string; override;
-    function ToTrigEditFor(APlayer: TPlayer): string; override;
-    procedure WriteTriggerDataFor(APlayer: TPlayer; var AData: TTriggerInstructionData); override;
+    function ToBasicFor(AThread: TPlayer): string; override;
+    function ToTrigEditFor(AThread: TPlayer): string; override;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
+    class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TWaitInstruction }
@@ -157,16 +155,18 @@ type
 
   { TCreateUnitInstruction }
 
-  TCreateUnitInstruction = class(TTriggerInstruction)
+  TCreateUnitInstruction = class(TTriggerMultiInstruction)
     Player: TPlayer;
     Quantity: integer;
     UnitType: TStarcraftUnit;
-    Location: string;
+    Location: TMultistring;
     Properties: integer;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string; AProperties: integer = -1);
-    function ToBasic: string; override;
-    function ToTrigEdit: string; override;
-    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
+    constructor Create(AThreads: TPlayers; APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; AMultiLocation: TMultistring; AProperties: integer = -1);
+    function GetUniformPlayer: TPlayer; override;
+    function ToBasicFor(AThread: TPlayer): string; override;
+    function ToTrigEditFor(AThread: TPlayer): string; override;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
@@ -175,17 +175,19 @@ type
 
   { TSetUnitPropertyInstruction }
 
-  TSetUnitPropertyInstruction = class(TTriggerInstruction)
+  TSetUnitPropertyInstruction = class(TTriggerMultiInstruction)
     Player: TPlayer;
     Quantity: integer;
     UnitType: TStarcraftUnit;
-    Location: string;
+    Location: TMultistring;
     UnitProperty: TSetUnitProperty;
     Value: integer;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string; AProperty: TSetUnitProperty; AValue: integer);
-    function ToBasic: string; override;
-    function ToTrigEdit: string; override;
-    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
+    constructor Create(AThreads: TPlayers; APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: TMultistring; AProperty: TSetUnitProperty; AValue: integer);
+    function GetUniformPlayer: TPlayer; override;
+    function ToBasicFor(AThread: TPlayer): string; override;
+    function ToTrigEditFor(AThread: TPlayer): string; override;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
@@ -195,94 +197,106 @@ type
 
   { TSetUnitFlagInstruction }
 
-  TSetUnitFlagInstruction = class(TTriggerInstruction)
+  TSetUnitFlagInstruction = class(TTriggerMultiInstruction)
     Player: TPlayer;
     UnitType: TStarcraftUnit;
-    Location: string;
+    Location: TMultistring;
     Flag: TSetUnitFlag;
     Value: TUnitFlagValue;
     constructor Create(APlayer: TPlayer; AUnitType:TStarcraftUnit; ALocation: string; AFlag: TSetUnitFlag; AValue: TUnitFlagValue);
-    function ToBasic: string; override;
-    function ToTrigEdit: string; override;
-    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
+    constructor Create(AThreads: TPlayers; APlayer: TPlayer; AUnitType:TStarcraftUnit; ALocation: TMultistring; AFlag: TSetUnitFlag; AValue: TUnitFlagValue);
+    function GetUniformPlayer: TPlayer; override;
+    function ToBasicFor(AThread: TPlayer): string; override;
+    function ToTrigEditFor(AThread: TPlayer): string; override;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TKillUnitInstruction }
 
-  TKillUnitInstruction = class(TTriggerInstruction)
+  TKillUnitInstruction = class(TTriggerMultiInstruction)
     Player: TPlayer;
     Quantity: integer;
     UnitType: TStarcraftUnit;
-    Location: string;
+    Location: TMultistring;
     DeathAnimation: boolean;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string = ''; ADeathAnimation: boolean = true);
-    function ToBasic: string; override;
-    function ToTrigEdit: string; override;
-    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
+    constructor Create(AThreads: TPlayers; APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: TMultistring; ADeathAnimation: boolean = true);
+    function GetUniformPlayer: TPlayer; override;
+    function ToBasicFor(AThread: TPlayer): string; override;
+    function ToTrigEditFor(AThread: TPlayer): string; override;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TGiveUnitInstruction }
 
-  TGiveUnitInstruction = class(TTriggerInstruction)
+  TGiveUnitInstruction = class(TTriggerMultiInstruction)
     Player, DestPlayer: TPlayer;
     Quantity: integer;
     UnitType: TStarcraftUnit;
-    Location: string;
+    Location: TMultistring;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string; ADestPlayer: TPlayer);
-    function ToBasic: string; override;
-    function ToTrigEdit: string; override;
-    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
+    constructor Create(AThreads: TPlayers; APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: TMultistring; ADestPlayer: TPlayer);
+    function GetUniformPlayer: TPlayer; override;
+    function ToBasicFor(AThread: TPlayer): string; override;
+    function ToTrigEditFor(AThread: TPlayer): string; override;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TTeleportUnitInstruction }
 
-  TTeleportUnitInstruction = class(TTriggerInstruction)
+  TTeleportUnitInstruction = class(TTriggerMultiInstruction)
     Player: TPlayer;
     Quantity: integer;
     UnitType: TStarcraftUnit;
-    Location: string;
-    DestLocation: string;
+    Location: TMultistring;
+    DestLocation: TMultistring;
     constructor Create(APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string; ADestLocation: string);
-    function ToBasic: string; override;
-    function ToTrigEdit: string; override;
-    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
+    constructor Create(AThreads: TPlayers; APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: TMultistring; ADestLocation: TMultistring);
+    function GetUniformPlayer: TPlayer; override;
+    function ToBasicFor(AThread: TPlayer): string; override;
+    function ToTrigEditFor(AThread: TPlayer): string; override;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TMoveLocationInstruction }
 
-  TMoveLocationInstruction = class(TTriggerInstruction)
+  TMoveLocationInstruction = class(TTriggerMultiInstruction)
     Player: TPlayer;
     UnitType:TStarcraftUnit;
-    Location: string;
-    LocationToChange: string;
+    Location: TMultistring;
+    LocationToChange: TMultistring;
     constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; ALocation: string; ALocationToChange: string);
-    function ToBasic: string; override;
-    function ToTrigEdit: string; override;
-    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
+    constructor Create(AThreads: TPlayers; APlayer: TPlayer; AUnitType: TStarcraftUnit; ALocation: TMultistring; ALocationToChange: TMultistring);
+    function GetUniformPlayer: TPlayer; override;
+    function ToBasicFor(AThread: TPlayer): string; override;
+    function ToTrigEditFor(AThread: TPlayer): string; override;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TOrderUnitInstruction }
 
-  TOrderUnitInstruction = class(TTriggerInstruction)
+  TOrderUnitInstruction = class(TTriggerMultiInstruction)
     Player: TPlayer;
     UnitType: TStarcraftUnit;
-    Location: string;
-    DestLocation: string;
+    Location: TMultistring;
+    DestLocation: TMultistring;
     Order: TUnitOrder;
     constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; ALocation: string; ADestLocation: string; AOrder: TUnitOrder);
-    function ToBasic: string; override;
-    function ToTrigEdit: string; override;
-    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
+    constructor Create(AThreads: TPlayers; APlayer: TPlayer; AUnitType: TStarcraftUnit; ALocation: TMultistring; ADestLocation: TMultistring; AOrder: TUnitOrder);
+    function GetUniformPlayer: TPlayer; override;
+    function ToBasicFor(AThread: TPlayer): string; override;
+    function ToTrigEditFor(AThread: TPlayer): string; override;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
@@ -315,12 +329,15 @@ type
 
   { TRunAIScriptInstruction }
 
-  TRunAIScriptInstruction = class(TTriggerInstruction)
-    ScriptCode, Location: string;
+  TRunAIScriptInstruction = class(TTriggerMultiInstruction)
+    ScriptCode: string;
+    Location: TMultistring;
     constructor Create(AScriptCode: string; ALocation: string = '');
-    function ToBasic: string; override;
-    function ToTrigEdit: string; override;
-    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
+    constructor Create(AThreads: TPlayers; AScriptCode: string; ALocation: TMultistring);
+    function GetUniformPlayer: TPlayer; override;
+    function ToBasicFor(AThread: TPlayer): string; override;
+    function ToTrigEditFor(AThread: TPlayer): string; override;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
@@ -339,12 +356,14 @@ type
 
   { TSetMissionObjectivesInstruction }
 
-  TSetMissionObjectivesInstruction = class(TTriggerInstruction)
-    Text: string;
+  TSetMissionObjectivesInstruction = class(TTriggerMultiInstruction)
+    Text: TMultistring;
     constructor Create(AText: string);
-    function ToBasic: string; override;
-    function ToTrigEdit: string; override;
-    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
+    constructor Create(AThreads: TPlayers; AText: TMultistring);
+    function GetUniformPlayer: TPlayer; override;
+    function ToBasicFor(AThread: TPlayer): string; override;
+    function ToTrigEditFor(AThread: TPlayer): string; override;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
@@ -543,6 +562,16 @@ implementation
 
 uses utrigedittypes, umapinfo, uparsevb;
 
+procedure CheckMultiLocation(AThreads: TPlayers; AMultiLocation: TMultistring);
+var
+  pl: TPlayer;
+begin
+  if MapInfo.StrictLocations then
+    for pl := low(TPlayer) to high(TPlayer) do
+      if (pl in AThreads) and (MapInfo.LocationIndexOf(AMultiLocation[pl])=-1) then
+        raise exception.Create('Location not found');
+end;
+
 function CreateSetIntegerInstructionImplementation(APlayer: TPlayer; AUnitType: TStarcraftUnit; AMode: TSetIntegerMode; AValue: integer): TInstruction;
 begin
   if AValue < 0 then
@@ -588,57 +617,68 @@ begin
     Result:= TSetDeathInstruction.Create(APlayer, AUnitType, AMode, AValue);
 end;
 
-{ TDisplayTextMessageMultiInstruction }
+{ TDisplayTextMessageInstruction }
 
-constructor TDisplayTextMessageMultiInstruction.Create(AThreads: TPlayers;
+constructor TDisplayTextMessageInstruction.Create(AAlways: boolean;
+  AText: string);
+begin
+  Create(AllThreads, AAlways, Multistring(AllThreads, AText));
+end;
+
+constructor TDisplayTextMessageInstruction.Create(AThreads: TPlayers;
   AAlways: boolean; AText: TMultistring);
 begin
-  Threads := AThreads;
+  inherited Create(AThreads);
   Always := AAlways;
   Text := AText;
 end;
 
-function TDisplayTextMessageMultiInstruction.GetUniformPlayer: TPlayer;
-var
-  first, pl: TPlayer;
+function TDisplayTextMessageInstruction.GetUniformPlayer: TPlayer;
 begin
-  first := plNone;
-  for pl := succ(plNone) to high(TPlayer) do
-    if pl in Threads then
-    begin
-      if first = plNone then first := pl
-      else if Text[pl] <> Text[first] then exit(plNone);
-    end;
-  exit(first);
+  result := MultistringUniformPlayer(Threads, Text);
 end;
 
-function TDisplayTextMessageMultiInstruction.ToBasicFor(APlayer: TPlayer ): string;
+function TDisplayTextMessageInstruction.ToBasicFor(AThread: TPlayer ): string;
 begin
-  result := 'Print('+StrToBasic(Text[APlayer]);
+  result := 'Print('+StrToBasic(Text[AThread]);
   if not Always then result += ', False';
   result += ')';
 end;
 
-function TDisplayTextMessageMultiInstruction.ToTrigEditFor(APlayer: TPlayer): string;
+function TDisplayTextMessageInstruction.ToTrigEditFor(AThread: TPlayer): string;
 begin
   Result := 'Display Text Message(' + BoolToStr(Always, 'Always Display', 'Don''t Always Display') +
-            ', ' + AddTrigEditQuotes(Text[APlayer]) + ')';
+            ', ' + AddTrigEditQuotes(Text[AThread]) + ')';
 end;
 
-procedure TDisplayTextMessageMultiInstruction.WriteTriggerDataFor(
-  APlayer: TPlayer; var AData: TTriggerInstructionData);
+procedure TDisplayTextMessageInstruction.WriteTriggerDataFor(
+  AThread: TPlayer; var AData: TTriggerInstructionData);
 begin
   AData.ActionType   := atDisplayText;
   AData.AlwaysDisplay:= Always;
-  AData.StringIndex  := MapInfo.TrigStringAllocate(Text[APlayer]);
+  AData.StringIndex  := MapInfo.TrigStringAllocate(Text[AThread]);
 end;
 
-function TDisplayTextMessageMultiInstruction.Duplicate: TInstruction;
+class function TDisplayTextMessageInstruction.LoadFromData(
+  const AData: TTriggerInstructionData): TTriggerInstruction;
 begin
-  result := TDisplayTextMessageMultiInstruction.Create(Threads, Always, Text);
+  if AData.ActionType = atDisplayText then
+    result := TDisplayTextMessageInstruction.Create(AData.AlwaysDisplay, MapInfo.MapStringRead(AData.StringIndex))
+  else
+    result := nil;
+end;
+
+function TDisplayTextMessageInstruction.Duplicate: TInstruction;
+begin
+  result := TDisplayTextMessageInstruction.Create(Threads, Always, Text);
 end;
 
 { TTriggerMultiInstruction }
+
+constructor TTriggerMultiInstruction.Create(AThreads: TPlayers);
+begin
+  Threads := AThreads;
+end;
 
 function TTriggerMultiInstruction.IsMultithread: boolean;
 begin
@@ -673,15 +713,9 @@ begin
   WriteTriggerDataFor(pl, AData);
 end;
 
-class function TTriggerMultiInstruction.LoadFromData(
-  const AData: TTriggerInstructionData): TTriggerInstruction;
+function TTriggerMultiInstruction.ToBasicFor(AThread: TPlayer): string;
 begin
-  raise exception.Create('Not available for multithread instruction');
-end;
-
-function TTriggerMultiInstruction.ToBasicFor(APlayer: TPlayer): string;
-begin
-  result := ToTrigEditFor(APlayer);
+  result := ToTrigEditFor(AThread);
 end;
 
 { TCommentInstruction }
@@ -1084,50 +1118,6 @@ begin
     result := nil;
 end;
 
-{ TDisplayTextMessageInstruction }
-
-constructor TDisplayTextMessageInstruction.Create(AAlways: boolean;
-  AText: string);
-begin
-  Always:= AAlways;
-  Text:= AText;
-end;
-
-function TDisplayTextMessageInstruction.ToBasic: string;
-begin
-  result := 'Print('+StrToBasic(Text);
-  if not Always then result += ', False';
-  result += ')';
-end;
-
-function TDisplayTextMessageInstruction.ToTrigEdit: string;
-begin
-  Result := 'Display Text Message(' + BoolToStr(Always, 'Always Display', 'Don''t Always Display') +
-            ', ' + AddTrigEditQuotes(Text) + ')';
-end;
-
-procedure TDisplayTextMessageInstruction.WriteTriggerData(
-  var AData: TTriggerInstructionData);
-begin
-  AData.ActionType   := atDisplayText;
-  AData.AlwaysDisplay:= Always;
-  AData.StringIndex  := MapInfo.TrigStringAllocate(Text);
-end;
-
-function TDisplayTextMessageInstruction.Duplicate: TInstruction;
-begin
-  result := TDisplayTextMessageInstruction.Create(Always,Text);
-end;
-
-class function TDisplayTextMessageInstruction.LoadFromData(
-  const AData: TTriggerInstructionData): TTriggerInstruction;
-begin
-  if AData.ActionType = atDisplayText then
-    result := TDisplayTextMessageInstruction.Create(AData.AlwaysDisplay, MapInfo.MapStringRead(AData.StringIndex))
-  else
-    result := nil;
-end;
-
 { TWaitInstruction }
 
 constructor TWaitInstruction.Create(ADelayMs: integer);
@@ -1170,37 +1160,49 @@ end;
 constructor TCreateUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
   AUnitType: TStarcraftUnit; ALocation: string; AProperties: integer);
 begin
+  Create(AllThreads, APlayer, AQuantity, AUnitType, Multistring(AllThreads, ALocation), AProperties);
+end;
+
+constructor TCreateUnitInstruction.Create(AThreads: TPlayers; APlayer: TPlayer; AQuantity: integer;
+  AUnitType: TStarcraftUnit; AMultiLocation: TMultistring; AProperties: integer);
+begin
+  inherited Create(AThreads);
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
-  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
+  CheckMultiLocation(AThreads, AMultiLocation);
   Player:= APlayer;
   Quantity:= AQuantity;
   UnitType:= AUnitType;
-  Location:= ALocation;
+  Location:= AMultiLocation;
   Properties:= AProperties;
 end;
 
-function TCreateUnitInstruction.ToBasic: string;
+function TCreateUnitInstruction.GetUniformPlayer: TPlayer;
+begin
+  result := MultistringUniformPlayer(Threads, Location);
+end;
+
+function TCreateUnitInstruction.ToBasicFor(AThread: TPlayer): string;
 begin
   result := PlayerIdentifiers[Player]+'.CreateUnit('+inttostr(Quantity)+', '+StarcraftUnitIdentifier[UnitType];
-  if not MapInfo.IsAnywhere(Location) then result += ', ' + StrToBasic(Location);
+  if not MapInfo.IsAnywhere(Location[AThread]) then result += ', ' + StrToBasic(Location[AThread]);
   result += ')';
   if Properties >= 0 then result += ' With UnitProperties' + inttostr(Properties);
 end;
 
-function TCreateUnitInstruction.ToTrigEdit: string;
+function TCreateUnitInstruction.ToTrigEditFor(AThread: TPlayer): string;
 begin
   Result:= 'Create Unit';
   if Properties >= 0 then result += ' with Properties';
 
   result += '("'+ PlayerToTrigEditStr(Player)+'", ' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
-  result += inttostr(Quantity) + ', '+AddTrigEditQuotes(Location);
+  result += inttostr(Quantity) + ', '+AddTrigEditQuotes(Location[AThread]);
   if Properties >= 0 then result += ', ' + inttostr(Properties);
 
   result += ')';
 end;
 
-procedure TCreateUnitInstruction.WriteTriggerData(
+procedure TCreateUnitInstruction.WriteTriggerDataFor(AThread: TPlayer;
   var AData: TTriggerInstructionData);
 begin
   if Properties >= 0 then
@@ -1212,13 +1214,13 @@ begin
 
   AData.Player:= Player;
   AData.UnitType := UnitType;
-  AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
+  AData.LocationBase0:= MapInfo.LocationIndexOf(Location[AThread]);
   AData.UnitCount := Quantity;
 end;
 
 function TCreateUnitInstruction.Duplicate: TInstruction;
 begin
-  result := TCreateUnitInstruction.Create(Player,Quantity,UnitType,Location,Properties);
+  result := TCreateUnitInstruction.Create(Threads,Player,Quantity,UnitType,Location,Properties);
 end;
 
 class function TCreateUnitInstruction.LoadFromData(
@@ -1246,9 +1248,17 @@ constructor TSetUnitPropertyInstruction.Create(APlayer: TPlayer;
   AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string;
   AProperty: TSetUnitProperty; AValue: integer);
 begin
+  Create(AllThreads, APlayer, AQuantity, AUnitType, Multistring(AllThreads, ALocation), AProperty, AValue);
+end;
+
+constructor TSetUnitPropertyInstruction.Create(AThreads: TPlayers; APlayer: TPlayer;
+  AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: TMultistring;
+  AProperty: TSetUnitProperty; AValue: integer);
+begin
+  inherited Create(AThreads);
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
-  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
+  CheckMultiLocation(AThreads, ALocation);
   Player := APlayer;
   Quantity := AQuantity;
   UnitType := AUnitType;
@@ -1263,12 +1273,17 @@ begin
     raise exception.Create('Property value out of bounds (0 to 65535)')
 end;
 
-function TSetUnitPropertyInstruction.ToBasic: string;
+function TSetUnitPropertyInstruction.GetUniformPlayer: TPlayer;
+begin
+  result := MultistringUniformPlayer(Threads, Location);
+end;
+
+function TSetUnitPropertyInstruction.ToBasicFor(AThread: TPlayer): string;
 begin
   result := PlayerIdentifiers[Player]+'.Units(';
   if quantity <> -1 then result += inttostr(Quantity)+', ';
   result += StarcraftUnitIdentifier[UnitType];
-  if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+  if not MapInfo.IsAnywhere(Location[AThread]) then result += ', '+StrToBasic(Location[AThread]);
   result += ').';
   case UnitProperty of
   supLife: result += 'Life';
@@ -1282,7 +1297,7 @@ begin
   result += ' = '+inttostr(Value);
 end;
 
-function TSetUnitPropertyInstruction.ToTrigEdit: string;
+function TSetUnitPropertyInstruction.ToTrigEditFor(AThread: TPlayer): string;
 begin
   case UnitProperty of
   supLife: result := 'Modify Unit Hit Points';
@@ -1292,7 +1307,7 @@ begin
     begin
       result := 'Modify Unit Resource Amount';
       result += '(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))+', '+inttostr(Value)+', ';
-      result += inttostr(Quantity)+', '+AddTrigEditQuotes(Location)+')';
+      result += inttostr(Quantity)+', '+AddTrigEditQuotes(Location[AThread])+')';
       exit;
     end;
   supHangarCount: result := 'Modify Unit Hanger Count';
@@ -1301,10 +1316,10 @@ begin
   end;
   result += '(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))+', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', '+inttostr(Value)+', ';
   if Quantity = -1 then result += 'All' else result += inttostr(Quantity);
-  result += ', '+AddTrigEditQuotes(Location)+')';
+  result += ', '+AddTrigEditQuotes(Location[AThread])+')';
 end;
 
-procedure TSetUnitPropertyInstruction.WriteTriggerData(
+procedure TSetUnitPropertyInstruction.WriteTriggerDataFor(AThread: TPlayer;
   var AData: TTriggerInstructionData);
 begin
   case UnitProperty of
@@ -1319,13 +1334,13 @@ begin
   AData.Player:= Player;
   AData.UnitCount := Quantity;
   AData.UnitType := UnitType;
-  AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
+  AData.LocationBase0:= MapInfo.LocationIndexOf(Location[AThread]);
   AData.GenericValue := Value;
 end;
 
 function TSetUnitPropertyInstruction.Duplicate: TInstruction;
 begin
-  result := TSetUnitPropertyInstruction.Create(Player,Quantity,UnitTYpe,Location,UnitProperty,Value);
+  result := TSetUnitPropertyInstruction.Create(Threads,Player,Quantity,UnitTYpe,Location,UnitProperty,Value);
 end;
 
 class function TSetUnitPropertyInstruction.LoadFromData(
@@ -1350,7 +1365,15 @@ constructor TSetUnitFlagInstruction.Create(APlayer: TPlayer;
   AUnitType: TStarcraftUnit; ALocation: string; AFlag: TSetUnitFlag;
   AValue: TUnitFlagValue);
 begin
-  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
+  Create(AllThreads, APlayer, AUnitType, Multistring(AllThreads, ALocation), AFlag, AValue);
+end;
+
+constructor TSetUnitFlagInstruction.Create(AThreads: TPlayers;
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; ALocation: TMultistring;
+  AFlag: TSetUnitFlag; AValue: TUnitFlagValue);
+begin
+  inherited Create(AThreads);
+  CheckMultiLocation(AThreads, ALocation);
   Player := APlayer;
   UnitType := AUnitType;
   Location := ALocation;
@@ -1358,10 +1381,16 @@ begin
   Value := AValue;
 end;
 
-function TSetUnitFlagInstruction.ToBasic: string;
+function TSetUnitFlagInstruction.GetUniformPlayer: TPlayer;
+begin
+  result := MultistringUniformPlayer(Threads, Location);
+end;
+
+function TSetUnitFlagInstruction.ToBasicFor(AThread: TPlayer): string;
 begin
   result := PlayerIdentifiers[Player]+'.Units('+StarcraftUnitIdentifier[UnitType];
-  if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+  if not MapInfo.IsAnywhere(Location[AThread]) then
+    result += ', '+StrToBasic(Location[AThread]);
   result += ').';
   case Value of
   ufvDisable,ufvEnable:
@@ -1386,14 +1415,16 @@ begin
   end;
 end;
 
-function TSetUnitFlagInstruction.ToTrigEdit: string;
+function TSetUnitFlagInstruction.ToTrigEditFor(AThread: TPlayer): string;
 begin
   if Flag = sufInvincible then
     result := 'Set Invincibility'
   else
     result := 'Set Doodad State';
 
-  result += '(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))+', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', '+AddTrigEditQuotes(Location)+', ';
+  result += '(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))+', '+
+    AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', '+
+    AddTrigEditQuotes(Location[AThread])+', ';
   case Value of
   ufvDisable: result += 'disabled';
   ufvEnable: result += 'enabled';
@@ -1402,7 +1433,7 @@ begin
   result += ')';
 end;
 
-procedure TSetUnitFlagInstruction.WriteTriggerData(
+procedure TSetUnitFlagInstruction.WriteTriggerDataFor(AThread: TPlayer;
   var AData: TTriggerInstructionData);
 begin
   case Flag of
@@ -1412,7 +1443,7 @@ begin
   end;
   AData.Player := Player;
   AData.UnitType := UnitType;
-  AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
+  AData.LocationBase0:= MapInfo.LocationIndexOf(Location[AThread]);
   case Value of
   ufvDisable: AData.SwitchValue:= svClear;
   ufvEnable: AData.SwitchValue:= svSet;
@@ -1423,7 +1454,7 @@ end;
 
 function TSetUnitFlagInstruction.Duplicate: TInstruction;
 begin
-  result:= TSetUnitFlagInstruction.Create(Player,UnitType,Location,Flag,Value);
+  result:= TSetUnitFlagInstruction.Create(Threads,Player,UnitType,Location,Flag,Value);
 end;
 
 class function TSetUnitFlagInstruction.LoadFromData(
@@ -1451,49 +1482,62 @@ end;
 constructor TKillUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
   AUnitType: TStarcraftUnit; ALocation: string; ADeathAnimation: boolean);
 begin
+  If MapInfo.IsAnywhere(ALocation) then ALocation := MapInfo.AnywhereLocationName;
+  Create(AllThreads, APlayer, AQuantity, AUnitType, Multistring(AllThreads, ALocation), ADeathAnimation);
+end;
+
+constructor TKillUnitInstruction.Create(AThreads: TPlayers; APlayer: TPlayer;
+  AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: TMultistring;
+  ADeathAnimation: boolean);
+begin
+  inherited Create(AThreads);
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
-  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
+  CheckMultiLocation(AThreads, ALocation);
   Player:= APlayer;
   Quantity:= AQuantity;
   UnitType:= AUnitType;
   Location:= ALocation;
   DeathAnimation:= ADeathAnimation;
-  If MapInfo.IsAnywhere(Location) then Location := MapInfo.AnywhereLocationName;
 end;
 
-function TKillUnitInstruction.ToBasic: string;
+function TKillUnitInstruction.GetUniformPlayer: TPlayer;
+begin
+  result := MultistringUniformPlayer(Threads, Location);
+end;
+
+function TKillUnitInstruction.ToBasicFor(AThread: TPlayer): string;
 begin
   result := PlayerIdentifiers[Player]+'.Units(';
   result += StarcraftUnitIdentifier[UnitType];
-  if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+  if not MapInfo.IsAnywhere(Location[AThread]) then result += ', '+StrToBasic(Location[AThread]);
   result += ').';
   if DeathAnimation then result += 'Kill' else result += 'Remove';
   if Quantity <> -1 then result += '('+inttostr(Quantity)+')';
 end;
 
-function TKillUnitInstruction.ToTrigEdit: string;
+function TKillUnitInstruction.ToTrigEditFor(AThread: TPlayer): string;
 begin
   if DeathAnimation then result := 'Kill Unit' else result := 'Remove Unit';
-  if not MapInfo.IsAnywhere(Location) or (Quantity <> -1) then
+  if not MapInfo.IsAnywhere(Location[AThread]) or (Quantity <> -1) then
   begin
     Result += ' At Location';
     result += '("'+ PlayerToTrigEditStr(Player)+'", ' + AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
     if Quantity = -1 then result += 'All' else result += inttostr(Quantity);
-    result += ', '+AddTrigEditQuotes(Location) + ')';
+    result += ', '+AddTrigEditQuotes(Location[AThread]) + ')';
   end
   else
     Result += '(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))+', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+')';
 end;
 
-procedure TKillUnitInstruction.WriteTriggerData(
+procedure TKillUnitInstruction.WriteTriggerDataFor(AThread: TPlayer;
   var AData: TTriggerInstructionData);
 begin
-  if not MapInfo.IsAnywhere(Location) or (Quantity <> -1) then
+  if not MapInfo.IsAnywhere(Location[AThread]) or (Quantity <> -1) then
   begin
     if DeathAnimation then AData.ActionType:= atKillUnitAt
     else AData.ActionType:= atRemoveUnitAt;
-    AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
+    AData.LocationBase0:= MapInfo.LocationIndexOf(Location[AThread]);
     AData.UnitCount := Quantity;
   end else
   begin
@@ -1506,7 +1550,7 @@ end;
 
 function TKillUnitInstruction.Duplicate: TInstruction;
 begin
-  result := TKillUnitInstruction.Create(Player,Quantity,UnitType,Location,DeathAnimation);
+  result := TKillUnitInstruction.Create(Threads, Player,Quantity,UnitType,Location,DeathAnimation);
 end;
 
 class function TKillUnitInstruction.LoadFromData(
@@ -1539,9 +1583,18 @@ end;
 constructor TGiveUnitInstruction.Create(APlayer: TPlayer; AQuantity: integer;
   AUnitType: TStarcraftUnit; ALocation: string; ADestPlayer: TPlayer);
 begin
+  Create(AllThreads, APlayer, AQuantity, AUnitType,
+    Multistring(AllThreads, ALocation), ADestPlayer);
+end;
+
+constructor TGiveUnitInstruction.Create(AThreads: TPlayers; APlayer: TPlayer;
+  AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: TMultistring;
+  ADestPlayer: TPlayer);
+begin
+  inherited Create(AThreads);
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
-  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
+  CheckMultiLocation(AThreads, ALocation);
   Player := APlayer;
   Quantity := AQuantity;
   UnitType := AUnitType;
@@ -1549,38 +1602,43 @@ begin
   DestPlayer := ADestPlayer;
 end;
 
-function TGiveUnitInstruction.ToBasic: string;
+function TGiveUnitInstruction.GetUniformPlayer: TPlayer;
+begin
+  result := MultistringUniformPlayer(Threads, Location);
+end;
+
+function TGiveUnitInstruction.ToBasicFor(AThread: TPlayer): string;
 begin
   result := PlayerIdentifiers[Player]+'.Units(';
   result += StarcraftUnitIdentifier[UnitType];
-  if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+  if not MapInfo.IsAnywhere(Location[AThread]) then result += ', '+StrToBasic(Location[AThread]);
   result += ').Give('+PlayerIdentifiers[DestPlayer];
   if Quantity <> -1 then result += ', '+inttostr(Quantity);
   result += ')';
 end;
 
-function TGiveUnitInstruction.ToTrigEdit: string;
+function TGiveUnitInstruction.ToTrigEditFor(AThread: TPlayer): string;
 begin
   result := 'Give Units to Player(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))+', '+ AddTrigEditQuotes(PlayerToTrigEditStr(DestPlayer))+ ', ' +
     AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
   if Quantity = -1 then result += 'All' else result += IntToStr(Quantity);
-  result += ', ' + AddTrigEditQuotes(Location) + ')';
+  result += ', ' + AddTrigEditQuotes(Location[AThread]) + ')';
 end;
 
-procedure TGiveUnitInstruction.WriteTriggerData(
+procedure TGiveUnitInstruction.WriteTriggerDataFor(AThread: TPlayer;
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType:= atGiveUnit;
   AData.Player := Player;
   AData.UnitCount := Quantity;
   AData.UnitType := UnitType;
-  AData.LocationBase0 := MapInfo.LocationIndexOf(Location);
+  AData.LocationBase0 := MapInfo.LocationIndexOf(Location[AThread]);
   AData.DestinationPlayer := DestPlayer;
 end;
 
 function TGiveUnitInstruction.Duplicate: TInstruction;
 begin
-  result := TGiveUnitInstruction.Create(Player,Quantity,UnitType,Location,DestPlayer);
+  result := TGiveUnitInstruction.Create(Threads,Player,Quantity,UnitType,Location,DestPlayer);
 end;
 
 class function TGiveUnitInstruction.LoadFromData(
@@ -1599,10 +1657,19 @@ constructor TTeleportUnitInstruction.Create(APlayer: TPlayer;
   AQuantity: integer; AUnitType: TStarcraftUnit; ALocation: string;
   ADestLocation: string);
 begin
+  Create(AllThreads, APlayer, AQuantity, AUnitType,
+    Multistring(AllThreads, ALocation), Multistring(AllThreads, ADestLocation))
+end;
+
+constructor TTeleportUnitInstruction.Create(AThreads: TPlayers;
+  APlayer: TPlayer; AQuantity: integer; AUnitType: TStarcraftUnit;
+  ALocation: TMultistring; ADestLocation: TMultistring);
+begin
+  inherited Create(AThreads);
+  CheckMultiLocation(AThreads, ALocation);
+  CheckMultiLocation(AThreads, ADestLocation);
   if AQuantity = 0 then raise exception.Create('0 is not allowed as a quantity');
   if AQuantity > 255 then raise exception.Create('255 is the maximum quantity allowed');
-  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
-  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ADestLocation)=-1) then raise exception.Create('Location not found');
   Player:= APlayer;
   Quantity := AQuantity;
   UnitType:= AUnitType;
@@ -1610,39 +1677,56 @@ begin
   DestLocation:= ADestLocation;
 end;
 
-function TTeleportUnitInstruction.ToBasic: string;
+function TTeleportUnitInstruction.GetUniformPlayer: TPlayer;
+var
+  pl: TPlayer;
+begin
+  result := plNone;
+  for pl := low(TPlayer) to high(TPlayer) do
+    if pl in Threads then
+    begin
+      if result = plNone then result := pl
+      else if (Location[pl] <> Location[result]) or
+        (DestLocation[pl] <> DestLocation[result]) then exit(plNone);
+    end;
+end;
+
+function TTeleportUnitInstruction.ToBasicFor(AThread: TPlayer): string;
 begin
   result := PlayerIdentifiers[Player]+'.Units(';
   if Quantity <> -1 then result += inttostr(Quantity)+', ';
   result += StarcraftUnitIdentifier[UnitType];
-  if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+  if not MapInfo.IsAnywhere(Location[AThread]) then
+    result += ', '+StrToBasic(Location[AThread]);
   result += ').Teleport(';
-  if MapInfo.IsAnywhere(DestLocation) then result += 'Anywhere'
-  else result += StrToBasic(DestLocation);
+  if MapInfo.IsAnywhere(DestLocation[AThread]) then result += 'Anywhere'
+  else result += StrToBasic(DestLocation[AThread]);
   result += ')';
 end;
 
-function TTeleportUnitInstruction.ToTrigEdit: string;
+function TTeleportUnitInstruction.ToTrigEditFor(AThread: TPlayer): string;
 begin
-  Result:= 'Move Unit(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player)) + ', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
+  Result:= 'Move Unit(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))
+    + ', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
   if Quantity = -1 then result +='All' else result += inttostr(Quantity);
-  result += ', '+AddTrigEditQuotes(Location)+', '+AddTrigEditQuotes(DestLocation)+')';
+  result += ', '+AddTrigEditQuotes(Location[AThread])+', '
+     +AddTrigEditQuotes(DestLocation[AThread])+')';
 end;
 
-procedure TTeleportUnitInstruction.WriteTriggerData(
+procedure TTeleportUnitInstruction.WriteTriggerDataFor(AThread: TPlayer;
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType:= atTeleportUnit;
   AData.Player := Player;
   AData.UnitCount:= Quantity;
   AData.UnitType := UnitType;
-  AData.LocationBase0 := MapInfo.LocationIndexOf(Location);
-  AData.DestinationLocationBase0 := MapInfo.LocationIndexOf(DestLocation);
+  AData.LocationBase0 := MapInfo.LocationIndexOf(Location[AThread]);
+  AData.DestinationLocationBase0 := MapInfo.LocationIndexOf(DestLocation[AThread]);
 end;
 
 function TTeleportUnitInstruction.Duplicate: TInstruction;
 begin
-  result := TTeleportUnitInstruction.Create(Player,Quantity,UnitTYpe,Location,DestLocation);
+  result := TTeleportUnitInstruction.Create(Threads, Player,Quantity,UnitTYpe,Location,DestLocation);
 end;
 
 class function TTeleportUnitInstruction.LoadFromData(
@@ -1661,53 +1745,75 @@ end;
 constructor TMoveLocationInstruction.Create(APlayer: TPlayer;
   AUnitType: TStarcraftUnit; ALocation: string; ALocationToChange: string);
 begin
-  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
-  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocationToChange)=-1) then raise exception.Create('Location not found');
+  Create(AllThreads, APlayer, AUnitType, Multistring(AllThreads, ALocation), Multistring(AllThreads, ALocationToChange));
+end;
+
+constructor TMoveLocationInstruction.Create(AThreads: TPlayers;
+  APlayer: TPlayer; AUnitType: TStarcraftUnit; ALocation: TMultistring;
+  ALocationToChange: TMultistring);
+begin
+  inherited Create(AThreads);
+  CheckMultiLocation(AThreads, ALocation);
+  CheckMultiLocation(AThreads, ALocationToChange);
   Player:= APlayer;
   UnitType:= AUnitType;
   Location:= ALocation;
   LocationToChange:= ALocationToChange;
 end;
 
-function TMoveLocationInstruction.ToBasic: string;
+function TMoveLocationInstruction.GetUniformPlayer: TPlayer;
+var
+  pl: TPlayer;
 begin
-  if (UnitType = suUnusedCaveIn) and not MapInfo.IsAnywhere(Location) then
+  result := plNone;
+  for pl := low(TPlayer) to high(TPlayer) do
+    if pl in Threads then
+    begin
+      if result = plNone then result := pl
+      else if (Location[pl] <> Location[result]) or
+        (LocationToChange[pl] <> LocationToChange[result]) then exit(plNone);
+    end;
+end;
+
+function TMoveLocationInstruction.ToBasicFor(AThread: TPlayer): string;
+begin
+  if (UnitType = suUnusedCaveIn) and not MapInfo.IsAnywhere(Location[AThread]) then
   begin
-    result := 'Location('+StrToBasic(LocationToChange)+').CenterOn(';
-    if MapInfo.IsAnywhere(LocationToChange) then result += 'Anywhere'
-    else result += StrToBasic(Location);
+    result := 'Location('+StrToBasic(LocationToChange[AThread])+').CenterOn(';
+    if MapInfo.IsAnywhere(LocationToChange[AThread]) then result += 'Anywhere'
+    else result += StrToBasic(Location[AThread]);
     result += ')';
   end else
   begin
     result := PlayerIdentifiers[Player]+'.Units(';
     result += StarcraftUnitIdentifier[UnitType];
-    if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+    if not MapInfo.IsAnywhere(Location[AThread]) then result += ', '+StrToBasic(Location[AThread]);
     result += ').AttractLocation(';
-    if MapInfo.IsAnywhere(LocationToChange) then result += 'Anywhere'
-    else result += StrToBasic(LocationToChange);
+    if MapInfo.IsAnywhere(LocationToChange[AThread]) then result += 'Anywhere'
+    else result += StrToBasic(LocationToChange[AThread]);
     result += ')';
   end;
 end;
 
-function TMoveLocationInstruction.ToTrigEdit: string;
+function TMoveLocationInstruction.ToTrigEditFor(AThread: TPlayer): string;
 begin
   Result:= 'Move Location(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player)) + ', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType])+', ';
-  result += AddTrigEditQuotes(Location)+', '+AddTrigEditQuotes(LocationToChange)+')';
+  result += AddTrigEditQuotes(Location[AThread])+', '+AddTrigEditQuotes(LocationToChange[AThread])+')';
 end;
 
-procedure TMoveLocationInstruction.WriteTriggerData(
+procedure TMoveLocationInstruction.WriteTriggerDataFor(AThread: TPlayer;
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType:= atMoveLocation;
   AData.Player := Player;
   AData.UnitType := UnitType;
-  AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
-  AData.DestinationLocationBase0:= MapInfo.LocationIndexOf(LocationToChange);
+  AData.LocationBase0:= MapInfo.LocationIndexOf(Location[AThread]);
+  AData.DestinationLocationBase0:= MapInfo.LocationIndexOf(LocationToChange[AThread]);
 end;
 
 function TMoveLocationInstruction.Duplicate: TInstruction;
 begin
-  result := TMoveLocationInstruction.Create(Player,UnitType,Location,LocationToChange);
+  result := TMoveLocationInstruction.Create(Threads,Player,UnitType,Location,LocationToChange);
 end;
 
 class function TMoveLocationInstruction.LoadFromData(
@@ -1727,8 +1833,17 @@ constructor TOrderUnitInstruction.Create(APlayer: TPlayer;
   AUnitType: TStarcraftUnit; ALocation: string; ADestLocation: string;
   AOrder: TUnitOrder);
 begin
-  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
-  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ADestLocation)=-1) then raise exception.Create('Location not found');
+  Create(AllThreads, APlayer, AUnitType, Multistring(AllThreads, ALocation),
+    Multistring(AllThreads, ADestLocation), AOrder)
+end;
+
+constructor TOrderUnitInstruction.Create(AThreads: TPlayers; APlayer: TPlayer;
+  AUnitType: TStarcraftUnit; ALocation: TMultistring; ADestLocation: TMultistring;
+  AOrder: TUnitOrder);
+begin
+  inherited Create(AThreads);
+  CheckMultiLocation(AThreads, ALocation);
+  CheckMultiLocation(AThreads, ADestLocation);
   Player:= APlayer;
   UnitType:= AUnitType;
   Location:= ALocation;
@@ -1736,24 +1851,41 @@ begin
   Order := AOrder;
 end;
 
-function TOrderUnitInstruction.ToBasic: string;
+function TOrderUnitInstruction.GetUniformPlayer: TPlayer;
+var
+  pl: TPlayer;
+begin
+  result := plNone;
+  for pl := low(TPlayer) to high(TPlayer) do
+    if pl in Threads then
+    begin
+      if result = plNone then result := pl
+      else if (Location[pl] <> Location[result]) or
+        (DestLocation[pl] <> DestLocation[result]) then exit(plNone);
+    end;
+end;
+
+function TOrderUnitInstruction.ToBasicFor(AThread: TPlayer): string;
 begin
   result := PlayerIdentifiers[Player]+'.Units(';
   result += StarcraftUnitIdentifier[UnitType];
-  if not MapInfo.IsAnywhere(Location) then result += ', '+StrToBasic(Location);
+  if not MapInfo.IsAnywhere(Location[AThread]) then
+    result += ', '+StrToBasic(Location[AThread]);
   result += ').';
   case Order of
   uoPatrol: result += 'PatrolOrder';
   uoAttack: result += 'AttackOrder';
   else result += 'MoveOrder';
   end;
-  result += '('+StrToBasic(DestLocation)+')';
+  result += '('+StrToBasic(DestLocation[AThread])+')';
 end;
 
-function TOrderUnitInstruction.ToTrigEdit: string;
+function TOrderUnitInstruction.ToTrigEditFor(AThread: TPlayer): string;
 begin
-  result := 'Order(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player)) + ', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]);
-  result += ', '+AddTrigEditQuotes(Location)+', '+AddTrigEditQuotes(DestLocation)+', ';
+  result := 'Order(' + AddTrigEditQuotes(PlayerToTrigEditStr(Player))
+     + ', '+AddTrigEditQuotes(StarcraftUnitTrigEditNames[UnitType]);
+  result += ', '+AddTrigEditQuotes(Location[AThread])+', '+
+    AddTrigEditQuotes(DestLocation[AThread])+', ';
   case Order of
   uoPatrol: result += 'patrol';
   uoAttack: result += 'attack';
@@ -1762,20 +1894,20 @@ begin
   result += ')';
 end;
 
-procedure TOrderUnitInstruction.WriteTriggerData(
+procedure TOrderUnitInstruction.WriteTriggerDataFor(AThread: TPlayer;
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType:= atOrderUnit;
   AData.Player := Player;
   AData.UnitType := UnitType;
-  AData.LocationBase0 := MapInfo.LocationIndexOf(Location);
-  AData.DestinationLocationBase0:= MapInfo.LocationIndexOf(DestLocation);
+  AData.LocationBase0 := MapInfo.LocationIndexOf(Location[AThread]);
+  AData.DestinationLocationBase0:= MapInfo.LocationIndexOf(DestLocation[AThread]);
   AData.UnitOrder := Order;
 end;
 
 function TOrderUnitInstruction.Duplicate: TInstruction;
 begin
-  result := TOrderUnitInstruction.Create(Player,UnitType,Location,DestLocation,Order);
+  result := TOrderUnitInstruction.Create(Threads,Player,UnitType,Location,DestLocation,Order);
 end;
 
 class function TOrderUnitInstruction.LoadFromData(
@@ -1885,12 +2017,24 @@ constructor TRunAIScriptInstruction.Create(AScriptCode: string;
   ALocation: string);
 begin
   if MapInfo.IsAnywhere(ALocation) then ALocation:= MapInfo.AnywhereLocationName;
-  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
+  Create(AllThreads, AScriptCode, Multistring(AllThreads, ALocation))
+end;
+
+constructor TRunAIScriptInstruction.Create(AThreads: TPlayers;
+  AScriptCode: string; ALocation: TMultistring);
+begin
+  inherited Create(AThreads);
+  CheckMultiLocation(AThreads, ALocation);
   ScriptCode:= AScriptCode;
   Location:= ALocation;
 end;
 
-function TRunAIScriptInstruction.ToBasic: string;
+function TRunAIScriptInstruction.GetUniformPlayer: TPlayer;
+begin
+  result := MultistringUniformPlayer(Threads, Location);
+end;
+
+function TRunAIScriptInstruction.ToBasicFor(AThread: TPlayer): string;
 var
   i: Integer;
   found: Boolean;
@@ -1905,35 +2049,36 @@ begin
       break;
     end;
   if not found then result += StrToBasic(ScriptCode);
-  if not MapInfo.IsAnywhere(Location) then Result += ', ' + StrToBasic(Location);
+  if not MapInfo.IsAnywhere(Location[AThread]) then
+    Result += ', ' + StrToBasic(Location[AThread]);
   result += ')';
 end;
 
-function TRunAIScriptInstruction.ToTrigEdit: string;
+function TRunAIScriptInstruction.ToTrigEditFor(AThread: TPlayer): string;
 begin
   Result := 'Run AI Script';
-  if not MapInfo.IsAnywhere(Location) then Result += ' At Location';
+  if not MapInfo.IsAnywhere(Location[AThread]) then Result += ' At Location';
   Result += '(' + AddTrigEditQuotes(ScriptCode);
-  if not MapInfo.IsAnywhere(Location) then Result += ', ' + AddTrigEditQuotes(Location);
+  if not MapInfo.IsAnywhere(Location[AThread]) then Result += ', ' + AddTrigEditQuotes(Location[AThread]);
   result += ')';
 end;
 
-procedure TRunAIScriptInstruction.WriteTriggerData(
+procedure TRunAIScriptInstruction.WriteTriggerDataFor(AThread: TPlayer;
   var AData: TTriggerInstructionData);
 begin
-  if MapInfo.IsAnywhere(Location) then
+  if MapInfo.IsAnywhere(Location[AThread]) then
     AData.ActionType:= atRunAIScript
   else
   begin
     AData.ActionType := atRunAIScriptAt;
-    AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
+    AData.LocationBase0:= MapInfo.LocationIndexOf(Location[AThread]);
   end;
   AData.ScriptCode := ScriptCode;
 end;
 
 function TRunAIScriptInstruction.Duplicate: TInstruction;
 begin
-  result := TRunAIScriptInstruction.Create(ScriptCode,Location);
+  result := TRunAIScriptInstruction.Create(Threads,ScriptCode,Location);
 end;
 
 class function TRunAIScriptInstruction.LoadFromData(
@@ -1953,29 +2098,41 @@ end;
 
 constructor TSetMissionObjectivesInstruction.Create(AText: string);
 begin
+  Create(AllThreads, Multistring(AllThreads, AText));
+end;
+
+constructor TSetMissionObjectivesInstruction.Create(AThreads: TPlayers;
+  AText: TMultistring);
+begin
+  inherited Create(AThreads);
   Text := AText;
 end;
 
-function TSetMissionObjectivesInstruction.ToBasic: string;
+function TSetMissionObjectivesInstruction.GetUniformPlayer: TPlayer;
 begin
-  Result:='MissionObjectives = '+StrToBasic(Text);
+  result := MultistringUniformPlayer(Threads, Text);
 end;
 
-function TSetMissionObjectivesInstruction.ToTrigEdit: string;
+function TSetMissionObjectivesInstruction.ToBasicFor(AThread: TPlayer ): string;
 begin
-  Result:= 'Set Mission Objectives(' + AddTrigEditQuotes(Text) + ')';
+  Result:='MissionObjectives = '+StrToBasic(Text[AThread]);
 end;
 
-procedure TSetMissionObjectivesInstruction.WriteTriggerData(
-  var AData: TTriggerInstructionData);
+function TSetMissionObjectivesInstruction.ToTrigEditFor(AThread: TPlayer): string;
+begin
+  Result:= 'Set Mission Objectives(' + AddTrigEditQuotes(Text[AThread]) + ')';
+end;
+
+procedure TSetMissionObjectivesInstruction.WriteTriggerDataFor(
+  AThread: TPlayer; var AData: TTriggerInstructionData);
 begin
   AData.ActionType := atSetMissionObjectives;
-  AData.StringIndex := MapInfo.TrigStringAllocate(Text);
+  AData.StringIndex := MapInfo.TrigStringAllocate(Text[AThread]);
 end;
 
 function TSetMissionObjectivesInstruction.Duplicate: TInstruction;
 begin
-  result := TSetMissionObjectivesInstruction.Create(Text);
+  result := TSetMissionObjectivesInstruction.Create(Threads, Text);
 end;
 
 class function TSetMissionObjectivesInstruction.LoadFromData(

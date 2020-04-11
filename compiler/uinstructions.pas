@@ -9,6 +9,11 @@ uses
 
 type
   TMultistring = array[TPlayer] of string;
+
+function Multistring(AThreads: TPlayers; AText: string): TMultistring;
+function MultistringUniformPlayer(AThreads: TPlayers; const AText: TMultistring): TPlayer;
+
+type
   TParameterValue = record
     Expression: TObject;
     Condition: TObject;
@@ -316,6 +321,29 @@ var
   CreateIntegerCondition: TCreateIntegerConditionProc;
 
 implementation
+
+function Multistring(AThreads: TPlayers; AText: string): TMultistring;
+var
+  pl: TPlayer;
+begin
+  for pl := plNone to high(TPlayer) do
+    if pl in AThreads then result[pl] := AText
+    else result[pl] := '';
+end;
+
+function MultistringUniformPlayer(AThreads: TPlayers; const AText: TMultistring): TPlayer;
+var
+  first, pl: TPlayer;
+begin
+  first := plNone;
+  for pl := succ(plNone) to high(TPlayer) do
+    if pl in AThreads then
+    begin
+      if first = plNone then first := pl
+      else if AText[pl] <> AText[first] then exit(plNone);
+    end;
+  result := first;
+end;
 
 procedure FreeParameterValues(var AParams: ArrayOfParameterValue);
 var

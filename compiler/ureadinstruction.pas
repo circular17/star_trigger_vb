@@ -125,7 +125,8 @@ function TryPlayerAction(AScope: integer; AProg: TInstructionList; ALine: TStrin
 var
   intVal, propIndex, propVal, timeMs, i: integer;
   unitType: TStarcraftUnit;
-  locStr, destLocStr, orderStr, filename, text: String;
+  locStr, destLocStr: TMultistring;
+  orderStr, filename, text: String;
   textDefined, deathAnim: boolean;
   destPl: TPlayer;
   props: TUnitProperties;
@@ -138,6 +139,7 @@ var
   players: TPlayers;
   unitOrder: TUnitOrder;
   multiText: TMultistring;
+  locStrUnique: string;
 
   procedure CheckCurrentPlayer;
   begin
@@ -174,9 +176,9 @@ begin
       ExpectToken(ALine,AIndex,',');
       unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
       if TryToken(ALine,AIndex,',') then
-        locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex)
+        locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex)
       else
-        locStr := MapInfo.AnywhereLocationName;
+        locStr := MultiString(AThreads, MapInfo.AnywhereLocationName);
       if TryToken(ALine,AIndex,',') then
       begin
         propIndex := TryUnitPropertiesVariableOrDefinition(AThreads, AScope, ALine, AIndex);
@@ -198,13 +200,13 @@ begin
       if propIndex <> -1 then inc(propIndex);
 
       if expr.IsConstant then
-        AProg.Add(TCreateUnitInstruction.Create(APlayer, expr.ConstElement, unitType, locStr, propIndex))
+        AProg.Add(TCreateUnitInstruction.Create(AThreads, APlayer, expr.ConstElement, unitType, locStr, propIndex))
       else
       begin
         expr.AddToProgramInAccumulator(AProg);
         subInstr := TInstructionList.Create;
         for i := 0 to 7 do
-          subInstr.Add( TCreateUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, propIndex) );
+          subInstr.Add( TCreateUnitInstruction.Create(AThreads, APlayer, 1 shl i, unitType, locStr, propIndex) );
         AProg.Add(TAccumulatorBitInstruction.Create(subInstr));
       end;
     finally
@@ -214,22 +216,22 @@ begin
   if TryToken(ALine,AIndex,'Location') then
   begin
     ExpectToken(ALine,AIndex,'(');
-    locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
+    locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
     ExpectToken(ALine,AIndex,')');
     ExpectToken(ALine,AIndex,'.');
     if TryToken(ALine,AIndex,'Attract') then
     begin
        ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
+       destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
        ExpectToken(ALine,AIndex,')');
-       AProg.Add(TMoveLocationInstruction.Create(APlayer, suUnusedCaveIn, locStr, destLocStr));
+       AProg.Add(TMoveLocationInstruction.Create(AThreads, APlayer, suUnusedCaveIn, locStr, destLocStr));
     end else
     if TryToken(ALine,AIndex,'CenterOn') then
     begin
        ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
+       destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
        ExpectToken(ALine,AIndex,')');
-       AProg.Add(TMoveLocationInstruction.Create(APlayer, suUnusedCaveIn, destLocStr, locStr));
+       AProg.Add(TMoveLocationInstruction.Create(AThreads, APlayer, suUnusedCaveIn, destLocStr, locStr));
     end else
       raise exception.create('Expecting location method');
   end else
@@ -239,9 +241,9 @@ begin
     intVal := ParseOptionalQuantity;
     unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
     if not TryToken(ALine,AIndex,',') then
-      locStr := MapInfo.AnywhereLocationName
+      locStr := Multistring(AThreads, MapInfo.AnywhereLocationName)
     else
-      locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
+      locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
     ExpectToken(ALine,AIndex,')');
     ExpectToken(ALine,AIndex,'.');
 
@@ -262,39 +264,39 @@ begin
         raise exception.Create('Expecting unit properties');
       end;
 
-      AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supLife, props.Life));
-      AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supShield, props.Shield));
-      AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supEnergy, props.Energy));
+      AProg.Add(TSetUnitPropertyInstruction.Create(AThreads, APlayer, intVal, unitType, locStr, supLife, props.Life));
+      AProg.Add(TSetUnitPropertyInstruction.Create(AThreads, APlayer, intVal, unitType, locStr, supShield, props.Shield));
+      AProg.Add(TSetUnitPropertyInstruction.Create(AThreads, APlayer, intVal, unitType, locStr, supEnergy, props.Energy));
       if unitType = suAnyUnit then
-        AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supResource, props.Resource))
+        AProg.Add(TSetUnitPropertyInstruction.Create(AThreads, APlayer, intVal, unitType, locStr, supResource, props.Resource))
       else
         if props.Resource <> 0 then
           raise exception.Create('Resource cannot be applied to a specific unit');
-      AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, supHangarCount, props.HangarCount));
+      AProg.Add(TSetUnitPropertyInstruction.Create(AThreads, APlayer, intVal, unitType, locStr, supHangarCount, props.HangarCount));
 
       if intVal = -1 then
       begin
         if props.Invincible then
-          AProg.Add(TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufInvincible, ufvEnable))
+          AProg.Add(TSetUnitFlagInstruction.Create(AThreads, APlayer, unitType, locStr, sufInvincible, ufvEnable))
         else
-          AProg.Add(TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufInvincible, ufvDisable));
+          AProg.Add(TSetUnitFlagInstruction.Create(AThreads, APlayer, unitType, locStr, sufInvincible, ufvDisable));
       end;
 
     end else
     if TryToken(ALine,AIndex,'Location') then
     begin
        ExpectToken(ALine,AIndex,'=');
-       destLocStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
+       destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
 
-       AProg.Add(TTeleportUnitInstruction.Create(APlayer, intVal, unitType, locStr, destLocStr));
+       AProg.Add(TTeleportUnitInstruction.Create(AThreads, APlayer, intVal, unitType, locStr, destLocStr));
     end else
     if TryToken(ALine,AIndex,'Teleport') then
     begin
        ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
+       destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
        ExpectToken(ALine,AIndex,')');
 
-       AProg.Add(TTeleportUnitInstruction.Create(APlayer, intVal, unitType, locStr, destLocStr));
+       AProg.Add(TTeleportUnitInstruction.Create(AThreads, APlayer, intVal, unitType, locStr, destLocStr));
     end else
     if TryToken(ALine,AIndex,'EnterTransport') then
     begin
@@ -306,7 +308,7 @@ begin
        if TryToken(ALine,AIndex,'(') then
          ExpectToken(ALine,AIndex,')');
 
-       AProg.Add(TRunAIScriptInstruction.Create('EnTr', locStr));
+       AProg.Add(TRunAIScriptInstruction.Create(AThreads, 'EnTr', locStr));
     end else
     if TryToken(ALine,AIndex,'ExitTransport') then
     begin
@@ -318,7 +320,7 @@ begin
        if TryToken(ALine,AIndex,'(') then
          ExpectToken(ALine,AIndex,')');
 
-       AProg.Add(TRunAIScriptInstruction.Create('ExTr', locStr));
+       AProg.Add(TRunAIScriptInstruction.Create(AThreads, 'ExTr', locStr));
     end else
     if TryToken(ALine,AIndex,'EnterClosestBunker') then
     begin
@@ -330,15 +332,15 @@ begin
        if TryToken(ALine,AIndex,')') then
          ExpectToken(ALine,AIndex,')');
 
-       AProg.Add(TRunAIScriptInstruction.Create('EnBk', locStr));
+       AProg.Add(TRunAIScriptInstruction.Create(AThreads, 'EnBk', locStr));
     end else
     if TryToken(ALine,AIndex,'AttractLocation') then
     begin
        ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
+       destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
        ExpectToken(ALine,AIndex,')');
        if intVal <> -1 then raise exception.Create('Cannot specify quantity for this action (use All quantity instead)');
-       AProg.Add(TMoveLocationInstruction.Create(APlayer, unitType, locStr, destLocStr));
+       AProg.Add(TMoveLocationInstruction.Create(AThreads, APlayer, unitType, locStr, destLocStr));
     end else
     if TryToken(ALine,AIndex,'MoveOrder') or TryToken(ALine,AIndex,'PatrolOrder') or TryToken(ALine,AIndex,'AttackOrder') then
     begin
@@ -350,9 +352,9 @@ begin
       if intVal <> -1 then
         raise exception.Create('Cannot specify quantity for an order (use All quantity instead)');
       ExpectToken(ALine,AIndex,'(');
-      destLocStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
+      destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
       ExpectToken(ALine,AIndex,')');
-      AProg.Add(TOrderUnitInstruction.Create(APlayer, unitType, locStr, destLocStr, unitOrder));
+      AProg.Add(TOrderUnitInstruction.Create(AThreads, APlayer, unitType, locStr, destLocStr, unitOrder));
     end else
     if TryToken(ALine,AIndex,'Kill') or TryToken(ALine,AIndex,'Remove') then
     begin
@@ -372,13 +374,13 @@ begin
         if Assigned(expr) then
           intVal := expr.ConstElement;
         if intVal <> 0 then
-          AProg.Add(TKillUnitInstruction.Create(APlayer, intVal, unitType, locStr, deathAnim));
+          AProg.Add(TKillUnitInstruction.Create(AThreads, APlayer, intVal, unitType, locStr, deathAnim));
       end else
       begin
         expr.AddToProgramInAccumulator(AProg);
         subInstr := TInstructionList.Create;
         for i := 0 downto 7 do
-          subInstr.Add( TKillUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, deathAnim) );
+          subInstr.Add( TKillUnitInstruction.Create(AThreads, APlayer, 1 shl i, unitType, locStr, deathAnim) );
         AProg.Add(TAccumulatorBitInstruction.Create(subInstr));
       end;
       expr.Free;
@@ -400,13 +402,13 @@ begin
         if Assigned(expr) then
           intVal := expr.ConstElement;
         if intVal <> 0 then
-          AProg.Add(TGiveUnitInstruction.Create(APlayer, intVal, unitType, locStr, destPl));
+          AProg.Add(TGiveUnitInstruction.Create(AThreads, APlayer, intVal, unitType, locStr, destPl));
       end else
       begin
         expr.AddToProgramInAccumulator(AProg);
         subInstr := TInstructionList.Create;
         for i := 0 downto 7 do
-          subInstr.Add( TGiveUnitInstruction.Create(APlayer, 1 shl i, unitType, locStr, destPl) );
+          subInstr.Add( TGiveUnitInstruction.Create(AThreads, APlayer, 1 shl i, unitType, locStr, destPl) );
         AProg.Add(TAccumulatorBitInstruction.Create(subInstr));
       end;
       expr.Free;
@@ -417,7 +419,7 @@ begin
 
       if intVal <> -1 then
         raise exception.Create('Cannot specify quantity here (use All quantity instead)');
-      AProg.Add(TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufInvincible, ufvToggle));
+      AProg.Add(TSetUnitFlagInstruction.Create(AThreads, APlayer, unitType, locStr, sufInvincible, ufvToggle));
     end else
     if TryToken(ALine,AIndex,'ToggleDoodadState') then
     begin
@@ -425,7 +427,7 @@ begin
 
       if intVal <> -1 then
         raise exception.Create('Cannot specify quantity here (use All quantity instead)');
-      AProg.Add(TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufDoodadState, ufvToggle));
+      AProg.Add(TSetUnitFlagInstruction.Create(AThreads, APlayer, unitType, locStr, sufDoodadState, ufvToggle));
     end else
     if TryToken(ALine,AIndex,'Invincible') then
     begin
@@ -435,8 +437,8 @@ begin
       ExpectToken(ALine,AIndex,'=');
       conds := ExpectConditions(AScope,ALine,AIndex,AThreads);
       AppendConditionalInstruction(AProg, conds,
-         TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufInvincible, ufvEnable),
-         TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufInvincible, ufvDisable));
+         TSetUnitFlagInstruction.Create(AThreads, APlayer, unitType, locStr, sufInvincible, ufvEnable),
+         TSetUnitFlagInstruction.Create(AThreads, APlayer, unitType, locStr, sufInvincible, ufvDisable));
     end else
     if TryToken(ALine,AIndex,'DoodadState') then
     begin
@@ -446,8 +448,8 @@ begin
       ExpectToken(ALine,AIndex,'=');
       conds := ExpectConditions(AScope,ALine,AIndex,AThreads);
       AppendConditionalInstruction(AProg, conds,
-         TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufDoodadState, ufvEnable),
-         TSetUnitFlagInstruction.Create(APlayer, unitType, locStr, sufDoodadState, ufvDisable));
+         TSetUnitFlagInstruction.Create(AThreads, APlayer, unitType, locStr, sufDoodadState, ufvEnable),
+         TSetUnitFlagInstruction.Create(AThreads, APlayer, unitType, locStr, sufDoodadState, ufvDisable));
     end else
     if TryToken(ALine,AIndex,'Burrowed') or
       TryToken(ALine,AIndex,'Cloaked') or
@@ -466,7 +468,7 @@ begin
       ExpectToken(ALine,AIndex,'=');
 
       propVal:= ExpectIntegerConstant(AThreads, AScope, ALine, AIndex, false);
-      AProg.Add(TSetUnitPropertyInstruction.Create(APlayer, intVal, unitType, locStr, prop, propVal));
+      AProg.Add(TSetUnitPropertyInstruction.Create(AThreads, APlayer, intVal, unitType, locStr, prop, propVal));
     end;
 
   end else
@@ -475,17 +477,17 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
+      locStrUnique := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
       ExpectToken(ALine,AIndex,')');
-      AProg.Add(TCenterViewInstruction.Create(locStr));
+      AProg.Add(TCenterViewInstruction.Create(locStrUnique));
     end else
     if TryToken(ALine,AIndex,'MinimapPing') then
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
+      locStrUnique := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
       ExpectToken(ALine,AIndex,')');
-      AProg.Add(TCenterViewInstruction.Create(locStr));
+      AProg.Add(TCenterViewInstruction.Create(locStrUnique));
     end else
     if TryToken(ALine,AIndex,'Print') then
     begin
@@ -493,7 +495,7 @@ begin
       ExpectToken(ALine,AIndex,'(');
       multiText := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex, true);
       ExpectToken(ALine,AIndex,')');
-      AProg.Add(TDisplayTextMessageMultiInstruction.Create(AThreads, true, multiText));
+      AProg.Add(TDisplayTextMessageInstruction.Create(AThreads, true, multiText));
     end else
     if TryToken(ALine,AIndex,'TalkingPortrait') then
     begin
@@ -509,8 +511,8 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'=');
-      text := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
-      AProg.Add(TSetMissionObjectivesInstruction.Create(text));
+      multiText := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+      AProg.Add(TSetMissionObjectivesInstruction.Create(AThreads, multiText));
     end else
     if TryToken(ALine,AIndex,'Leaderboard') then
     begin
@@ -627,17 +629,17 @@ begin
             begin
               unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
               if TryToken(ALine,AIndex,',') then
-                locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex)
+                locStrUnique := ExpectStringConstant(AThreads, AScope, ALine, AIndex)
               else
-                locStr := MapInfo.AnywhereLocationName;
+                locStrUnique := MapInfo.AnywhereLocationName;
               ExpectToken(ALine,AIndex,')');
             end else
             begin
               unitType := suAnyUnit;
-              locStr := '';
+              locStrUnique := '';
             end;
             if not textDefined then text := 'units';
-            AProg.Add(TShowLeaderboardUnitCountInstruction.Create(text, unitType, locStr, intVal));
+            AProg.Add(TShowLeaderboardUnitCountInstruction.Create(text, unitType, locStrUnique, intVal));
           end else
             raise exception.Create('Expecting sorting variable');
         end;
@@ -695,11 +697,11 @@ begin
       ExpectToken(ALine,AIndex,'(');
       filename := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
       if TryToken(ALine,AIndex,',') then
-        locStr := ExpectStringConstant(AThreads, AScope, ALine, AIndex)
+        locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex)
       else
-        locStr := '';
+        locStr := Multistring(AThreads, MapInfo.AnywhereLocationName);
       ExpectToken(ALine,AIndex,')');
-      AProg.Add(TRunAIScriptInstruction.Create(filename, locStr));
+      AProg.Add(TRunAIScriptInstruction.Create(AThreads, filename, locStr));
     end else
     if TryToken(ALine,AIndex,'Defeat') then
     begin

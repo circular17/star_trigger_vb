@@ -839,7 +839,7 @@ const
     'Powerup.ZergGasSacType2',
     'Powerup.TerranGasTankType1',
     'Powerup.TerranGasTankType2',
-    'None',
+    'NoUnit',
     'AnyUnit',
     'Men',
     'Buildings',

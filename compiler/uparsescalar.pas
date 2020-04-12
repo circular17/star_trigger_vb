@@ -67,21 +67,23 @@ var
   wantUnit: Boolean;
   customName: string;
 begin
+  if TryToken(ALine,AIndex,'CustomUnit') then
+  begin
+    ExpectToken(ALine, AIndex, '(');
+    AUnit := suNone;
+    customName := ExpectStringConstant(AThreads, AScope, ALine, AIndex, true);
+    ExpectToken(ALine, AIndex, ')');
+    for u := low(TStarcraftUnit) to suFactories do
+      if MapInfo.CustomUnitName[u] = customName then
+      begin
+        AUnit := u;
+        exit(true);
+      end;
+    raise exception.Create('Custom unit name not found');
+  end;
+
   if TryToken(ALine,AIndex,'Unit') then
   begin
-    if TryToken(ALine, AIndex, '(') then
-    begin
-      AUnit := suNone;
-      customName := ExpectStringConstant(AThreads, AScope, ALine, AIndex, true);
-      ExpectToken(ALine, AIndex, ')');
-      for u := low(TStarcraftUnit) to suFactories do
-        if MapInfo.CustomUnitName[u] = customName then
-        begin
-          AUnit := u;
-          exit(true);
-        end;
-      raise exception.Create('Custom unit name not found');
-    end;
     ExpectToken(ALine,AIndex,'.');
     wantUnit := true;
   end else

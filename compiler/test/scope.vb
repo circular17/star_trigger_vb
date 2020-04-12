@@ -7,7 +7,7 @@ Class Group1 = {Player1, Player2}
     dim a as byte
 
     sub f
-        createunit(1, Terran.Marine) with {.Life = 50}
+        CreateUnit(1, Terran.Marine) With {.Life = 50}
         dim b as byte = 3
     end sub
 

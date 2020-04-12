@@ -44,6 +44,7 @@ function TryNeutralAction(AScope: integer; AProg: TInstructionList; ALine: TStri
 var
   scenario: String;
   conds: TConditionList;
+  locStr, destLocStr: TMultistring;
 begin
   if TryToken(ALine,AIndex,'CountdownPaused') then
   begin
@@ -72,6 +73,28 @@ begin
     ExpectToken(ALine,AIndex,'(');
     AProg.Add(TWaitInstruction.Create(ExpectIntegerConstant(AThreads, AScope, ALine, AIndex, false)));
     ExpectToken(ALine,AIndex,')');
+  end else
+  if TryToken(ALine,AIndex,'Location') then
+  begin
+    ExpectToken(ALine,AIndex,'(');
+    locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+    ExpectToken(ALine,AIndex,')');
+    ExpectToken(ALine,AIndex,'.');
+    if TryToken(ALine,AIndex,'Attract') then
+    begin
+       ExpectToken(ALine,AIndex,'(');
+       destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+       ExpectToken(ALine,AIndex,')');
+       AProg.Add(TMoveLocationInstruction.Create(AThreads, plCurrentPlayer, suUnusedCaveIn, locStr, destLocStr));
+    end else
+    if TryToken(ALine,AIndex,'CenterOn') then
+    begin
+       ExpectToken(ALine,AIndex,'(');
+       destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+       ExpectToken(ALine,AIndex,')');
+       AProg.Add(TMoveLocationInstruction.Create(AThreads, plCurrentPlayer, suUnusedCaveIn, destLocStr, locStr));
+    end else
+      raise exception.create('Expecting location method');
   end else
     result := false;
 end;
@@ -127,7 +150,7 @@ var
   unitType: TStarcraftUnit;
   locStr, destLocStr: TMultistring;
   orderStr, filename, text: String;
-  textDefined, deathAnim: boolean;
+  deathAnim: boolean;
   destPl: TPlayer;
   props: TUnitProperties;
   prop: TSetUnitProperty;
@@ -149,16 +172,18 @@ var
 
   function ParseOptionalQuantity(ACommaAfter: boolean = true): integer;
   begin
-    if TryToken(ALine,AIndex,'All') then
-    begin
-      result := -1;
-      if ACommaAfter then ExpectToken(ALine,AIndex,',');
-    end else
     if TryIntegerConstant(AThreads, AScope, ALine, AIndex, result) then
     begin
       if ACommaAfter then ExpectToken(ALine,AIndex,',');
     end else
       result := -1; //All by default
+  end;
+
+  function TryText(ACommaBefore: boolean = true): boolean;
+  begin
+    if ACommaBefore and not TryToken(ALine, AIndex, ',') then exit;
+    result := TryStringConstant(AThreads, AScope, ALine, AIndex, text);
+    if not result and ACommaBefore then dec(AIndex);
   end;
 
 begin
@@ -181,9 +206,13 @@ begin
         locStr := MultiString(AThreads, MapInfo.AnywhereLocationName);
       if TryToken(ALine,AIndex,',') then
       begin
-        propIndex := TryUnitPropertiesVariableOrDefinition(AThreads, AScope, ALine, AIndex);
-        if propIndex = -1 then
-          raise exception.Create('Unit properties expected');
+        if TryToken(ALine, AIndex, 'Nothing') then propIndex := -1
+        else
+          begin
+            propIndex := TryUnitPropertiesVariableOrDefinition(AThreads, AScope, ALine, AIndex);
+            if propIndex = -1 then
+              raise exception.Create('Unit properties expected');
+          end;
       end else
         propIndex := -1;
       ExpectToken(ALine,AIndex,')');
@@ -213,32 +242,10 @@ begin
       expr.Free;
     end;
   end else
-  if TryToken(ALine,AIndex,'Location') then
-  begin
-    ExpectToken(ALine,AIndex,'(');
-    locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
-    ExpectToken(ALine,AIndex,')');
-    ExpectToken(ALine,AIndex,'.');
-    if TryToken(ALine,AIndex,'Attract') then
-    begin
-       ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
-       ExpectToken(ALine,AIndex,')');
-       AProg.Add(TMoveLocationInstruction.Create(AThreads, APlayer, suUnusedCaveIn, locStr, destLocStr));
-    end else
-    if TryToken(ALine,AIndex,'CenterOn') then
-    begin
-       ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
-       ExpectToken(ALine,AIndex,')');
-       AProg.Add(TMoveLocationInstruction.Create(AThreads, APlayer, suUnusedCaveIn, destLocStr, locStr));
-    end else
-      raise exception.create('Expecting location method');
-  end else
   if TryToken(ALine,AIndex,'Units') then
   begin
     ExpectToken(ALine,AIndex,'(');
-    intVal := ParseOptionalQuantity;
+    intVal := -1;
     unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
     if not TryToken(ALine,AIndex,',') then
       locStr := Multistring(AThreads, MapInfo.AnywhereLocationName)
@@ -246,6 +253,14 @@ begin
       locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
     ExpectToken(ALine,AIndex,')');
     ExpectToken(ALine,AIndex,'.');
+
+    if TryToken(ALine,AIndex,'Take') then
+    begin
+      ExpectToken(ALine,AIndex,'(');
+      intVal := ExpectIntegerConstant(AThreads, AScope, ALine, AIndex, False);
+      ExpectToken(ALine,AIndex,')');
+      ExpectToken(ALine,AIndex,'.');
+    end;
 
     if TryToken(ALine,AIndex,'Properties') then
     begin
@@ -529,120 +544,107 @@ begin
       begin
         AProg.Add(TLeaderBoardIncludeComputersInstruction.Create(ufvToggle));
       end else
+      If TryToken(ALine,AIndex,'ShowResources') then
+      begin
+        if not TryIntegerConstant(AThreads, AScope, ALine, AIndex, intVal) then
+          intVal := MaxLongInt;
+        AProg.Add(TShowLeaderboardOreAndGasIconInstruction.Create(intVal));
+      end else
       if TryToken(ALine,AIndex,'Show') then
       begin
         ExpectToken(ALine,AIndex,'(');
-        textDefined:= TryStringConstant(AThreads, AScope, ALine, AIndex, text);
-        if textDefined then ExpectToken(ALine,AIndex,',');
 
-        if TryToken(ALine,AIndex,'MineralsAndGas') or
-         TryToken(ALine,AIndex,'OreAndGas') then
+        if TryInteger(AThreads, AScope, ALine, AIndex, intVal) then
+          ExpectToken(ALine,AIndex,'-')
+        else intVal := -1;
+
+        if TryToken(ALine,AIndex,'MineralsAndGas') or TryToken(ALine,AIndex,'OreAndGas') then
         begin
-          if not textDefined then
-          begin
-            intVal := MaxLongInt;
-            if TryToken(ALine,AIndex,',') then
-            begin
-              if not TryIntegerConstant(AThreads, AScope, ALine, AIndex, intVal) then
-                raise exception.Create('Expecting integer value');
-            end;
-            AProg.Add(TShowLeaderboardOreAndGasIconInstruction.Create(intVal));
-          end else
-            AProg.Add(TShowLeaderboardResourceInstruction.Create('minerals and gas', srOreAndGas,-1));
+          if not TryText then text := 'minerals and gas';
+          AProg.Add(TShowLeaderboardResourceInstruction.Create(text, srOreAndGas, intVal));
         end else
+        if TryToken(ALine,AIndex,'Minerals') or TryToken(ALine,AIndex,'Ore') then
         begin
-          if TryInteger(AThreads, AScope, ALine, AIndex, intVal) then
-            ExpectToken(ALine,AIndex,'-')
-          else intVal := -1;
-
-          if TryToken(ALine,AIndex,'MineralsAndGas') or TryToken(ALine,AIndex,'OreAndGas') then
+          if not TryText then text := 'minerals';
+          AProg.Add(TShowLeaderboardResourceInstruction.Create(text, srOre, intVal));
+        end else
+        if TryToken(ALine,AIndex,'Gas') then
+        begin
+          if not TryText then text := 'gas';
+          AProg.Add(TShowLeaderboardResourceInstruction.Create(text, srGas, intVal));
+        end else
+        if TryToken(ALine,AIndex,'UnitScore') then
+        begin
+          if not TryText then text := 'unit score';
+          AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssUnitScore, intVal));
+        end else
+        if TryToken(ALine,AIndex,'BuildingScore') then
+        begin
+          if not TryText then text := 'building score';
+          AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssBuildingScore, intVal));
+        end else
+        if TryToken(ALine,AIndex,'UnitAndBuildingScore') then
+        begin
+          if not TryText then text := 'unit and building score';
+          AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssUnitAndBuildingScore, intVal));
+        end else
+        if TryToken(ALine,AIndex,'KillScore') then
+        begin
+          if not TryText then text := 'kill score';
+          AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssKillScore, intVal));
+        end else
+        if TryToken(ALine,AIndex,'RazingScore') then
+        begin
+          if not TryText then text := 'razing score';
+          AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssRazingScore, intVal));
+        end else
+        if TryToken(ALine,AIndex,'KillAndRazingScore') then
+        begin
+          if not TryText then text := 'kill and razing score';
+          AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssKillAndRazingScore, intVal));
+        end else
+        if TryToken(ALine,AIndex,'TotalScore') then
+        begin
+          if not TryText then text := 'total score';
+          AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssTotalScore, intVal));
+        end else
+        if TryToken(ALine,AIndex,'CustomScore') then
+        begin
+          if not TryText then text := 'custom score';
+          AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssCustomScore, intVal));
+        end else
+        if TryToken(ALine,AIndex,'KillCount') then
+        begin
+          if TryToken(ALine,AIndex,'(') then
           begin
-            if not textDefined then text := 'minerals and gas';
-            AProg.Add(TShowLeaderboardResourceInstruction.Create(text, srOreAndGas, intVal));
+            unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
+            ExpectToken(ALine,AIndex,')');
           end else
-          if TryToken(ALine,AIndex,'Minerals') or TryToken(ALine,AIndex,'Ore') then
           begin
-            if not textDefined then text := 'minerals';
-            AProg.Add(TShowLeaderboardResourceInstruction.Create(text, srOre, intVal));
-          end else
-          if TryToken(ALine,AIndex,'Gas') then
+            unitType := suAnyUnit;
+          end;
+          if not TryText then text := 'kills';
+          AProg.Add(TShowLeaderboardKillCountInstruction.Create(text, unitType, intVal));
+        end else
+        if TryToken(ALine,AIndex,'UnitCount') then
+        begin
+          if TryToken(ALine,AIndex,'(') then
           begin
-            if not textDefined then text := 'gas';
-            AProg.Add(TShowLeaderboardResourceInstruction.Create(text, srGas, intVal));
+            unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
+            if TryToken(ALine,AIndex,',') then
+              locStrUnique := ExpectStringConstant(AThreads, AScope, ALine, AIndex)
+            else
+              locStrUnique := MapInfo.AnywhereLocationName;
+            ExpectToken(ALine,AIndex,')');
           end else
-          if TryToken(ALine,AIndex,'UnitScore') then
           begin
-            if not textDefined then text := 'unit score';
-            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssUnitScore, intVal));
-          end else
-          if TryToken(ALine,AIndex,'BuildingScore') then
-          begin
-            if not textDefined then text := 'building score';
-            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssBuildingScore, intVal));
-          end else
-          if TryToken(ALine,AIndex,'UnitAndBuildingScore') then
-          begin
-            if not textDefined then text := 'unit and building score';
-            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssUnitAndBuildingScore, intVal));
-          end else
-          if TryToken(ALine,AIndex,'KillScore') then
-          begin
-            if not textDefined then text := 'kill score';
-            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssKillScore, intVal));
-          end else
-          if TryToken(ALine,AIndex,'RazingScore') then
-          begin
-            if not textDefined then text := 'razing score';
-            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssRazingScore, intVal));
-          end else
-          if TryToken(ALine,AIndex,'KillAndRazingScore') then
-          begin
-            if not textDefined then text := 'kill and razing score';
-            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssKillAndRazingScore, intVal));
-          end else
-          if TryToken(ALine,AIndex,'TotalScore') then
-          begin
-            if not textDefined then text := 'total score';
-            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssTotalScore, intVal));
-          end else
-          if TryToken(ALine,AIndex,'CustomScore') then
-          begin
-            if not textDefined then text := 'custom score';
-            AProg.Add(TShowLeaderboardScoreInstruction.Create(text, ssCustomScore, intVal));
-          end else
-          if TryToken(ALine,AIndex,'KillCount') then
-          begin
-            if TryToken(ALine,AIndex,'(') then
-            begin
-              unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
-              ExpectToken(ALine,AIndex,')');
-            end else
-            begin
-              unitType := suAnyUnit;
-            end;
-            if not textDefined then text := 'kills';
-            AProg.Add(TShowLeaderboardKillCountInstruction.Create(text, unitType, intVal));
-          end else
-          if TryToken(ALine,AIndex,'UnitCount') then
-          begin
-            if TryToken(ALine,AIndex,'(') then
-            begin
-              unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
-              if TryToken(ALine,AIndex,',') then
-                locStrUnique := ExpectStringConstant(AThreads, AScope, ALine, AIndex)
-              else
-                locStrUnique := MapInfo.AnywhereLocationName;
-              ExpectToken(ALine,AIndex,')');
-            end else
-            begin
-              unitType := suAnyUnit;
-              locStrUnique := '';
-            end;
-            if not textDefined then text := 'units';
-            AProg.Add(TShowLeaderboardUnitCountInstruction.Create(text, unitType, locStrUnique, intVal));
-          end else
-            raise exception.Create('Expecting sorting variable');
-        end;
+            unitType := suAnyUnit;
+            locStrUnique := '';
+          end;
+          if not TryText then text := 'units';
+          AProg.Add(TShowLeaderboardUnitCountInstruction.Create(text, unitType, locStrUnique, intVal));
+        end else
+          raise exception.Create('Expecting sorting variable');
         ExpectToken(ALine,AIndex,')');
       end else
         raise exception.Create('Unknown field of leaderboard (Show, Computers, ToggleComputers)');
@@ -652,40 +654,42 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'.');
-      if TryToken(ALine,AIndex,'Ennemy') then alliance := asEnnemy
-      else if TryToken(ALine,AIndex,'Ally') then alliance := asAlly
-      else if TryToken(ALine,AIndex,'AlliedVictory') then alliance := asAlliedVictory
-      else raise exception.Create('Expecting alliance status (Ennemy, Ally, AlliedVictory)');
-      ExpectToken(ALine,AIndex,'(');
-      players := ExpectPlayers(AThreads, AScope, ALine ,AIndex);
-      ExpectToken(ALine,AIndex,')');
-
-      for pl := low(TPlayer) to high(TPlayer) do
-        if pl in players then AProg.Add(TSetAllianceStatus.Create(pl, alliance));
-    end else
-    if TryToken(ALine,AIndex,'SharedVision') then
-    begin
-      CheckCurrentPlayer;
-      ExpectToken(ALine,AIndex,'(');
-      pl := TryParsePlayer(AThreads, AScope, ALine, AIndex);
-      if pl = plNone then
+      if TryToken(ALine,AIndex,'SharedVision') then
       begin
-        if TryIntegerConstant(AThreads, AScope, ALine, AIndex, intVal) then
+        CheckCurrentPlayer;
+        ExpectToken(ALine,AIndex,'(');
+        pl := TryParsePlayer(AThreads, AScope, ALine, AIndex);
+        if pl = plNone then
         begin
-          if (intVal < 1) or (intVal > 8) then
-            raise exception.Create('Player index out of bounds');
-          pl := TPlayer(ord(plPlayer1)+intVal-1);
-        end else
-          raise exception.Create('Expecting player index');
+          if TryIntegerConstant(AThreads, AScope, ALine, AIndex, intVal) then
+          begin
+            if (intVal < 1) or (intVal > 8) then
+              raise exception.Create('Player index out of bounds');
+            pl := TPlayer(ord(plPlayer1)+intVal-1);
+          end else
+            raise exception.Create('Expecting player index');
+        end;
+        if not (pl in[plPlayer1..plPlayer8]) then
+          raise exception.Create('Invalid player');
+        ExpectToken(ALine,AIndex,')');
+        ExpectToken(ALine,AIndex,'=');
+        conds := ExpectConditions(AScope,ALine,AIndex,AThreads);
+        AppendConditionalInstruction(AProg, conds,
+          TRunAIScriptInstruction.Create('+Vi'+inttostr(ord(pl)-ord(plPlayer1)), ''),
+          TRunAIScriptInstruction.Create('-Vi'+inttostr(ord(pl)-ord(plPlayer1)), ''));
+      end else
+      begin
+        if TryToken(ALine,AIndex,'Ennemy') then alliance := asEnnemy
+        else if TryToken(ALine,AIndex,'Ally') then alliance := asAlly
+        else if TryToken(ALine,AIndex,'AlliedVictory') then alliance := asAlliedVictory
+        else raise exception.Create('Expecting alliance status (Ennemy, Ally, AlliedVictory, SharedVision)');
+        ExpectToken(ALine,AIndex,'(');
+        players := ExpectPlayers(AThreads, AScope, ALine ,AIndex);
+        ExpectToken(ALine,AIndex,')');
+
+        for pl := low(TPlayer) to high(TPlayer) do
+          if pl in players then AProg.Add(TSetAllianceStatus.Create(pl, alliance));
       end;
-      if not (pl in[plPlayer1..plPlayer8]) then
-        raise exception.Create('Invalid player');
-      ExpectToken(ALine,AIndex,')');
-      ExpectToken(ALine,AIndex,'=');
-      conds := ExpectConditions(AScope,ALine,AIndex,AThreads);
-      AppendConditionalInstruction(AProg, conds,
-        TRunAIScriptInstruction.Create('+Vi'+inttostr(ord(pl)-ord(plPlayer1)), ''),
-        TRunAIScriptInstruction.Create('-Vi'+inttostr(ord(pl)-ord(plPlayer1)), ''));
     end else
     if TryToken(ALine,AIndex,'NextScenario') then
     begin

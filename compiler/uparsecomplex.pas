@@ -300,6 +300,7 @@ begin
     begin
       ExpectToken(ALine,idx,'(');
       intVal := ExpectIntegerConstant(AThreads, AScope, ALine,idx,false);
+      if intVal > 255 then raise exception.Create('Value out of bounds');
       ExpectToken(ALine,idx,')');
       AStr += chr(intVal);
     end else

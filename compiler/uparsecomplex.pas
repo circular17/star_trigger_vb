@@ -509,15 +509,15 @@ end;
 procedure ProcessDim(AThreads: TPlayers; AScope: integer; ALine: TStringList; AProg: TInstructionList; AInit0, AMultithreadInit: boolean; out AWarning: string);
 var
   index: Integer;
-  varName, varType, filename, text, wavName: String;
+  varName, varType, text: String;
   arraySize, bitCount: integer;
   isArray: boolean;
-  timeMs, intVal, i: integer;
+  intVal: integer;
   arrValues: ArrayOfInteger;
   boolVal: boolean;
   prop: TUnitProperties;
   arrBoolValues: ArrayOfSwitchValue;
-  Constant, filenameSpecified, multiThreadVar: boolean;
+  Constant, multiThreadVar, hasNew: boolean;
   strValues: ArrayOfString;
   su: TStarcraftUnit;
 
@@ -630,6 +630,50 @@ var
     end;
   end;
 
+  procedure ExpectSoundDefinition;
+  var
+    filename, wavName: string;
+    filenameSpecified: boolean;
+    timeMs, j: integer;
+  begin
+    ExpectToken(ALine,index,'{');
+    filename := '';
+    filenameSpecified := false;
+    timeMs := -1;
+    if not TryToken(ALine,index,'}') then
+    while true do
+    begin
+      ExpectToken(ALine,index,'.');
+      if not filenameSpecified and TryToken(ALine,index,'Filename') then
+      begin
+        ExpectToken(ALine,index,'=');
+        if index >= ALine.Count then
+        begin
+          for j := WavMinIndex to WavMaxIndex do
+          begin
+            wavName := MapInfo.WavName[j];
+            if wavName <> '' then AddToCompletionList(StrToBasic(wavName));
+          end;
+        end;
+        filename := ExpectStringConstant(AThreads, AScope, ALine, index);
+        filenameSpecified := true;
+      end else
+      if (timeMs = -1) and TryToken(ALine,index,'Duration') then
+      begin
+        ExpectToken(ALine,index,'=');
+        timeMs := ExpectIntegerConstant(AThreads, AScope, ALine, index, false);
+      end else
+        raise exception.Create('Unknown field. Expecting Filename or Duration');
+      if not TryToken(ALine,index,',') then
+      begin
+        ExpectToken(ALine,index,'}');
+        break;
+      end;
+    end;
+    if filename = '' then raise exception.Create('Filename not specified');
+    if timeMs = -1 then timeMs := 0;
+    CreateSound(AScope,varName, filename, timeMs, true);
+  end;
 
 begin
   multiThreadVar := (AThreads <> []) and not IsUniquePlayer(AThreads);
@@ -656,6 +700,7 @@ begin
     varName := ALine[index];
     arraySize := 0;
     bitCount := 0;
+    hasNew := false;
     if not IsValidVariableName(varName) then
       raise exception.Create('Invalid variable name');
 
@@ -681,6 +726,7 @@ begin
       else
       begin
         bitCount := 0;
+        if not Constant and TryToken(ALine,index,'New') then hasNew := true;
         if TryToken(ALine,index,'Boolean') then varType := 'Boolean'
         else if TryToken(ALine,index,'String') then varType := 'String'
         else if TryToken(ALine,index,'UnitProperties') then varType := 'UnitProperties'
@@ -694,6 +740,9 @@ begin
             raise Exception.Create('Unknown type : ' + ALine[index]);
         end;
       end;
+
+      if hasNew and (varType <> 'UnitProperties') and (varType <> 'Sound') then
+        raise exception.Create('The type ' + varType + ' is not a class');
 
       if not isArray and (varType <> 'UnitProperties') and (varType <> 'Unit')
         and (varType <> 'Sound') and TryToken(ALine,index,'(') then
@@ -714,6 +763,23 @@ begin
     if IsVarNameUsed(AScope, varName, integer(isArray)) then
       raise exception.Create('The name "' + varName + '" is already in use');
 
+    if hasNew then
+    begin
+      ExpectToken(ALine,index,'With');
+      if varType = 'UnitProperties' then
+      begin
+        if TryUnitPropertiesDefinition(AThreads, AScope, ALine, index, prop) then
+        begin
+          CreateUnitProp(AScope,varName, prop, true);
+        end else
+          raise exception.Create('Expecting unit properties');
+      end else
+      if varType = 'Sound' then
+      begin
+        ExpectSoundDefinition;
+      end else
+        raise exception.Create('Type cannot be instantiated');
+    end else
     if TryToken(ALine,index,'=') then
     begin
       if isArray then
@@ -763,46 +829,28 @@ begin
       end else
       if varType = 'Sound' then
       begin
-        ExpectToken(ALine,index,'{');
-        filename := '';
-        filenameSpecified := false;
-        timeMs := -1;
-        if not TryToken(ALine,index,'}') then
-        while true do
+        if not Constant then
         begin
-          ExpectToken(ALine,index,'.');
-          if not filenameSpecified and TryToken(ALine,index,'Filename') then
-          begin
-            ExpectToken(ALine,index,'=');
-            if index >= ALine.Count then
-            begin
-              for i := WavMinIndex to WavMaxIndex do
-              begin
-                wavName := MapInfo.WavName[i];
-                if wavName <> '' then AddToCompletionList(StrToBasic(wavName));
-              end;
-            end;
-            filename := ExpectStringConstant(AThreads, AScope, ALine, index);
-            filenameSpecified := true;
-          end else
-          if (timeMs = -1) and TryToken(ALine,index,'Duration') then
-          begin
-            ExpectToken(ALine,index,'=');
-            timeMs := ExpectIntegerConstant(AThreads, AScope, ALine, index, false);
-          end else
-            raise exception.Create('Unknown field. Expecting Filename or Duration');
-          if not TryToken(ALine,index,',') then
-          begin
-            ExpectToken(ALine,index,'}');
-            break;
-          end;
-        end;
-        if filename = '' then raise exception.Create('Filename not specified');
-        if timeMs = -1 then timeMs := 0;
-        CreateSound(AScope,varName, filename, timeMs, Constant);
+          ExpectToken(ALine, index, 'New');
+          ExpectToken(ALine, index, 'Sound');
+          if TryToken(ALine, index, '(') then ExpectToken(ALine, index, ')');
+          ExpectToken(ALine, index, 'With');
+        end else
+          raise exception.Create('Declare Sound classes using Dim');
+
+        ExpectSoundDefinition;
       end else
       if varType = 'UnitProperties' then
       begin
+        if not Constant then
+        begin
+          ExpectToken(ALine, index, 'New');
+          ExpectToken(ALine, index, 'UnitProperties');
+          if TryToken(ALine, index, '(') then ExpectToken(ALine, index, ')');
+          ExpectToken(ALine, index, 'With');
+        end else
+          raise exception.Create('Declare UnitProperties classes using Dim');
+
         if TryUnitPropertiesDefinition(AThreads, AScope, ALine, index, prop) then
         begin
           CreateUnitProp(AScope,varName, prop, Constant);

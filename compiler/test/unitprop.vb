@@ -1,5 +1,5 @@
 Const Loc = "TestLocation"
-Const MarineProp As UnitProperties = {.Life = 50}
+Dim MarineProp As New UnitProperties With {.Life = 50}
 
 Class Player1
 

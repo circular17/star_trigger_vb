@@ -5,7 +5,7 @@ Class AllPlayers
       Stop
   End On
 
-  On Me.UnitCount(Unit.Buildings) <= 0
+  On UnitCount(Unit.Buildings) <= 0
       Defeat()
       Stop
   End On

@@ -675,11 +675,35 @@ function TryScalarVariable(AThreads: TPlayers; AScope: integer; ALine: TStringLi
   AConstantOnly: boolean; ACheckWiderScope: boolean): TScalarVariable;
 var
   idx: integer;
-
-var
   varIdx, arrayIndex, classIdx: integer;
   pl: TPlayer;
   unitType: TStarcraftUnit;
+
+  function TryDeathCount(APlayer: TPlayer; var AVariable: TScalarVariable): boolean;
+  begin
+    if TryToken(ALine,idx,'DeathCount') then
+    begin
+      if TryToken(ALine,idx,'(') then
+      begin
+        unitType := ExpectUnitType(AThreads, AScope, ALine,idx);
+        ExpectToken(ALine,idx,')');
+      end else
+        unitType := suAnyUnit;
+
+      AVariable.VarType := svtInteger;
+      AVariable.Player := APlayer;
+      AVariable.UnitType := unitType;
+      AVariable.Switch := -1;
+      AVariable.Constant:= False;
+      AVariable.ReadOnly := AVariable.Constant;
+      AVariable.IntValue:= 0;
+      AVariable.BoolValue:= false;
+
+      result := true;
+    end else
+      result := false;
+  end;
+
 begin
   result.VarType := svtNone;
   if AConstantOnly then
@@ -835,35 +859,28 @@ begin
         end;
       end;
     end;
-  end;
 
-  if AConstantOnly or not ACheckWiderScope then exit;
-  idx := AIndex;
-  pl := TryParsePlayer(AThreads, AScope, ALine,idx);
-  if pl <> plNone then
-  begin
-    if TryToken(ALine,idx,'.') then
+    if not AConstantOnly then
     begin
-      if TryToken(ALine,idx,'DeathCount') then
+      idx := AIndex;
+      if TryDeathCount(plCurrentPlayer, result) then
       begin
-        if TryToken(ALine,idx,'(') then
-        begin
-          unitType := ExpectUnitType(AThreads, AScope, ALine,idx);
-          ExpectToken(ALine,idx,')');
-        end else
-          unitType := suAnyUnit;
-
-        result.VarType := svtInteger;
-        result.Player := pl;
-        result.UnitType := unitType;
-        result.Switch := -1;
-        result.Constant:= False;
-        result.ReadOnly := result.Constant;
-        result.IntValue:= 0;
-        result.BoolValue:= false;
-
         AIndex := idx;
         exit;
+      end;
+
+      idx := AIndex;
+      pl := TryParsePlayer(AThreads, AScope, ALine,idx);
+      if pl <> plNone then
+      begin
+        if TryToken(ALine,idx,'.') then
+        begin
+          if TryDeathCount(pl, result) then
+          begin
+            AIndex := idx;
+            exit;
+          end;
+        end;
       end;
     end;
   end;

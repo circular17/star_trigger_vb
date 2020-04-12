@@ -109,10 +109,17 @@ var
   end;
 
   procedure DoParseInstruction;
+  var
+    multithread: TPlayers;
   begin
+    if plAllPlayers in AThreads then
+      multithread := [plPlayer1,plPlayer2,plPlayer3,plPlayer4,
+                   plPlayer5,plPlayer6,plPlayer7,plPlayer8]
+      else multithread := AThreads;
+
     if inSub <> -1 then
     begin
-      ParseInstruction(scope, line, Procedures[inSub].Instructions, AThreads, AMainThread, inSub,false);
+      ParseInstruction(scope, line, Procedures[inSub].Instructions, multithread, AMainThread, inSub,false);
       if Procedures[inSub].Instructions.Count > MaxInstructionsPerSub then
         raise exception.Create('Too many instructions');
     end
@@ -121,7 +128,7 @@ var
       if inDoAs then
         ParseInstruction(scope, line, Events[inEvent].Instructions, doPlayers, AMainThread, -1, false)
       else
-        ParseInstruction(scope, line, Events[inEvent].Instructions, AThreads, AMainThread, -1, false);
+        ParseInstruction(scope, line, Events[inEvent].Instructions, multithread, AMainThread, -1, false);
       if Events[inEvent].Instructions.Count > MaxInstructionsPerSub then
         raise exception.Create('Too many instructions');
     end else
@@ -129,7 +136,7 @@ var
       if inDoAs then
         ParseInstruction(scope, line, MainProg, doPlayers, AMainThread, -1, true)
       else
-        ParseInstruction(scope, line, MainProg, AThreads, AMainThread, -1, true);
+        ParseInstruction(scope, line, MainProg, multithread, AMainThread, -1, true);
       if MainProg.Count > MaxInstructionsPerSub then
         raise exception.Create('Too many instructions');
     end

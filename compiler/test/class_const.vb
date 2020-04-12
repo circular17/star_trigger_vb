@@ -6,7 +6,7 @@ Class Youhou = Player8
 
     Sub Main()
 
-        Me.Minerals = v
+        Minerals(Me) = v
         Player1.f
     End Sub
 
@@ -15,7 +15,7 @@ End Class
 Class Player1
 
     Sub f()
-        Me.Minerals = Youhou.v
+        Minerals(Me) = Youhou.v
     End Sub
 
 End Class

@@ -57,13 +57,15 @@ type
 
   { TSetSwitchInstruction }
 
-  TSetSwitchInstruction = class(TTriggerInstruction)
-    Switch: integer;
-    Value: TSwitchValue;
+  TSetSwitchInstruction = class(TTriggerMultiInstruction)
+    Switch: TMultiInteger;
+    Value: TMultiSwitchValue;
     constructor Create(ASwitch: integer; AValue: TSwitchValue);
-    function ToBasic: string; override;
-    function ToTrigEdit: string; override;
-    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
+    constructor Create(AThreads: TPlayers; ASwitch: TMultiInteger; AValue: TMultiSwitchValue);
+    function GetUniformPlayer: TPlayer; override;
+    function ToBasicFor(AThread: TPlayer): string; override;
+    function ToTrigEditFor(AThread: TPlayer): string; override;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
@@ -905,32 +907,54 @@ end;
 constructor TSetSwitchInstruction.Create(ASwitch: integer;
   AValue: TSwitchValue);
 begin
+  Create(AllThreads, MultiInteger(AllThreads, ASwitch),
+    MultiSwitchValue(AllThreads, AValue));
+end;
+
+constructor TSetSwitchInstruction.Create(AThreads: TPlayers;
+  ASwitch: TMultiInteger; AValue: TMultiSwitchValue);
+begin
+  inherited Create(AThreads);
   Switch:= ASwitch;
   Value:= AValue;
 end;
 
-function TSetSwitchInstruction.ToBasic: string;
+function TSetSwitchInstruction.GetUniformPlayer: TPlayer;
+var
+  pl: TPlayer;
 begin
-  result := 'Switch('+inttostr(Switch)+') = '+SwitchValueToBasic[Value];
-  if Value = svToggle then result += ' Switch('+inttostr(Switch)+')';
+  result := plNone;
+  for pl := low(TPlayer) to high(TPlayer) do
+    if pl in Threads then
+    begin
+      if result = plNone then result := pl else
+      if (Switch[pl] <> Switch[result]) or
+         (Value[pl] <> Value[result]) then exit(plNone);
+    end;
 end;
 
-function TSetSwitchInstruction.ToTrigEdit: string;
+function TSetSwitchInstruction.ToBasicFor(AThread: TPlayer): string;
 begin
-  Result:= 'Set Switch('+SwitchToTrigEditCode(Switch)+ ', ' + SwitchValueToStr[Value] + ')';
+  result := 'Switch('+inttostr(Switch[AThread])+') = '+SwitchValueToBasic[Value[AThread]];
+  if Value[AThread] = svToggle then result += ' Switch('+inttostr(Switch[AThread])+')';
 end;
 
-procedure TSetSwitchInstruction.WriteTriggerData(
+function TSetSwitchInstruction.ToTrigEditFor(AThread: TPlayer): string;
+begin
+  Result:= 'Set Switch('+SwitchToTrigEditCode(Switch[AThread])+ ', ' + SwitchValueToStr[Value[AThread]] + ')';
+end;
+
+procedure TSetSwitchInstruction.WriteTriggerDataFor(AThread: TPlayer;
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType := atSetSwitch;
-  AData.Switch:= Switch;
-  AData.SwitchValue:= Value;
+  AData.Switch:= Switch[AThread];
+  AData.SwitchValue:= Value[AThread];
 end;
 
 function TSetSwitchInstruction.Duplicate: TInstruction;
 begin
-  result := TSetSwitchInstruction.Create(Switch,Value);
+  result := TSetSwitchInstruction.Create(Threads,Switch,Value);
 end;
 
 class function TSetSwitchInstruction.LoadFromData(

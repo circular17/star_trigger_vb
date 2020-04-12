@@ -46,7 +46,7 @@ Sub Main()
   Else
     Print("Error")
   End If
-  Me.CustomScore = a
+  CustomScore(Me) = a
   Leaderboard.Show(CustomScore)
   
   c = 40
@@ -56,7 +56,7 @@ Sub Main()
   Else
     Print("Error")
   End If
-  Me.Minerals = a
+  Minerals(Me) = a
 
   c = 40
   a = 200 - c*2
@@ -65,7 +65,7 @@ Sub Main()
   Else
     Print("Error")
   End If
-  Me.Gas = a
+  Gas(Me) = a
 
 End Sub
 

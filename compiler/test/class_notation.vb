@@ -3,7 +3,7 @@ Option Hyper Off
 Class Adventurers = {Force1}
 
     On True
-        Me.Minerals = 50
+        Minerals(Me) = 50
     End On
 
 End Class
@@ -11,7 +11,7 @@ End Class
 Class Adventurers
 
     On True
-        Me.Gas = 50
+        Gas(Me) = 50
     End On
 
 End Class

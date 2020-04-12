@@ -331,8 +331,8 @@ var
     begin
       condSwitch.Value := true;
       condSwitch.Switch := ValueBools[j];
-      setSw.Switch:= ValueBools[j+AShift];
-      setSw2.Switch:= ValueBools[j];
+      setSw.Switch:= MultiInteger(AllThreads, ValueBools[j+AShift]);
+      setSw2.Switch:= MultiInteger(AllThreads, ValueBools[j]);
       WriteProg([plAllPlayers], [condSub,condSwitch], proc, -1,-1, True);
     end;
     EmptyProc;

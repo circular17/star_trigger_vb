@@ -246,6 +246,9 @@ begin
 
   if t.IsMultithread then
   begin
+    if plAllPlayers in t.Players then
+      t.Players := [plPlayer1, plPlayer2, plPlayer3, plPlayer4,
+                    plPlayer5, plPlayer6, plPlayer7, plPlayer8];
     multiCount := t.ThreadCount;
     if CompiledTriggersMultiCount+multiCount > MAX_TRIGGER_COUNT then
       raise exception.Create('Too many triggers');

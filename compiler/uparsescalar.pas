@@ -862,26 +862,6 @@ begin
 
         AIndex := idx;
         exit;
-      end else
-      begin
-        varIdx := TryPredefinedIntegerArray(AScope, ALine, idx);
-        if (varIdx <> -1) and IntArrays[varIdx].Predefined then
-        begin
-          result.VarType := svtInteger;
-          if (pl in[plPlayer1..plPlayer12]) and
-            (ord(pl) - ord(plPlayer1) + 1 > IntArrays[varIdx].Size) then
-              raise exception.Create('This player is not included in this array. Index is out of bounds');
-          result.Player := pl;
-          result.UnitType := IntArrays[varIdx].UnitType;
-          result.Switch := -1;
-          result.Constant:= False;
-          result.ReadOnly := result.Constant;
-          result.IntValue:= 0;
-          result.BoolValue:= false;
-
-          AIndex := idx;
-          exit;
-        end;
       end;
     end;
   end;

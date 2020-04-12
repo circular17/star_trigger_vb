@@ -735,7 +735,7 @@ end;
 
 procedure ParseInstruction(AScope: integer; ALine: TStringList; AProg: TInstructionList; AThreads: TPlayers; AMainThread: TPlayer; AProcId: integer; AInSubMain: boolean);
 var
-  index, intVal, idxArr, i, idxSound, idxVar, idxMsg, idxClass: integer;
+  index, intVal, idxArr, i, idxSound, idxVar, idxMsg, idxClass, oldIdx, endIdx: integer;
   name, assignOp, text: String;
   done, boolVal: boolean;
   scalar: TScalarVariable;
@@ -746,11 +746,32 @@ var
   expr: TExpression;
   bools: ArrayOfSwitchValue;
   params: ArrayOfParameterValue;
+  switchValArray: TMultiSwitchValue;
+  switchIdxArray: TMultiInteger;
 
   procedure CheckEndOfLine;
   begin
     if index < ALine.Count then
       raise exception.Create('Expecting end of line but "' + ALine[index] + '" found');
+  end;
+
+  function TryToggleAssignment: boolean;
+  var
+    j, identLen: Integer;
+  begin
+    if (index >= 2) and (ALine[index-1] = '=') then
+    begin
+      identLen := index-1;
+      if (ALine.Count = index + 1 + identLen) and
+         (CompareText(ALine[index], 'Not') = 0) then
+      begin
+        for j := 0 to identLen-1 do
+          if CompareText(ALine[index + 1 +j], ALine[j]) <> 0 then exit(false);
+        index := ALine.Count;
+        exit(true);
+      end;
+    end;
+    result := false;
   end;
 
 begin
@@ -891,72 +912,126 @@ begin
   end else
   begin
     done := false;
-    scalar := TryScalarVariable(AThreads, AScope, ALine, index);
-    if scalar.VarType <> svtNone then
+    oldIdx := index;
+    idxVar:= TryBooleanArray(AScope, ALine, index, false, true);
+    if not IsUniquePlayer(AThreads) and (idxVar <> -1) and TryToken(ALine, index, '(') then
     begin
-      if TryToken(ALine,index,'=') then
+      if TryToken(ALine, index, 'Me') then
       begin
-        done := true;
-        if scalar.Constant then raise exception.Create('Constant cannot be assigned to');
-        if scalar.ReadOnly then raise exception.Create('This value is read-only');
-        case scalar.VarType of
-        svtInteger: begin
-            expr := TryExpression(AThreads, AScope, ALine, index, true);
-            if expr = nil then
-              raise exception.Create('Unhandled case');
-            expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simSetTo);
-            expr.Free;
-          end;
-        svtSwitch:
+        ExpectToken(ALine, index, ')');
+        ExpectToken(ALine, index, '=');
+        oldIdx := index;
+        endIdx := -1;
+        fillchar({%H-}switchValArray, sizeof(switchValArray), 0);
+        fillchar({%H-}switchIdxArray, sizeof(switchIdxArray), 0);
+        for pl := succ(plNone) to high(TPlayer) do
+          if pl in AThreads then
           begin
-            intVal := ParseRandom(AThreads, AScope, ALine, index);
-            if intVal > 0 then
+            if pl in[plPlayer1..plPlayer12] then
             begin
-              CheckEndOfLine;
-              if intVal = 2 then
-                AProg.Add(TSetSwitchInstruction.Create(scalar.Switch, svRandomize))
+              if (ord(pl)-ord(plPlayer1)+1 > BoolArrays[idxVar].Size) then
+                raise exception.Create('Player index out of bounds');
+              index := oldIdx;
+              switchIdxArray[pl] := BoolVars[BoolArrays[idxVar].Vars[ord(pl)-ord(plPlayer1)]].Switch;
+              if TryToggleAssignment then
+                switchValArray[pl] := svToggle
               else
-                raise exception.Create('Boolean can have only 2 values');
-            end else
-            begin
-              conds := ExpectConditions(AScope,ALine,index,AThreads);
-              if (conds.Count = 1) and (conds[0] is TSwitchCondition) and
-                 (TSwitchCondition(conds[0]).Switch = scalar.Switch) then
+              if TryToken(ALine, index, 'Rnd') then
+                switchValArray[pl] := svRandomize
+              else
               begin
-                //a = Not a
-                if not TSwitchCondition(conds[0]).Value then
-                  AProg.Add(TSetSwitchInstruction.Create(scalar.Switch, svToggle));
-                conds[0].Free;
-                conds.Free;
-              end else
-                AppendConditionalInstruction(AProg, conds,
-                  TSetSwitchInstruction.Create(scalar.Switch, svSet),
-                  TSetSwitchInstruction.Create(scalar.Switch, svClear));
-            end;
+                boolVal:= ExpectBooleanConstant([pl], AScope, ALine, index);
+                switchValArray[pl] := BoolToSwitch[boolVal];
+              end;
+              if endIdx = -1 then endIdx := index
+              else if endIdx <> index then raise exception.Create('Inconsistent expression among players');
+            end else
+              raise exception.Create('Ambiguous player');
           end;
-        else raise exception.Create('Unhandled case');
-        end;
-      end else
-      If TryToken(ALine,index,'+') or TryToken(ALine,index,'-') then
-      begin
-        assignOp := ALine[index-1];
-        ExpectToken(ALine,index,'=');
+        if endIdx = -1 then
+          raise exception.Create('No player found');
+        CheckEndOfLine;
+        AProg.Add( TSetSwitchInstruction.Create(AThreads, switchIdxArray, switchValArray) );
         done := true;
-        if scalar.Constant then raise exception.Create('Constant cannot be assigned to');
-        if scalar.ReadOnly then raise exception.Create('This value is read-only');
-        if scalar.VarType = svtInteger then
-        begin
-          expr := TryExpression(AThreads, AScope, ALine, index, true);
-          if assignOp='+' then
-            expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simAdd)
-          else if assignOp='-' then
-            expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simSubtract);
-          expr.Free;
-        end
-        else raise Exception.Create('Integer variables only can be incremented/decremented');
       end else
-        raise exception.Create('Assignment expected');
-      CheckEndOfLine;
+        index := oldIdx;
+    end else
+      index := oldIdx;
+
+    if not done then
+    begin
+      scalar := TryScalarVariable(AThreads, AScope, ALine, index);
+      if scalar.VarType <> svtNone then
+      begin
+        if TryToken(ALine,index,'=') then
+        begin
+          done := true;
+          if scalar.Constant then raise exception.Create('Constant cannot be assigned to');
+          if scalar.ReadOnly then raise exception.Create('This value is read-only');
+          case scalar.VarType of
+          svtInteger: begin
+              expr := TryExpression(AThreads, AScope, ALine, index, true);
+              if expr = nil then
+                raise exception.Create('Unhandled case');
+              expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simSetTo);
+              expr.Free;
+            end;
+          svtSwitch:
+            begin
+              intVal := ParseRandom(AThreads, AScope, ALine, index);
+              if intVal > 0 then
+              begin
+                CheckEndOfLine;
+                if intVal = 2 then
+                  AProg.Add(TSetSwitchInstruction.Create(scalar.Switch, svRandomize))
+                else
+                  raise exception.Create('Boolean can have only 2 values');
+              end else
+              if TryToggleAssignment then
+              begin
+                CheckEndOfLine;
+                AProg.Add(TSetSwitchInstruction.Create(scalar.Switch, svToggle))
+              end else
+              begin
+                conds := ExpectConditions(AScope,ALine,index,AThreads);
+                if (conds.Count = 1) and (conds[0] is TSwitchCondition) and
+                   (TSwitchCondition(conds[0]).Switch = scalar.Switch) then
+                begin
+                  //a = Not a
+                  if not TSwitchCondition(conds[0]).Value then
+                    AProg.Add(TSetSwitchInstruction.Create(scalar.Switch, svToggle));
+                  conds[0].Free;
+                  conds.Free;
+                end else
+                  AppendConditionalInstruction(AProg, conds,
+                    TSetSwitchInstruction.Create(scalar.Switch, svSet),
+                    TSetSwitchInstruction.Create(scalar.Switch, svClear));
+              end;
+            end;
+          else raise exception.Create('Unhandled case');
+          end;
+        end else
+        If TryToken(ALine,index,'+') or TryToken(ALine,index,'-') then
+        begin
+          assignOp := ALine[index-1];
+          ExpectToken(ALine,index,'=');
+          done := true;
+          if scalar.Constant then raise exception.Create('Constant cannot be assigned to');
+          if scalar.ReadOnly then raise exception.Create('This value is read-only');
+          if scalar.VarType = svtInteger then
+          begin
+            expr := TryExpression(AThreads, AScope, ALine, index, true);
+            if assignOp='+' then
+              expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simAdd)
+            else if assignOp='-' then
+              expr.AddToProgram(AProg, scalar.Player, scalar.UnitType, simSubtract);
+            expr.Free;
+          end
+          else raise Exception.Create('Integer variables only can be incremented/decremented');
+        end else
+          raise exception.Create('Assignment expected');
+        CheckEndOfLine;
+      end;
     end;
 
     if not done then

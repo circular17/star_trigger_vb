@@ -2,11 +2,11 @@ Sub Main()
 
     AllPlayers.Print("Hello world")
 
-    If Player1.Present Then
+    If Present(1) Then
         AllPlayers.Print("Player 1 is here.")
     End If
     
-    If Player6.Present Then
+    If Present(6) Then
         AllPlayers.Print("Player 6 is here.")
     End If
 
@@ -14,5 +14,5 @@ Sub Main()
         AllPlayers.Print("Player 1 and 2 are here.")
     End If
 
-    Player1.Gas = CountIf(Present, True)
+    Gas(1) = CountIf(Present, True)
 End Sub

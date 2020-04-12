@@ -1,10 +1,10 @@
 Sub Main()
-  Player1.Minerals += 50
+  Minerals(1) += 50
 End Sub
 
 Class AllPlayers
 
-  On Me.Minerals >= 25
+  On Minerals(Me) >= 25
     Print("We have the minerals!")
   End On
 

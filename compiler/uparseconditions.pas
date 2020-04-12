@@ -83,7 +83,7 @@ var
   unitType: TStarcraftUnit;
   locStr: String;
   op: TConditionOperator;
-  intVal, idxVar: Integer;
+  intVal: Integer;
 
   procedure ExpectCurrentPlayer;
   begin
@@ -301,12 +301,6 @@ begin
     end;
     exit;
   end else
-  if TryToken(ALine,AIndex,'Present') then
-  begin
-    idxVar := GetPlayerPresenceBoolVar(APlayer);
-    result := TSwitchCondition.Create(BoolVars[idxVar].Switch,not ANegation);
-    exit;
-  end else
     result := nil;
 end;
 
@@ -471,23 +465,13 @@ begin
       end else
       begin
         result := TryPlayerConditionFunction(AThreads, AScope, ALine, AIndex, plCurrentPlayer, boolNot);
-        if (result <> nil) and (not IsUniquePlayer(AThreads) or (AThreads = [])) then
+        if result = nil then result := TryArithmeticCondition(AThreads, AScope, ALine, AIndex, boolNot);
+        if result = nil then
         begin
-          result.Free;
-          if AThreads = [] then
-            raise exception.Create('You need to specify the player to which it applies ("Me" for main thread)')
+          if AIndex >= ALine.Count then
+            raise exception.Create('Expecting condition but end of line found')
           else
-            raise exception.Create('You need to specify the player to which it applies ("Me" for each player)');
-        end else
-        begin
-          if result = nil then result := TryArithmeticCondition(AThreads, AScope, ALine, AIndex, boolNot);
-          if result = nil then
-          begin
-            if AIndex >= ALine.Count then
-              raise exception.Create('Expecting condition but end of line found')
-            else
-              raise exception.Create('Expecting condition but "' + ALine[AIndex] + '" found')
-          end;
+            raise exception.Create('Expecting condition but "' + ALine[AIndex] + '" found')
         end;
         exit;
       end;

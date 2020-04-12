@@ -60,10 +60,10 @@ Sub Main()
   While x+y > 0
     x-= 1
     y-= 1
-    Player1.Minerals += 1
+    Minerals(1) += 1
   End While
   
-  if Player1.Minerals = 6 Then
+  if Minerals(1) = 6 Then
     print("4. correct result")
   Else
     print("4. incorrect result :(")

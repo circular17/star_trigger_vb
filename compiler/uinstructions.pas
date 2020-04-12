@@ -14,6 +14,16 @@ function Multistring(AThreads: TPlayers; AText: string): TMultistring;
 function MultistringUniformPlayer(AThreads: TPlayers; const AText: TMultistring): TPlayer;
 
 type
+  TMultiInteger = array[TPlayer] of integer;
+
+function MultiInteger(AThreads: TPlayers; AValue: integer): TMultiInteger;
+
+type
+  TMultiSwitchValue = array[TPlayer] of TSwitchValue;
+
+function MultiSwitchValue(AThreads: TPlayers; AValue: TSwitchValue): TMultiSwitchValue;
+
+type
   TParameterValue = record
     Expression: TObject;
     Condition: TObject;
@@ -343,6 +353,24 @@ begin
       else if AText[pl] <> AText[first] then exit(plNone);
     end;
   result := first;
+end;
+
+function MultiInteger(AThreads: TPlayers; AValue: integer): TMultiInteger;
+var
+  pl: TPlayer;
+begin
+  for pl := low(TPlayer) to high(TPlayer) do
+    if pl in AThreads then result[pl] := AValue
+    else result[pl] := 0;
+end;
+
+function MultiSwitchValue(AThreads: TPlayers; AValue: TSwitchValue): TMultiSwitchValue;
+var
+  pl: TPlayer;
+begin
+  for pl := low(TPlayer) to high(TPlayer) do
+    if pl in AThreads then result[pl] := AValue
+    else result[pl] := svClear;
 end;
 
 procedure FreeParameterValues(var AParams: ArrayOfParameterValue);

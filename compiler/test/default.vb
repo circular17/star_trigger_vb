@@ -1,7 +1,7 @@
 Class AllPlayers
 
   On True
-      Me.Minerals = 50
+      Minerals(Me) = 50
       Stop
   End On
 

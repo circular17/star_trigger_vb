@@ -492,17 +492,17 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      locStrUnique := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
+      locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
       ExpectToken(ALine,AIndex,')');
-      AProg.Add(TCenterViewInstruction.Create(locStrUnique));
+      AProg.Add(TCenterViewInstruction.Create(AThreads, locStr));
     end else
     if TryToken(ALine,AIndex,'MinimapPing') then
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      locStrUnique := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
+      locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
       ExpectToken(ALine,AIndex,')');
-      AProg.Add(TCenterViewInstruction.Create(locStrUnique));
+      AProg.Add(TCenterViewInstruction.Create(AThreads, locStr));
     end else
     if TryToken(ALine,AIndex,'Print') then
     begin

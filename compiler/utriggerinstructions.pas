@@ -384,24 +384,28 @@ type
 
   { TCenterViewInstruction }
 
-  TCenterViewInstruction = class(TTriggerInstruction)
-    Location: string;
+  TCenterViewInstruction = class(TTriggerMultiInstruction)
+    Location: TMultistring;
     constructor Create(ALocation: string);
-    function ToBasic: string; override;
-    function ToTrigEdit: string; override;
-    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
+    constructor Create(AThreads: TPlayers; ALocation: TMultistring);
+    function GetUniformPlayer: TPlayer; override;
+    function ToBasicFor(AThread: TPlayer): string; override;
+    function ToTrigEditFor(AThread: TPlayer): string; override;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
 
   { TMinimapPingInstruction }
 
-  TMinimapPingInstruction = class(TTriggerInstruction)
-    Location: string;
+  TMinimapPingInstruction = class(TTriggerMultiInstruction)
+    Location: TMultistring;
     constructor Create(ALocation: string);
-    function ToBasic: string; override;
-    function ToTrigEdit: string; override;
-    procedure WriteTriggerData(var AData: TTriggerInstructionData); override;
+    constructor Create(AThreads: TPlayers; ALocation: TMultistring);
+    function GetUniformPlayer: TPlayer; override;
+    function ToBasicFor(AThread: TPlayer): string; override;
+    function ToTrigEditFor(AThread: TPlayer): string; override;
+    procedure WriteTriggerDataFor(AThread: TPlayer; var AData: TTriggerInstructionData); override;
     function Duplicate: TInstruction; override;
     class function LoadFromData(const AData: TTriggerInstructionData): TTriggerInstruction; override;
   end;
@@ -2210,33 +2214,45 @@ end;
 
 constructor TCenterViewInstruction.Create(ALocation: string);
 begin
-  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
+  Create(AllThreads, Multistring(AllThreads, ALocation));
+end;
+
+constructor TCenterViewInstruction.Create(AThreads: TPlayers;
+  ALocation: TMultistring);
+begin
+  inherited Create(AThreads);
+  CheckMultiLocation(AThreads, ALocation);
   Location:= ALocation;
 end;
 
-function TCenterViewInstruction.ToBasic: string;
+function TCenterViewInstruction.GetUniformPlayer: TPlayer;
+begin
+  result := MultistringUniformPlayer(Threads, Location);
+end;
+
+function TCenterViewInstruction.ToBasicFor(AThread: TPlayer): string;
 begin
   Result:= 'Me.CenterView(';
-  if MapInfo.IsAnywhere(Location) then result += 'Anywhere'
-  else result += StrToBasic(Location);
+  if MapInfo.IsAnywhere(Location[AThread]) then result += 'Anywhere'
+  else result += StrToBasic(Location[AThread]);
   result += ')';
 end;
 
-function TCenterViewInstruction.ToTrigEdit: string;
+function TCenterViewInstruction.ToTrigEditFor(AThread: TPlayer): string;
 begin
-  Result:= 'Center View(' + AddTrigEditQuotes(Location) + ')';
+  Result:= 'Center View(' + AddTrigEditQuotes(Location[AThread]) + ')';
 end;
 
-procedure TCenterViewInstruction.WriteTriggerData(
+procedure TCenterViewInstruction.WriteTriggerDataFor(AThread: TPlayer;
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType := atCenterView;
-  AData.LocationBase0:= MapInfo.LocationIndexOf(Location);
+  AData.LocationBase0:= MapInfo.LocationIndexOf(Location[AThread]);
 end;
 
 function TCenterViewInstruction.Duplicate: TInstruction;
 begin
-  result := TCenterViewInstruction.Create(Location);
+  result := TCenterViewInstruction.Create(Threads, Location);
 end;
 
 class function TCenterViewInstruction.LoadFromData(
@@ -2252,33 +2268,45 @@ end;
 
 constructor TMinimapPingInstruction.Create(ALocation: string);
 begin
-  if MapInfo.StrictLocations and (MapInfo.LocationIndexOf(ALocation)=-1) then raise exception.Create('Location not found');
+  Create(AllThreads, Multistring(AllThreads, ALocation));
+end;
+
+constructor TMinimapPingInstruction.Create(AThreads: TPlayers;
+  ALocation: TMultistring);
+begin
+  inherited Create(AThreads);
+  CheckMultiLocation(AThreads, ALocation);
   Location:= ALocation;
 end;
 
-function TMinimapPingInstruction.ToBasic: string;
+function TMinimapPingInstruction.GetUniformPlayer: TPlayer;
+begin
+  result := MultistringUniformPlayer(Threads, Location);
+end;
+
+function TMinimapPingInstruction.ToBasicFor(AThread: TPlayer): string;
 begin
   Result:= 'Me.MinimapPing(';
-  if MapInfo.IsAnywhere(Location) then result += 'Anywhere'
-  else result += StrToBasic(Location);
+  if MapInfo.IsAnywhere(Location[AThread]) then result += 'Anywhere'
+  else result += StrToBasic(Location[AThread]);
   result += ')';
 end;
 
-function TMinimapPingInstruction.ToTrigEdit: string;
+function TMinimapPingInstruction.ToTrigEditFor(AThread: TPlayer): string;
 begin
-  Result:= 'Minimap Ping(' + AddTrigEditQuotes(Location) + ')';
+  Result:= 'Minimap Ping(' + AddTrigEditQuotes(Location[AThread]) + ')';
 end;
 
-procedure TMinimapPingInstruction.WriteTriggerData(
+procedure TMinimapPingInstruction.WriteTriggerDataFor(AThread: TPlayer;
   var AData: TTriggerInstructionData);
 begin
   AData.ActionType:= atMinimapPing;
-  AData.LocationBase0 := MapInfo.LocationIndexOf(Location);
+  AData.LocationBase0 := MapInfo.LocationIndexOf(Location[AThread]);
 end;
 
 function TMinimapPingInstruction.Duplicate: TInstruction;
 begin
-  result := TMinimapPingInstruction.Create(Location);
+  result := TMinimapPingInstruction.Create(Threads, Location);
 end;
 
 class function TMinimapPingInstruction.LoadFromData(

@@ -7,6 +7,10 @@ interface
 uses
   Classes, SysUtils;
 
+const
+  NORMAL_TIME_GRAIN_MS = 1890;
+  HYPER_TIME_GRAIN_MS = 125;
+
 type
   TSwitchValue = (svClear, svSet, svRandomize, svToggle);
   ArrayOfSwitchValue = array of TSwitchValue;

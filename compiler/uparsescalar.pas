@@ -17,6 +17,7 @@ type
     Switch: integer;
     IntValue: integer;
     BoolValue: boolean;
+    IsTimer: boolean;
   end;
 
 function TryScalarVariable(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): TScalarVariable;
@@ -706,6 +707,8 @@ var
 
 begin
   result.VarType := svtNone;
+  result.IsTimer := false;
+
   if AConstantOnly then
     varIdx := TryIntegerConstantVariable(AScope, ALine, AIndex, ACheckWiderScope)
     else varIdx := TryIntegerVariable(AScope, ALine, AIndex, ACheckWiderScope);
@@ -719,6 +722,7 @@ begin
     result.ReadOnly := result.Constant;
     result.IntValue:= IntVars[varIdx].Value;
     result.BoolValue:= IntVars[varIdx].Value<>0;
+    result.IsTimer := IntVars[varIdx].IsTimer;
     exit;
   end;
 

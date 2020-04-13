@@ -258,7 +258,7 @@ begin
       waitInstr := TWaitConditionInstruction.Create(CreateIntegerCondition(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, icmAtLeast, 1), NewIP);
       AExpanded.Add(waitInstr);
 
-      AExpanded.Add(CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, simSubtract, 140));
+      AExpanded.Add(CreateSetIntegerInstruction(plCurrentPlayer, IntArrays[HyperWaitVar].UnitType, simSubtract, HYPER_TIME_GRAIN_MS));
 
       splitInstr := TSplitInstruction.Create(waitInstr.IP, startWhileIP);
 
@@ -641,6 +641,39 @@ begin
   proc.FreeAll;
 end;
 
+procedure DecreaseTimers(AMainThread: TPlayer);
+var
+  i, timeGrain, arrIdx, j: Integer;
+  proc: TInstructionList;
+  pl: TPlayer;
+begin
+  if HyperTriggersOption then
+    timeGrain := HYPER_TIME_GRAIN_MS
+    else timeGrain := NORMAL_TIME_GRAIN_MS;
+  proc := TInstructionList.Create;
+  for i := 0 to IntVarCount-1 do
+  if IntVars[i].IsTimer then
+  begin
+    if IntVars[i].Player = plCurrentPlayer then
+    begin
+      arrIdx := IntVars[i].IntArray;
+      if (arrIdx <> -1) and IntArrays[arrIdx].Multithread then
+      begin
+        for j := 1 to IntArrays[arrIdx].Size do
+        begin
+          pl := TPlayer(ord(plPlayer1)+j-1);
+          proc.Add( CreateSetIntegerInstruction(pl, IntVars[i].UnitType,
+                                          simSubtract, timeGrain) )
+        end;
+      end;
+    end else
+      proc.Add( CreateSetIntegerInstruction(IntVars[i].Player,
+                    IntVars[i].UnitType, simSubtract, timeGrain) )
+  end;
+  WriteProg([AMainThread], [], proc, -1, -1, true);
+  proc.FreeAll;
+end;
+
 procedure WriteTriggerForSourceCode(ASourceCode: string);
 var
   never: TNeverCondition;
@@ -793,6 +826,7 @@ begin
     WriteArithmeticTriggers;
     RemoveIPIfUnused;
     WritePlayerPresenceBottomTrigger(AMainThread);
+    DecreaseTimers(AMainThread);
 
     //it is recommended to put hyper CompiledTriggers at the end
     WriteHyperTriggers;

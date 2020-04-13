@@ -399,7 +399,7 @@ end;
 
 function ExpectCondition(AScope: integer; ALine: TStringList; var AIndex: integer; AThreads: TPlayers): TCondition;
 var
-  intVal, afterNotIndex, funcIdx, idxClass: Integer;
+  intVal, afterNotIndex, funcIdx, idxClass, elapseTime: Integer;
   op: TConditionOperator;
   boolNot: Boolean;
   scalar: TScalarVariable;
@@ -488,6 +488,19 @@ begin
     case scalar.VarType of
     svtInteger:
     begin
+      if scalar.IsTimer and TryToken(ALine, AIndex, '.') then
+      begin
+        if TryToken(ALine, AIndex, 'Elapsed') then
+        begin
+          if HyperTriggersOption then elapseTime := HYPER_TIME_GRAIN_MS div 2
+          else elapseTime := NORMAL_TIME_GRAIN_MS div 2;
+          if boolNot then
+            result := CreateIntegerCondition(scalar.Player, scalar.UnitType, icmAtLeast, elapseTime+1)
+            else result := CreateIntegerCondition(scalar.Player, scalar.UnitType, icmAtMost, elapseTime);
+          exit;
+        end else
+          dec(AIndex);
+      end;
       op := TryConditionOperator(ALine,AIndex);
       if op = coNone then
       begin

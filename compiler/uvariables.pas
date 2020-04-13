@@ -35,6 +35,7 @@ var
     BitCount: integer;
     Scope: integer;
     Deleted: boolean;
+    Multithread: boolean;
   end;
   IntArrayCount: integer;
   CurIntArrayUnitNameIndex: integer;
@@ -55,6 +56,7 @@ var
     Randomize: boolean;
     AddToAcc,AddFromAcc: boolean;
     IntArray: integer;
+    IsTimer: boolean;
   end;
   IntVarCount: integer;
   CurIntVarPlayer: TPlayer;
@@ -237,7 +239,7 @@ begin
             (CompareText('Unit',AName) = 0) or IsUnitType(AName) or
             (CompareText('Color',AName) = 0) or (CompareText('Align',AName) = 0) or
             (CompareText('ElapsedTime',AName) = 0) or (CompareText('OpponentCount',AName) = 0) or
-            (CompareText('Player',AName) = 0);
+            (CompareText('Player',AName) = 0) or (CompareText('Timer', AName) = 0);
 
   if not result and Assigned(IsProcOrClassNameUsed) then
     result := IsProcOrClassNameUsed(AScope, AName, AParamCount);
@@ -284,6 +286,7 @@ begin
     Deleted := false;
     Name := AName;
     Size:= ASize;
+    Multithread := AMultithread;
     if AConstant then UnitType := suConst
     else UnitType := NonKillableUnits[CurIntArrayUnitNameIndex];
     BitCount:= ABitCount;
@@ -441,6 +444,7 @@ begin
     BitCount:= ABitCount;
     Randomize:= ARandomize;
     IntArray := -1;
+    IsTimer := false;
   end;
 end;
 

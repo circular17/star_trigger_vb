@@ -534,6 +534,7 @@ var
   begin
     with IntVars[AVar] do
     begin
+      IsTimer:= varType = 'Timer';
       if AExpr <> nil then
       begin
         if AExpr.IsConstant then
@@ -733,6 +734,7 @@ begin
         else if TryToken(ALine,index,'UnitProperties') then varType := 'UnitProperties'
         else if TryToken(ALine,index,'Unit') then varType := 'Unit'
         else if TryToken(ALine,index,'Sound') then varType := 'Sound'
+        else if TryToken(ALine,index,'Timer') then begin varType := 'Timer'; bitCount := 24; end
         else
         begin
           if index >= ALine.Count then
@@ -789,7 +791,7 @@ begin
         begin
           raise exception.Create('Array type not specified');
         end else
-        if IsIntegerType(varType) then
+        if IsIntegerType(varType) or (varType = 'Timer') then
         begin
           arrValues := ParseIntArray(AThreads, AScope, ALine, index);
           if (arraySize <> 0) and (length(arrValues) <> arraySize) then
@@ -932,7 +934,7 @@ begin
       begin
         if varType = 'Boolean' then
           SetupBoolVar(varName, svClear, Constant)
-        else if IsIntegerType(varType) then
+        else if IsIntegerType(varType) or (varType = 'Timer') then
           SetupIntVar(varName, 0, bitCount, Constant)
         else raise exception.Create('Initial value needed for '+varType);
       end;

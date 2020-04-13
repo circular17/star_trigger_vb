@@ -168,6 +168,7 @@ var
   paramExpr: TExpression;
   accBitInstr: TAccumulatorBitInstruction;
   transf: TTransferIntegerInstruction;
+  fastIf: TFastIfInstruction;
 
 begin
   currentThreads := APlayers;
@@ -178,6 +179,15 @@ begin
   begin
     inc(i);
 
+    if AProg[i] is TFastIfInstruction then
+    begin
+      fastIf := TFastIfInstruction(AProg[i]);
+      tempExpand := TInstructionList.Create;
+      ExpandInstructions(fastIf.Instructions, AInProc, AIsMain, APlayers, tempExpand, -1);
+      fastIf.Instructions.FreeAll;
+      fastIf.Instructions := tempExpand;
+      tempExpand := nil;
+    end else
     if AProg[i] is TTransferIntegerInstruction then
     begin
       tempExpand := TInstructionList.Create;

@@ -61,8 +61,8 @@ type
     function GetLocationName(AIndex: integer): string; override;
     function GetWavName({%H-}AIndex: integer): string; override;
     function GetSwitchName(AIndexBase1: integer): string; override;
-    function GetStandardUnitName(AUnitType: TStarcraftUnit): string; override;
-    function GetCustomUnitName(AUnitType: TStarcraftUnit): string; override;
+    function GetStandardUnitName({%H-}AUnitType: TStarcraftUnit): string; override;
+    function GetCustomUnitName({%H-}AUnitType: TStarcraftUnit): string; override;
   public
     function StrictLocations: boolean; override;
     function RetrieveStoredProgram: string; override;

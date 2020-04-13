@@ -499,7 +499,7 @@ begin
       AddLocation(MapInfo.LocationName[i], True);
   ListBox_Locations.Items.EndUpdate;
 
-  SynEdit1.Font.Size := 12;
+  SynEdit1.Font.Size := 11;
   Modified := false;
 
   if MapInfo.ProgramMapEmbedded then

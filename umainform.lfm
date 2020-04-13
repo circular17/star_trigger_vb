@@ -89,8 +89,8 @@ object FMain: TFMain
       Top = 0
       Width = 1155
       Align = alClient
-      Color = 14206148
-      Font.Height = -24
+      Color = 12500680
+      Font.Height = -22
       Font.Name = 'Courier New'
       Font.Pitch = fpFixed
       Font.Quality = fqCleartype
@@ -98,7 +98,7 @@ object FMain: TFMain
       ParentFont = False
       PopupMenu = PopupMenu1
       TabOrder = 0
-      Gutter.Width = 96
+      Gutter.Width = 94
       Gutter.MouseActions = <>
       RightGutter.Width = 0
       RightGutter.MouseActions = <>
@@ -566,7 +566,7 @@ object FMain: TFMain
           MouseActions = <>
         end
         object SynGutterLineNumber1: TSynGutterLineNumber
-          Width = 29
+          Width = 27
           MouseActions = <>
           MarkupInfo.Background = clBtnFace
           MarkupInfo.Foreground = clNone
@@ -1157,6 +1157,7 @@ object FMain: TFMain
   object SynVBSyn1: TSynVBSyn
     Enabled = False
     CommentAttri.Foreground = clGreen
+    CommentAttri.Style = [fsBold]
     KeyAttri.Foreground = clBlue
     StringAttri.Foreground = clMaroon
     left = 228

@@ -208,6 +208,7 @@ var
   transf: TTransferIntegerInstruction;
   fastIf: TFastIfInstruction;
   newContext: TExpandInstructionsContext;
+  testCond: TConditionList;
 
 begin
   currentThreads := AContext.Players;
@@ -223,9 +224,9 @@ begin
       fastIf := TFastIfInstruction(AProg[i]);
       tempExpand := TInstructionList.Create;
       ExpandInstructions(fastIf.Instructions, tempExpand, AContext.ChangeEndIP(-1));
-      fastIf.Instructions.FreeAll;
-      fastIf.Instructions := tempExpand;
+      AExpanded.Add( TFastIfInstruction.Create(fastIf.Conditions.Duplicate, tempExpand) );
       tempExpand := nil;
+      continue;
     end else
     if AProg[i] is TTransferIntegerInstruction then
     begin
@@ -430,35 +431,50 @@ begin
                 elsePart := tempPart;
 
                 notCond := TNotCondition(ifInstr.Conditions[0]);
-                AddWaitCondition(notCond.Conditions, nextIP);
+                testCond := notCond.Conditions;
               end
               else
-                AddWaitCondition(ifInstr.Conditions, nextIP);
+                testCond := ifInstr.Conditions;
 
-              ExpandInstructions(thenPart, AExpanded, AContext.ChangeEndIP(-1));
-              thenPart.FreeAll;
-              thenPart := nil;
-
-              splitInstr := TSplitInstruction.Create(nextIP,-1);
-              AExpanded.Add(splitInstr);
-
-              if (j = AProg.Count-1) and (AContext.EndIP <> -1) then
+              if not testCond.IsArithmetic and not testCond.IsComputed and
+                (testCond.Count <= 15) and (elsePart.Count = 0) then
               begin
-                splitInstr.EndIP:= AContext.EndIP;
-                ExpandInstructions(elsePart, AExpanded, AContext);
-                elsePart.FreeAll;
-                elsePart := nil;
-              end
-              else
+                tempExpand := TInstructionList.Create;
+                try
+                  ExpandInstructions(thenPart, tempExpand, AContext.ChangeEndIP(-1));
+                  AExpanded.Add(TFastIfInstruction.Create(testCond.Duplicate, tempExpand));
+                  tempExpand := nil;
+                finally
+                  if Assigned(tempExpand) then
+                    tempExpand.FreeAll;
+                end;
+              end else
               begin
-                nextIP := NewIP;
-                splitInstr.EndIP:= nextIP;
-                ExpandInstructions(elsePart, AExpanded, AContext.ChangeEndIP(nextIP));
-                elsePart.FreeAll;
-                elsePart := nil;
-                AExpanded.Add(TChangeIPInstruction.Create(nextIP, 0));
+                AddWaitCondition(testCond, nextIP);
+                ExpandInstructions(thenPart, AExpanded, AContext.ChangeEndIP(-1));
+                thenPart.FreeAll;
+                thenPart := nil;
+
+                splitInstr := TSplitInstruction.Create(nextIP,-1);
+                AExpanded.Add(splitInstr);
+
+                if (j = AProg.Count-1) and (AContext.EndIP <> -1) then
+                begin
+                  splitInstr.EndIP:= AContext.EndIP;
+                  ExpandInstructions(elsePart, AExpanded, AContext);
+                  elsePart.FreeAll;
+                  elsePart := nil;
+                end
+                else
+                begin
+                  nextIP := NewIP;
+                  splitInstr.EndIP:= nextIP;
+                  ExpandInstructions(elsePart, AExpanded, AContext.ChangeEndIP(nextIP));
+                  elsePart.FreeAll;
+                  elsePart := nil;
+                  AExpanded.Add(TChangeIPInstruction.Create(nextIP, 0));
+                end;
               end;
-
               i := j;
 
             finally

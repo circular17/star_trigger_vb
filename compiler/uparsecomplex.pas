@@ -582,7 +582,9 @@ var
       end;
       intVar := CreateMultithreadIntVar(AThreads, AScope, AName, ABitCount);
       if AMultithreadInit then
-        SetupIntVar(intVar, AExpr);
+        SetupIntVar(intVar, AExpr)
+      else
+        IntVars[intVar].IsTimer := (varType = 'Timer');
     end else
     begin
       intVar := CreateIntVar(AScope, AName, AValue, ABitCount, false, AConstant);
@@ -883,7 +885,7 @@ begin
           SetupBoolVar(varName, BoolToSwitch[boolVal], Constant);
         end;
       end else
-      if IsIntegerType(varType) then
+      if IsIntegerType(varType) or (varType = 'Timer') then
       begin
         SetupIntVar(varName, 0, bitCount, Constant,
                     TryExpression(AThreads, AScope, ALine, index, true));
@@ -925,7 +927,7 @@ begin
           raise exception.Create('Array size not specified');
         if varType = 'Boolean' then
           SetupBoolArray(CreateBoolArray(AScope,varName, arraySize, [], Constant))
-        else if IsIntegerType(varType) then
+        else if IsIntegerType(varType) or (varType = 'Timer') then
           SetupIntArray(CreateIntArray(AScope,varName, arraySize, [], bitCount, Constant))
         else if varType = 'String' then
           CreateStringArray(AScope,varName, arraySize, [], Constant)

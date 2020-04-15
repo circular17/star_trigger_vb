@@ -1,6 +1,6 @@
 Option Hyper Off
 
-Dim t As Timer
+Dim t As Timer = 1000
 
 Class Player8
 
@@ -13,6 +13,16 @@ Class Player8
 
     On t.Elapsed
         Print("Timer has elapsed")
+    End On
+
+End Class
+
+Class Two = {Player1, Player2}
+
+    Dim u As Timer
+
+    On u.Elapsed
+        u = 1000
     End On
 
 End Class

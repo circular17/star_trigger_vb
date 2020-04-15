@@ -258,6 +258,20 @@ type
     function Duplicate: TInstruction; override;
   end;
 
+  { TExitWhileInstruction }
+
+  TExitWhileInstruction = class(TInstruction)
+    constructor Create;
+    function Duplicate: TInstruction; override;
+  end;
+
+  { TContinueWhileInstruction }
+
+  TContinueWhileInstruction = class(TInstruction)
+    constructor Create;
+    function Duplicate: TInstruction; override;
+  end;
+
   { TEndWhileInstruction }
 
   TEndWhileInstruction = class(TInstruction)
@@ -383,6 +397,30 @@ begin
     AParams[i].Condition.Free;
   end;
   AParams := nil;
+end;
+
+{ TContinueWhileInstruction }
+
+constructor TContinueWhileInstruction.Create;
+begin
+  //nothing
+end;
+
+function TContinueWhileInstruction.Duplicate: TInstruction;
+begin
+  result := TContinueWhileInstruction.Create;
+end;
+
+{ TExitWhileInstruction }
+
+constructor TExitWhileInstruction.Create;
+begin
+  //nothing
+end;
+
+function TExitWhileInstruction.Duplicate: TInstruction;
+begin
+  result := TExitWhileInstruction.Create;
 end;
 
 { TAccumulatorBitInstruction }

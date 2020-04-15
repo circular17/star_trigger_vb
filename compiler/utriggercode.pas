@@ -567,9 +567,24 @@ begin
 
         WriteTrigger(APlayers, finalConditions, slice(consecutiveInstructions, instrCount), splitInstr.EndIP, APreserve or (ATempPreserve > 0));
 
+        j := i + 1;
+        if splitInstr.ChangePlayers <> [] then
+          APlayers := splitInstr.ChangePlayers;
+        nextIP := splitInstr.ResumeIP;
+        while (nextIP = -1) and (j < ALastInstr) do
+        begin
+          if AProg[j] is TSplitInstruction then
+          begin
+            nextIP := TSplitInstruction(AProg[j]).ResumeIP;
+            if TSplitInstruction(AProg[j]).ChangePlayers <> [] then
+              APlayers := TSplitInstruction(AProg[j]).ChangePlayers;
+          end;
+          inc(j);
+        end;
+
         //carry on with the rest of the prog
-        if splitInstr.ChangePlayers <> [] then APlayers := splitInstr.ChangePlayers;
-        WriteProg(APlayers, [], AProg, splitInstr.ResumeIP, AReturnIP, APreserve, ATempPreserve, i+1, ALastInstr);
+        if nextIP <> -1 then
+          WriteProg(APlayers, [], AProg, nextIP, AReturnIP, APreserve, ATempPreserve, j, ALastInstr);
         done := true;
         break;
       end else

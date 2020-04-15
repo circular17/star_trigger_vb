@@ -866,6 +866,26 @@ begin
       if Procedures[AProcId].ReturnType = 'Void' then raise exception.Create('Currently in a subroutine, not a function');
       raise exception.Create('Exit Function not allowed. Use Return to specify value');
     end else
+    if TryToken(ALine,index,'While') then
+    begin
+      AProg.Add( TExitWhileInstruction.Create );
+    end else
+    if TryToken(ALine,index,'For') then
+    begin
+      raise exception.Create('Exit For not implemented');
+    end else
+      raise exception.Create('Unexpected instruction');
+  end else
+  if TryToken(ALine,index,'Continue') then
+  begin
+    if TryToken(ALine,index,'While') then
+    begin
+      AProg.Add( TContinueWhileInstruction.Create );
+    end else
+    if TryToken(ALine,index,'For') then
+    begin
+      raise exception.Create('Continue For not implemented');
+    end else
       raise exception.Create('Unexpected instruction');
   end else
   if TryToken(ALine,index,'EndIf') then

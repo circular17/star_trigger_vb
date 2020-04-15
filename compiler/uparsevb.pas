@@ -43,13 +43,13 @@ function BitCountNeededFor(AValue: integer): integer;
 function IsTokenOverEndOfLine(ALastToken:string): boolean;
 
 const
-  ImplementedReservedWords: array[1..60] of string =
+  ImplementedReservedWords: array[1..61] of string =
     ('Dim','As','Const','Sub','End','If','EndIf', 'Then','Else','ElseIf','Not','And','Or','While','Option','Return',
      'On','Off','Hyper','Boolean','Byte','UInt8','UShort','UInt16','UInt24','String','True','False',
      'Do','Len','Chr','Asc','Exit','Function','LBound','UBound','Me','Rnd','New','Min','Max',
      'For','To','Step','Next','Each','In','UInteger','Integer',
      'CByte', 'CUInt8', 'CUShort', 'CUInt16', 'CUInt24', 'CUInt', 'CBool', 'CStr', 'Abs',
-     'Class', 'Nothing');
+     'Class', 'Nothing', 'Continue');
 
   NotImplementedReservedWords: array[1..14] of string =
      ('Loop','Until','Select','Case',  //reserved and planned to implement

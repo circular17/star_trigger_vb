@@ -85,6 +85,7 @@ type
     Players: TPlayers;
     EndIP: integer;
     ContinueWhileIP, ExitWhileIP: integer;
+    ContinueDoIP, ExitDoIP: integer;
     function ChangeEndIP(AEndIP: integer): TExpandInstructionsContext;
   end;
 
@@ -200,7 +201,7 @@ var
   doAs: TDoAsInstruction;
   pl: TPlayer;
   endDoAs: TEndDoAsInstruction;
-  endDoIP: integer;
+  endDoIP, startLoopIP, endLoopIP: integer;
   err: string;
   paramCond: TCondition;
   paramExpr: TExpression;
@@ -369,6 +370,70 @@ begin
       AExpanded.Add( TSplitInstruction.Create(-1, AContext.ExitWhileIP) );
       continue;
     end else
+    if AProg[i] is TLoopStartInstruction then
+    begin
+      nesting := 1;
+      for j := i+1 to AProg.Count-1 do
+      begin
+        if AProg[j] is TLoopStartInstruction then inc(nesting) else
+        if AProg[j] is TLoopEndInstruction then
+        begin
+          dec(nesting);
+          if nesting = 0 then
+          begin
+            startLoopIP:= NewIP;
+            endLoopIP:= NewIP;
+            AExpanded.Add(TChangeIPInstruction.Create(startLoopIP, 1));
+            nextIP := NewIP;
+
+            tempPart := TInstructionList.Create;
+            for k := i+1 to j-1 do
+              tempPart.Add(AProg[k].Duplicate);
+            try
+              newContext := AContext;
+              newContext.ContinueDoIP:= endLoopIP;
+              newContext.ExitDoIP:= nextIP;
+              newContext.EndIP:= -1;
+              ExpandInstructions(tempPart, AExpanded, newContext);
+            finally
+              tempPart.FreeAll;
+            end;
+
+            AddWaitCondition(TLoopEndInstruction(AProg[j]).LoopCondition, endLoopIP);
+            AExpanded.Add( TSplitInstruction.Create(endLoopIP, startLoopIP) );
+            AExpanded.Add( TChangeIPInstruction.Create(nextIP, 0) );
+            i := j;
+            break;
+          end;
+        end;
+      end;
+      if nesting <> 0 then
+      begin
+        err := 'The number of End While do not match the number of While';
+        break;
+      end;
+      continue;
+    end else
+    if AProg[i] is TContinueLoopInstruction then
+    begin
+      if AContext.ContinueDoIP = -1 then
+      begin
+        err := 'Continue Do unexpected outside of Do loop';
+        break;
+      end;
+      AExpanded.Add( TSplitInstruction.Create(-1, AContext.ContinueDoIP) );
+      continue;
+    end else
+    if AProg[i] is TExitLoopInstruction then
+    begin
+      if AContext.ExitDoIP = -1 then
+      begin
+        err := 'Exit Do unexpected outside of Do loop';
+        break;
+      end;
+      AExpanded.Add( TSplitInstruction.Create(-1, AContext.ExitDoIP) );
+      continue;
+    end else
     if AProg[i] is TIfInstruction then
     begin
       nesting := 1;
@@ -436,6 +501,14 @@ begin
               else
                 testCond := ifInstr.Conditions;
 
+              if (testCond.Count = 1) and (testCond[0] is TAlwaysCondition) then
+              begin
+                ExpandInstructions(thenPart, AExpanded, AContext.ChangeEndIP(-1));
+              end else
+              if (testCond.Count = 1) and (testCond[0] is TNeverCondition) then
+              begin
+                ExpandInstructions(elsePart, AExpanded, AContext.ChangeEndIP(-1));
+              end else
               if not testCond.IsArithmetic and not testCond.IsComputed and
                 (testCond.Count <= 15) and (elsePart.Count = 0) then
               begin

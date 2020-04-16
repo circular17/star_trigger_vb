@@ -8,6 +8,7 @@ uses
   Classes, SysUtils, uinstructions, uparsevb, uexpressions, usctypes;
 
 function ExpectConditions(AScope: integer; ALine: TStringList; var AIndex: integer; AThreads: TPlayers; AAllowOr: boolean = true): TConditionList;
+procedure NegateConditions(var AConditions: TConditionList);
 
 implementation
 
@@ -70,7 +71,10 @@ begin
                       result := TNeverCondition.Create
                    else
                       result := TElapsedTimeCondition.Create(icmAtMost, intVal-1);
-    coNotEqual: result := TNotCondition.Create([TElapsedTimeCondition.Create(icmExactly, intVal)]);
+    coNotEqual: if intVal = 0 then
+                  result := TElapsedTimeCondition.Create(icmAtLeast, 1)
+               else
+                  result := TNotCondition.Create([TElapsedTimeCondition.Create(icmExactly, intVal)]);
     else
       raise exception.Create('Unhandled case');
     end;
@@ -160,7 +164,10 @@ begin
                         result := TNeverCondition.Create
                      else
                         result := TBringCondition.Create(APlayer, unitType, locStr, icmAtMost, intVal-1);
-      coNotEqual: result := TNotCondition.Create([TBringCondition.Create(APlayer, unitType, locStr, icmExactly, intVal)]);
+      coNotEqual: if intVal = 0 then
+                    result := TBringCondition.Create(APlayer, unitType, locStr, icmAtLeast, 1)
+                  else
+                    result := TNotCondition.Create([TBringCondition.Create(APlayer, unitType, locStr, icmExactly, intVal)]);
       else
         raise exception.Create('Unhandled case');
       end;
@@ -232,7 +239,10 @@ begin
                         result := TNeverCondition.Create
                      else
                         result := TKillCountCondition.Create(APlayer, unitType, icmAtMost, intVal-1);
-      coNotEqual: result := TNotCondition.Create([TKillCountCondition.Create(APlayer, unitType, icmExactly, intVal)]);
+      coNotEqual: if intVal = 0 then
+                    result := TKillCountCondition.Create(APlayer, unitType, icmAtLeast, 1)
+                  else
+                    result := TNotCondition.Create([TKillCountCondition.Create(APlayer, unitType, icmExactly, intVal)]);
       else
         raise exception.Create('Unhandled case');
       end;
@@ -268,7 +278,10 @@ begin
                       result := TNeverCondition.Create
                    else
                       result := CreateIntegerCondition(APlayer, unitType, icmAtMost, intVal-1);
-    coNotEqual: result := TNotCondition.Create([CreateIntegerCondition(APlayer, unitType, icmExactly, intVal)]);
+    coNotEqual: if intVal = 0 then
+                  result := CreateIntegerCondition(APlayer, unitType, icmAtLeast, 1)
+                else
+                  result := TNotCondition.Create([CreateIntegerCondition(APlayer, unitType, icmExactly, intVal)]);
     else
       raise exception.Create('Unhandled case');
     end;
@@ -295,7 +308,10 @@ begin
                       result := TNeverCondition.Create
                    else
                       result := TOpponentCountCondition.Create(APlayer, icmAtMost, intVal-1);
-    coNotEqual: result := TNotCondition.Create([TOpponentCountCondition.Create(APlayer, icmExactly, intVal)]);
+    coNotEqual: if intVal = 0 then
+                  result := TOpponentCountCondition.Create(APlayer, icmAtLeast, 1)
+                else
+                  result := TNotCondition.Create([TOpponentCountCondition.Create(APlayer, icmExactly, intVal)]);
     else
       raise exception.Create('Unhandled case');
     end;
@@ -564,7 +580,10 @@ begin
                             result := TNeverCondition.Create
                          else
                             result := CreateIntegerCondition(scalar.Player, scalar.UnitType, icmAtMost, intVal-1);
-          coNotEqual: result := TNotCondition.Create([CreateIntegerCondition(scalar.Player, scalar.UnitType, icmExactly, intVal)]);
+          coNotEqual: if intVal = 0 then
+                        result := CreateIntegerCondition(scalar.Player, scalar.UnitType, icmAtLeast, 1)
+                      else
+                        result := TNotCondition.Create([CreateIntegerCondition(scalar.Player, scalar.UnitType, icmExactly, intVal)]);
           else
             raise exception.Create('Unhandled case');
           end;
@@ -665,6 +684,41 @@ begin
           result.Delete(j);
         end;
     end;
+end;
+
+procedure NegateConditions(var AConditions: TConditionList);
+var
+  notConds: TConditionList;
+begin
+  if ((AConditions.Count = 1) and (AConditions[0] is TAlwaysCondition)) or
+     (AConditions.Count = 0) then
+  begin
+    AConditions.FreeAll;
+    AConditions := TConditionList.Create;
+    AConditions.Add(TNeverCondition.Create);
+  end else
+  if (AConditions.Count = 1) and (AConditions[0] is TNeverCondition) then
+  begin
+    AConditions.FreeAll;
+    AConditions := TConditionList.Create;
+    AConditions.Add(TAlwaysCondition.Create);
+  end else
+  if (AConditions.Count = 1) and (AConditions[0] is TNotCondition) then
+  begin
+    notConds := TNotCondition(AConditions[0]).Conditions;
+    TNotCondition(AConditions[0]).Conditions := TConditionList.Create;
+    AConditions.FreeAll;
+    AConditions := notConds;
+  end else
+  if (AConditions.Count = 1) and AConditions[0].TryNegate then
+  begin
+    exit;
+  end else
+  begin
+    notConds := TConditionList.Create;
+    notConds.Add( TNotCondition.Create(AConditions) );
+    AConditions := notConds;
+  end;
 end;
 
 function ParseProcedureParameterValuesImplementation(AThreads: TPlayers; AScope: integer; funcName: string; ALine: TStringList; var AIndex: integer): ArrayOfParameterValue;

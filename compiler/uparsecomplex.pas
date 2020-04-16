@@ -24,8 +24,7 @@ procedure ProcessDim(AThreads: TPlayers; AScope: integer; ALine: TStringList; AP
 
 implementation
 
-uses uparsevb, uexpressions, utriggerinstructions, uprocedures,
-  umapinfo;
+uses uparsevb, uexpressions, utriggerinstructions, umapinfo;
 
 function TryUnitPropertiesDefinition(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AProp: TUnitProperties): boolean;
 var intVal, oldIndex: integer;

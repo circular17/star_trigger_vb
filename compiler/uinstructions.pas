@@ -61,6 +61,7 @@ type
   TCondition = class
     function IsArithmetic: boolean; virtual;
     function IsComputed: boolean; virtual;
+    function TryNegate: boolean; virtual;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean); virtual;
     function ToBasic(AUseVariables: boolean): string; virtual; abstract;
     function Priority: integer; virtual; abstract;
@@ -279,6 +280,36 @@ type
     function Duplicate: TInstruction; override;
   end;
 
+  { TLoopStartInstruction }
+
+  TLoopStartInstruction = class(TInstruction)
+    constructor Create;
+    function Duplicate: TInstruction; override;
+  end;
+
+  { TExitLoopInstruction }
+
+  TExitLoopInstruction = class(TInstruction)
+    constructor Create;
+    function Duplicate: TInstruction; override;
+  end;
+
+  { TContinueLoopInstruction }
+
+  TContinueLoopInstruction = class(TInstruction)
+    constructor Create;
+    function Duplicate: TInstruction; override;
+  end;
+
+  { TLoopEndInstruction }
+
+  TLoopEndInstruction = class(TInstruction)
+    LoopCondition: TConditionList;
+    constructor Create(ALoopCondition: TConditionList);
+    function Duplicate: TInstruction; override;
+    destructor Destroy; override;
+  end;
+
   { TAccumulatorBitInstruction }
 
   TAccumulatorBitInstruction = class(TInstruction)
@@ -344,7 +375,35 @@ var
   CreateSetIntegerInstruction: TCreateSetIntegerInstructionProc;
   CreateIntegerCondition: TCreateIntegerConditionProc;
 
+function TryNegateIntegerCondition(var Mode: TIntegerConditionMode; var Value: integer): boolean;
+
 implementation
+
+function TryNegateIntegerCondition(var Mode: TIntegerConditionMode; var Value: integer): boolean;
+begin
+  case Mode of
+  icmExactly: if Value = 0 then
+              begin
+                Value := 1;
+                Mode := icmAtLeast;
+              end else
+                result := false;
+  icmAtLeast: if Value >= 1 then
+              begin
+                dec(Value);
+                Mode := icmAtMost;
+              end else
+                result := false;
+  icmAtMost: if value < maxLongint then
+             begin
+               inc(Value);
+               Mode := icmAtLeast;
+             end else
+               result := false;
+  else
+    result := false;
+  end;
+end;
 
 function Multistring(AThreads: TPlayers; AText: string): TMultistring;
 var
@@ -397,6 +456,60 @@ begin
     AParams[i].Condition.Free;
   end;
   AParams := nil;
+end;
+
+{ TContinueLoopInstruction }
+
+constructor TContinueLoopInstruction.Create;
+begin
+  //nothing
+end;
+
+function TContinueLoopInstruction.Duplicate: TInstruction;
+begin
+  result := TContinueLoopInstruction.Create;
+end;
+
+{ TExitLoopInstruction }
+
+constructor TExitLoopInstruction.Create;
+begin
+  //nothing
+end;
+
+function TExitLoopInstruction.Duplicate: TInstruction;
+begin
+  result := TExitLoopInstruction.Create;
+end;
+
+{ TLoopEndInstruction }
+
+constructor TLoopEndInstruction.Create(ALoopCondition: TConditionList);
+begin
+  LoopCondition := ALoopCondition;
+end;
+
+function TLoopEndInstruction.Duplicate: TInstruction;
+begin
+  result := TLoopEndInstruction.Create(LoopCondition.Duplicate);
+end;
+
+destructor TLoopEndInstruction.Destroy;
+begin
+  LoopCondition.FreeAll;
+  inherited Destroy;
+end;
+
+{ TLoopStartInstruction }
+
+constructor TLoopStartInstruction.Create;
+begin
+  //nothing
+end;
+
+function TLoopStartInstruction.Duplicate: TInstruction;
+begin
+  result := TLoopStartInstruction.Create;
 end;
 
 { TContinueWhileInstruction }
@@ -1175,6 +1288,11 @@ end;
 function TCondition.IsComputed: boolean;
 begin
   result := IsArithmetic;
+end;
+
+function TCondition.TryNegate: boolean;
+begin
+  result := false;
 end;
 
 procedure TCondition.AddToProgAsAndVar(AProg: TInstructionList;

@@ -176,6 +176,7 @@ type
     CompareMode: TIntegerConditionMode;
     CompareValue: integer;
     destructor Destroy; override;
+    function TryNegate: boolean; override;
     constructor Create(AExpression: TExpression; ACompareMode: TIntegerConditionMode; ACompareValue: integer);
     function IsArithmetic: Boolean; override;
     function GetBitCount: integer;
@@ -758,6 +759,11 @@ destructor TArithmeticCondition.Destroy;
 begin
   Expression.Free;
   inherited Destroy;
+end;
+
+function TArithmeticCondition.TryNegate: boolean;
+begin
+  Result:= TryNegateIntegerCondition(CompareMode, CompareValue);
 end;
 
 constructor TArithmeticCondition.Create(AExpression: TExpression;

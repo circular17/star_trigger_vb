@@ -739,7 +739,8 @@ end;
 
 procedure ParseInstruction(AScope: integer; ALine: TStringList; AProg: TInstructionList; AThreads: TPlayers; AMainThread: TPlayer; AProcId: integer; AInSubMain: boolean);
 var
-  index, intVal, idxArr, i, idxSound, idxVar, idxMsg, idxClass, oldIdx, endIdx: integer;
+  index, intVal, idxArr, i, idxSound, idxVar, idxMsg, idxClass, oldIdx, endIdx,
+    nesting: integer;
   name, assignOp, text: String;
   done, boolVal: boolean;
   scalar: TScalarVariable;
@@ -870,10 +871,17 @@ begin
     begin
       AProg.Add( TExitWhileInstruction.Create );
     end else
+    if TryToken(ALine, index,'Do') then
+    begin
+      AProg.Add( TExitLoopInstruction.Create );
+    end else
     if TryToken(ALine,index,'For') then
     begin
       raise exception.Create('Exit For not implemented');
     end else
+    if PeekToken(ALine, index, 'Loop') then
+      raise exception.Create('To exit a loop use Exit Do')
+    else
       raise exception.Create('Unexpected instruction');
   end else
   if TryToken(ALine,index,'Continue') then
@@ -882,10 +890,17 @@ begin
     begin
       AProg.Add( TContinueWhileInstruction.Create );
     end else
+    if TryToken(ALine, index,'Do') then
+    begin
+      AProg.Add( TContinueLoopInstruction.Create );
+    end else
     if TryToken(ALine,index,'For') then
     begin
       raise exception.Create('Continue For not implemented');
     end else
+    if PeekToken(ALine, index, 'Loop') then
+      raise exception.Create('To skip a loop use Continue Do')
+    else
       raise exception.Create('Unexpected instruction');
   end else
   if TryToken(ALine,index,'EndIf') then
@@ -897,6 +912,12 @@ begin
   begin
     if TryToken(ALine,index,'While') then
     begin
+      nesting := 0;
+      for i := 0 to AProg.Count-1 do
+        if AProg[i] is TWhileInstruction then inc(nesting)
+        else if AProg[i] is TEndWhileInstruction then dec(nesting);
+      if nesting <= 0 then
+        raise exception.Create('End While do not have a matching While');
       CheckEndOfLine;
       AProg.Add(TEndWhileInstruction.Create);
     end else
@@ -913,6 +934,34 @@ begin
     if (conds.Count = 1) and (conds[0] is TAlwaysCondition) then
       raise exception.Create('Infinite loop not allowed. You can use an event "On True" instead though');
     AProg.Add(TWhileInstruction.Create(conds));
+    CheckEndOfLine;
+  end else
+  if TryToken(ALine,index,'Do') then
+  begin
+    AProg.Add(TLoopStartInstruction.Create);
+    CheckEndOfLine;
+  end else
+  if TryToken(ALine,index,'Loop') then
+  begin
+    nesting := 0;
+    for i := 0 to AProg.Count-1 do
+      if AProg[i] is TLoopStartInstruction then inc(nesting)
+      else if AProg[i] is TLoopEndInstruction then dec(nesting);
+    if nesting <= 0 then
+      raise exception.Create('Loop do not have a matching Do');
+
+    if TryToken(ALine,index,'While') then
+      conds := ExpectConditions(AScope,ALine,index,AThreads)
+    else if TryToken(Aline,index,'Until') then
+    begin
+      conds := ExpectConditions(AScope,ALine,index,AThreads);
+      NegateConditions(conds);
+    end else
+    begin
+      conds := TConditionList.Create;
+      conds.Add(TAlwaysCondition.Create);
+    end;
+    AProg.Add(TLoopEndInstruction.Create(conds));
     CheckEndOfLine;
   end else
   if TryToken(ALine,index,'If') then

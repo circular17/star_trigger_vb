@@ -508,7 +508,7 @@ begin
 
           inDoAs := true;
         end else
-          raise exception.Create('Do loop not implemented. Use While instead.');
+          DoParseInstruction;
       end else
       if TryToken(line,index,'End') then
       begin

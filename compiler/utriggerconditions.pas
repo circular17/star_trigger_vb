@@ -46,6 +46,7 @@ type
     Switch: integer;
     Value: boolean;
     constructor Create(ASwitch: integer; AValue: boolean);
+    function TryNegate: boolean; override;
     function ToBasic(AUseVariables: boolean): string; override;
     function ToTrigEdit: string; override;
     procedure AddToProgAsAndVar(AProg: TInstructionList; APlayer: TPlayer; AUnitType: TStarcraftUnit; AFirst: boolean); override;
@@ -63,6 +64,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; ALocation: string; AMode: TIntegerConditionMode; AValue: integer);
+    function TryNegate: boolean; override;
     function ToBasic({%H-}AUseVariables: boolean): string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
@@ -78,6 +80,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; AMode: TIntegerConditionMode; AValue: integer);
+    function TryNegate: boolean; override;
     function ToBasic({%H-}AUseVariables: boolean): string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
@@ -92,6 +95,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AMode: TIntegerConditionMode; AValue: integer);
+    function TryNegate: boolean; override;
     function ToBasic({%H-}AUseVariables: boolean): string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
@@ -105,6 +109,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(AMode: TIntegerConditionMode; AValue: integer);
+    function TryNegate: boolean; override;
     function ToBasic({%H-}AUseVariables: boolean): string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
@@ -147,6 +152,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AUnitType: TStarcraftUnit; AMode: TIntegerConditionMode; AValue: integer);
+    function TryNegate: boolean; override;
     function ToBasic(AUseVariables: boolean): string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
@@ -162,6 +168,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AResource: TStarcraftResource; AMode: TIntegerConditionMode; AValue: integer);
+    function TryNegate: boolean; override;
     function ToBasic({%H-}AUseVariables: boolean): string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
@@ -177,6 +184,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(APlayer: TPlayer; AScore: TStarcraftScore; AMode: TIntegerConditionMode; AValue: integer);
+    function TryNegate: boolean; override;
     function ToBasic({%H-}AUseVariables: boolean): string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
@@ -190,6 +198,7 @@ type
     Value: integer;
     Mode: TIntegerConditionMode;
     constructor Create(AMode: TIntegerConditionMode; AValue: integer);
+    function TryNegate: boolean; override;
     function ToBasic({%H-}AUseVariables: boolean): string; override;
     function ToTrigEdit: string; override;
     function Duplicate: TTriggerCondition; override;
@@ -350,6 +359,11 @@ begin
   Value := AValue;
 end;
 
+function TScoreCondition.TryNegate: boolean;
+begin
+  Result:=TryNegateIntegerCondition(Mode,Value);
+end;
+
 function TScoreCondition.ToBasic(AUseVariables: boolean): string;
 begin
   result := PlayerIdentifiers[Player]+'.'+StarcraftScoreToBasic[Score]+' '+IntConditionModeToBasic[Mode]+' ' +inttostr(Value);
@@ -392,6 +406,11 @@ begin
   Resource := AResource;
   Mode := AMode;
   Value := AValue;
+end;
+
+function TResourceCondition.TryNegate: boolean;
+begin
+  Result:=TryNegateIntegerCondition(Mode,Value);
 end;
 
 function TResourceCondition.ToBasic(AUseVariables: boolean): string;
@@ -437,6 +456,11 @@ begin
   Value := AValue;
 end;
 
+function TCountdownCondition.TryNegate: boolean;
+begin
+  Result:=TryNegateIntegerCondition(Mode,Value);
+end;
+
 function TCountdownCondition.ToBasic(AUseVariables: boolean): string;
 begin
   result := 'Countdown '+IntConditionModeToBasic[Mode]+' ' +inttostr(Value);
@@ -477,6 +501,11 @@ begin
   UnitType := AUnitType;
   Mode := AMode;
   Value := AValue;
+end;
+
+function TDeathCountCondition.TryNegate: boolean;
+begin
+  Result:=TryNegateIntegerCondition(Mode,Value);
 end;
 
 function TDeathCountCondition.ToBasic(AUseVariables: boolean): string;
@@ -688,6 +717,12 @@ begin
   Value := AValue;
 end;
 
+function TSwitchCondition.TryNegate: boolean;
+begin
+  Value := not Value;
+  Result:=true;
+end;
+
 function TSwitchCondition.ToBasic(AUseVariables: boolean): string;
 var
   i: Integer;
@@ -749,6 +784,11 @@ begin
   Mode := AMode;
   Value := AValue;
   Location:= ALocation;
+end;
+
+function TBringCondition.TryNegate: boolean;
+begin
+  Result:= TryNegateIntegerCondition(Mode, Value);
 end;
 
 function TBringCondition.ToBasic(AUseVariables: boolean): string;
@@ -815,6 +855,11 @@ begin
   Value := AValue;
 end;
 
+function TKillCountCondition.TryNegate: boolean;
+begin
+  Result:= TryNegateIntegerCondition(Mode,Value);
+end;
+
 function TKillCountCondition.ToBasic(AUseVariables: boolean): string;
 begin
   result := PlayerIdentifiers[Player]+'.KillCount('+StarcraftUnitIdentifier[UnitType];
@@ -860,6 +905,11 @@ begin
   Value := AValue;
 end;
 
+function TOpponentCountCondition.TryNegate: boolean;
+begin
+  Result:= TryNegateIntegerCondition(Mode,Value);
+end;
+
 function TOpponentCountCondition.ToBasic(AUseVariables: boolean): string;
 begin
   result := PlayerIdentifiers[Player]+'.OpponentCount '+IntConditionModeToBasic[Mode]+' ' +inttostr(Value);
@@ -901,6 +951,11 @@ constructor TElapsedTimeCondition.Create(AMode: TIntegerConditionMode;
 begin
   Mode := AMode;
   Value := AValue;
+end;
+
+function TElapsedTimeCondition.TryNegate: boolean;
+begin
+  Result:=TryNegateIntegerCondition(Mode,Value);
 end;
 
 function TElapsedTimeCondition.ToBasic(AUseVariables: boolean): string;

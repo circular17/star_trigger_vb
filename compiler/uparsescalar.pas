@@ -25,7 +25,8 @@ function TryUnitType(AThreads: TPlayers; AScope: integer; ALine: TStringList; va
 function ExpectUnitTypeIdentifier(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
 function TryUnitTypeConst(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AWiderScope: boolean = true): TStarcraftUnit;
 function ExpectUnitType(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TStarcraftUnit;
-function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
+function TryEnumType(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWider: boolean = true): integer;
+function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer; ACheckWider: boolean = true): boolean;
 function TryIntegerVariable(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWiderScope: boolean = true): integer;
 function TryIntegerConstantVariable(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWiderScope: boolean = true): integer;
 function TryIntegerArray(AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): integer;
@@ -38,8 +39,8 @@ function TryBooleanVariable(AScope: integer; ALine: TStringList; var AIndex: int
 function TryBooleanArray(AScope: integer; ALine: TStringList; var AIndex: integer; AConstantOnly: boolean = false; ACheckWiderScope: boolean = true): integer;
 function TryStringVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
 function TryStringArray(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
-function TrySoundVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
-function TryUnitPropertiesVariable(AScope: integer; ALine: TStringList; var AIndex: integer): integer;
+function TrySoundVariable(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWider: boolean = true): integer;
+function TryUnitPropertiesVariable(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWider: boolean = true): integer;
 
 type
   TExpectBooleanConstantFunc = function(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): boolean;
@@ -204,13 +205,51 @@ begin
     result := ExpectUnitTypeIdentifier(AThreads, AScope, ALine, AIndex);
 end;
 
-function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AValue: integer): boolean;
-var errPos, idxVar, oldIndex, bitDepth: integer;
+function TryEnumType(AScope: integer; ALine: TStringList; var AIndex: integer; ACheckWider: boolean): integer;
+var
+  i, idxClass, oldIndex: Integer;
+begin
+  while AScope <> -1 do
+  begin
+    for i := 0 to EnumCount-1 do
+      if (AScope = EnumDefinitions[i].Scope) and
+          TryToken(ALine, AIndex, EnumDefinitions[i].Name) then
+            exit(i);
+    if not ACheckWider then break;
+    AScope := GetWiderScope(AScope)
+  end;
+  if ACheckWider then
+  begin
+    oldIndex := AIndex;
+    idxClass := TryClassName(ALine, AIndex, true);
+    if (idxClass <> -1) and TryToken(ALine, AIndex, '.') then
+    begin
+      result := TryEnumType(ClassDefinitions[idxClass].InnerScope, ALine, AIndex, false);
+      if result <> -1 then exit;
+    end;
+    AIndex := oldIndex;
+  end;
+  result := -1;
+end;
+
+function GetEnumItemValue(AEnum: integer; AItem: string): integer;
+var
+  i: Integer;
+begin
+  for i := 0 to high(EnumDefinitions[AEnum].Items) do
+    if CompareText(AItem, EnumDefinitions[AEnum].Items[i].Identifier)=0 then
+      exit(EnumDefinitions[AEnum].Items[i].Value);
+  raise exception.Create('Enum item not found');
+end;
+
+function TryInteger(AThreads: TPlayers; AScope: integer; ALine: TStringList;
+  var AIndex: integer; out AValue: integer; ACheckWider: boolean): boolean;
+var errPos, idxVar, oldIndex, bitDepth, enumIdx, idxClass: integer;
   s, ident, strValue, typeStr: String;
   boolValue: boolean;
   pl: TPlayer;
 begin
-  if TryToken(ALine,AIndex,'Asc') then
+  if ACheckWider and TryToken(ALine,AIndex,'Asc') then
   begin
     ExpectToken(ALine,AIndex,'(');
     s := ExpectStringConstant(AThreads, AScope, ALine,AIndex);
@@ -222,7 +261,7 @@ begin
     exit(true)
   end;
 
-  if TryToken(ALine,AIndex,'LBound') then
+  if ACheckWider and TryToken(ALine,AIndex,'LBound') then
   begin
     ExpectToken(ALine,AIndex,'(');
     if TryToken(ALine,AIndex,'Present') or
@@ -239,7 +278,7 @@ begin
       else raise exception.Create('Unknown array "' + ident + '"');
   end;
 
-  if TryToken(ALine,AIndex,'UBound') then
+  if ACheckWider and TryToken(ALine,AIndex,'UBound') then
   begin
     ExpectToken(ALine,AIndex,'(');
     if TryToken(ALine,AIndex,'Present') then
@@ -274,7 +313,7 @@ begin
       else raise exception.Create('Unknown array "' + ident + '"');
   end;
 
-  if TryToken(ALine,AIndex,'Len') then
+  if ACheckWider and TryToken(ALine,AIndex,'Len') then
   begin
     ExpectToken(ALine,AIndex,'(');
     strValue := ExpectStringConstant(AThreads, AScope, ALine,AIndex);
@@ -283,13 +322,13 @@ begin
     exit(true);
   end;
 
-  if TryToken(ALine,AIndex,'CByte') or TryToken(ALine,AIndex,'CUInt8') or
+  if ACheckWider and (TryToken(ALine,AIndex,'CByte') or TryToken(ALine,AIndex,'CUInt8') or
      TryToken(ALine,AIndex,'CUShort') or TryToken(ALine,AIndex,'CUInt16') or
-     TryToken(ALine,AIndex,'CUInt24') or TryToken(ALine,AIndex,'CUInt') then
+     TryToken(ALine,AIndex,'CUInt24') or TryToken(ALine,AIndex,'CUInt')) then
   begin
     typeStr := ALine[AIndex-1];
     delete(typeStr, 1, 1);
-    bitDepth := GetBitCountOfType(typeStr);
+    bitDepth := GetBitCountOfIntType(typeStr);
     if bitDepth = 0 then bitDepth := 24;
     ExpectToken(ALine, AIndex, '(');
     if not PeekToken(ALine,AIndex,'Me') then
@@ -320,15 +359,30 @@ begin
     exit(true);
   end;
 
-  idxVar := TryIntegerConstantVariable(AScope, ALine, AIndex);
+  idxVar := TryIntegerConstantVariable(AScope, ALine, AIndex, ACheckWider);
   if idxVar<>-1 then
   begin
     AValue := IntVars[idxVar].Value;
     exit(true);
   end;
 
+  if ACheckWider then
+  begin
+    enumIdx:= TryEnumType(AScope, ALine, AIndex, ACheckWider);
+    if enumIdx <> -1 then
+    begin
+      ExpectToken(ALine, AIndex, '.');
+      if TryIdentifier(ALine, AIndex, ident, false) then
+      begin
+        AValue := GetEnumItemValue(enumIdx, ident);
+        exit(true);
+      end else
+        raise exception.Create('Expecting Enum item');
+    end;
+  end;
+
   oldIndex := AIndex;
-  idxVar := TryUnitPropertiesVariable(AScope, ALine, AIndex);
+  idxVar := TryUnitPropertiesVariable(AScope, ALine, AIndex, ACheckWider);
   if idxVar <> -1 then
   begin
     if TryToken(ALine, AIndex, '.') then
@@ -362,7 +416,7 @@ begin
     AIndex := oldIndex;
   end;
 
-  idxVar := TrySoundVariable(AScope, ALine, AIndex);
+  idxVar := TrySoundVariable(AScope, ALine, AIndex, ACheckWider);
   if idxVar <> -1 then
   begin
     if TryToken(ALine, AIndex, '.') then
@@ -386,6 +440,17 @@ begin
       inc(AIndex);
       exit(true);
     end;
+  end;
+
+  if ACheckWider then
+  begin
+    idxClass := TryClassName(ALine, AIndex, true);
+    if (idxClass <> -1) and TryToken(ALine,AIndex,'.') then
+    begin
+      result := TryInteger(AThreads, ClassDefinitions[idxClass].InnerScope, ALine, AIndex, AValue, false);
+      if result then exit;
+    end;
+    AIndex := oldIndex;
   end;
 
   AValue := 0;
@@ -679,7 +744,7 @@ begin
 end;
 
 function TrySoundVariable(AScope: integer; ALine: TStringList;
-  var AIndex: integer): integer;
+  var AIndex: integer; ACheckWider: boolean): integer;
 var
   i: Integer;
 begin
@@ -688,13 +753,14 @@ begin
     for i := 0 to SoundCount-1 do
       if (SoundVars[i].Scope = AScope) and
         TryToken(ALine, AIndex, SoundVars[i].Name) then exit(i);
+    if not ACheckWider then break;
     AScope := GetWiderScope(AScope);
   end;
   result := -1;
 end;
 
 function TryUnitPropertiesVariable(AScope: integer; ALine: TStringList;
-  var AIndex: integer): integer;
+  var AIndex: integer; ACheckWider: boolean): integer;
 var
   idxProp: Integer;
 begin
@@ -704,6 +770,7 @@ begin
       if (UnitPropVars[idxProp].Scope = AScope)
          and TryToken(ALine, AIndex, UnitPropVars[idxProp].Name) then
         exit(idxProp);
+    if not ACheckWider then break;
     AScope := GetWiderScope(AScope);
   end;
   result := -1;

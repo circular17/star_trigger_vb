@@ -36,20 +36,20 @@ function TryIdentifier(ALine: TStringList; var AIndex: integer; out AIdentifier:
 function TryParsePlayer(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TPlayer;
 function IsPlayerIdentifier(AName: string): boolean;
 function ExpectPlayers(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer): TPlayers;
-function GetBitCountOfType(AName: string): integer;
+function GetBitCountOfIntType(AName: string): integer;
 function IsIntegerType(AName: string): boolean;
 function TryUnsignedIntegerType(ALine: TStringList; var AIndex: integer; out AType: string): boolean;
 function BitCountNeededFor(AValue: integer): integer;
 function IsTokenOverEndOfLine(ALastToken:string): boolean;
 
 const
-  ImplementedReservedWords: array[1..63] of string =
+  ImplementedReservedWords: array[1..64] of string =
     ('Dim','As','Const','Sub','End','If','EndIf', 'Then','Else','ElseIf','Not','And','Or','While','Option','Return',
      'On','Off','Hyper','Boolean','Byte','UInt8','UShort','UInt16','UInt24','String','True','False',
      'Do','Len','Chr','Asc','Exit','Function','LBound','UBound','Me','Rnd','New','Min','Max',
      'For','To','Step','Next','Each','In','UInteger','Integer',
      'CByte', 'CUInt8', 'CUShort', 'CUInt16', 'CUInt24', 'CUInt', 'CBool', 'CStr', 'Abs',
-     'Class', 'Nothing', 'Continue', 'Loop', 'Until');
+     'Class', 'Nothing', 'Continue', 'Loop', 'Until', 'Enum');
 
   NotImplementedReservedWords: array[1..12] of string =
      ('Select','Case',  //reserved and planned to implement
@@ -387,7 +387,7 @@ begin
   end;
 end;
 
-function GetBitCountOfType(AName: string): integer;
+function GetBitCountOfIntType(AName: string): integer;
 begin
   if (CompareText(AName,'Byte')=0) or (CompareText(AName,'UInt8')=0) then result := 8
   else if (CompareText(AName,'UShort')=0) or (CompareText(AName,'UInt16')=0) then result := 16
@@ -410,7 +410,7 @@ end;
 
 function IsIntegerType(AName: string): boolean;
 begin
-  result := GetBitCountOfType(AName) > 0;
+  result := GetBitCountOfIntType(AName) > 0;
 end;
 
 function BitCountNeededFor(AValue: integer): integer;

@@ -24,6 +24,8 @@ function IsVarNameUsed(AScope: integer; AName: string; AParamCount: integer): bo
 var
   IsProcOrClassNameUsed: TIsVarNameUsedFunc;
 
+function GetBitCountOfScalarType(AScope: integer; AName: string): integer;
+
 var
   IntArrays: array of record
     Predefined, Constant: boolean;
@@ -139,6 +141,23 @@ function CreateUnitConst(AScope: integer; AName: string; AValue: TStarcraftUnit)
 function UnitConstIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean = true): integer;
 
 var
+  EnumDefinitions: array of record
+    Name: string;
+    Scope: integer;
+    Items: array of record
+             Identifier: string;
+             Value: integer;
+           end;
+    BitCount: integer;
+  end;
+  EnumCount: integer;
+
+function CreateEnum(AScope: integer; AName: string): integer;
+procedure AddEnumItem(AEnum: integer; AIdentifier: string; AValue: integer= -1);
+function EnumIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean = true): integer;
+procedure AutoEnumValues(AEnum: integer);
+
+var
   SoundVars: array of record
     Scope: integer;
     Name: string;
@@ -181,10 +200,34 @@ var
   MessageCount: integer;
 
 function FindOrCreateMessage(AText: string; APlayers: TPlayers): integer;
+function GetExponentOf2(AValue: integer; ARoundUpwards: boolean = false): integer;
+function IsPowerOf2(ANumber: integer): boolean;
 
 implementation
 
 uses uparsevb, uunitpropchunk;
+
+function GetExponentOf2(AValue: integer; ARoundUpwards: boolean): integer;
+begin
+  result := 0;
+  while AValue > 1 do
+  begin
+    if ARoundUpwards then inc(AValue);
+    AValue := AValue shr 1;
+    inc(result);
+  end;
+end;
+
+function IsPowerOf2(ANumber: integer): boolean;
+begin
+  if ANumber <= 0 then exit(false);
+  while ANumber > 1 do
+  begin
+    if (ANumber and 1) <> 0 then exit(false);
+    ANumber := ANumber shr 1;
+  end;
+  exit(ANumber = 1);
+end;
 
 var
   TempInts8: array of record
@@ -215,6 +258,7 @@ begin
   StringArrayCount := 0;
   UnitPropCount := 0;
   UnitConstCount:= 0;
+  EnumCount := 0;
   SoundCount := 0;
   for i := low(PlayerPresenceVar) to high(PlayerPresenceVar) do
     PlayerPresenceVar[i] := -1;
@@ -229,11 +273,11 @@ end;
 
 function IsVarNameUsed(AScope: integer; AName: string; AParamCount: integer): boolean;
 begin
-  result := (IntVarIndexOf(AScope, AName, False)<>-1) or (BoolVarIndexOf(AScope, AName, False)<>-1) or
-            (IntArrayIndexOf(AScope, AName, False)<>-1) or (BoolArrayIndexOf(AScope, AName, False)<>-1) or
-            (StringIndexOf(AScope, AName, False)<>-1) or (StringArrayIndexOf(AScope, AName, False)<>-1) or
-            (UnitPropIndexOf(AScope, AName, False) <> -1) or (SoundIndexOf(AScope, AName, False)<>-1) or
-            (UnitConstIndexOf(AScope, AName, false) <> -1) or
+  result := (IntVarIndexOf(AScope, AName, False) <> -1) or (BoolVarIndexOf(AScope, AName, False) <> -1) or
+            (IntArrayIndexOf(AScope, AName, False) <> -1) or (BoolArrayIndexOf(AScope, AName, False) <> -1) or
+            (StringIndexOf(AScope, AName, False) <> -1) or (StringArrayIndexOf(AScope, AName, False) <> -1) or
+            (UnitPropIndexOf(AScope, AName, False) <> -1) or (SoundIndexOf(AScope, AName, False) <> -1) or
+            (UnitConstIndexOf(AScope, AName, false) <> -1) or (EnumIndexOf(AScope, AName, false) <> -1) or
             (CompareText('Runtime',AName) = 0) or (CompareText('Present',AName) = 0) or
             (CompareText('Switch',AName) = 0) or (CompareText('AI',AName) = 0) or
             (CompareText('Unit',AName) = 0) or IsUnitType(AName) or
@@ -243,6 +287,19 @@ begin
 
   if not result and Assigned(IsProcOrClassNameUsed) then
     result := IsProcOrClassNameUsed(AScope, AName, AParamCount);
+end;
+
+function GetBitCountOfScalarType(AScope: integer; AName: string): integer;
+var
+  idxEnum: Integer;
+begin
+  result := GetBitCountOfIntType(AName);
+  if result = 0 then
+  begin
+    idxEnum := EnumIndexOf(AScope, AName);
+    if idxEnum <> -1 then
+      result := EnumDefinitions[idxEnum].BitCount;
+  end;
 end;
 
 function CreateIntArray(AScope: integer; AName: string; ASize: integer;
@@ -930,6 +987,82 @@ begin
     AScope := GetWiderScope(AScope);
   end;
   result := -1;
+end;
+
+function CreateEnum(AScope: integer; AName: string): integer;
+begin
+  if EnumCount >= length(EnumDefinitions) then
+    setlength(EnumDefinitions, EnumCount*2+4);
+  result := EnumCount;
+  EnumDefinitions[result].Name:= AName;
+  EnumDefinitions[result].Scope:= AScope;
+  EnumDefinitions[result].Items:= nil;
+  inc(EnumCount);
+end;
+
+procedure AddEnumItem(AEnum: integer; AIdentifier: string; AValue: integer);
+var
+  itemIndex, i: Integer;
+begin
+  itemIndex := length(EnumDefinitions[AEnum].Items);
+  for i := 0 to itemIndex-1 do
+    if CompareText(EnumDefinitions[AEnum].Items[i].Identifier, AIdentifier)=0 then
+      raise exception.Create('Identifier already used in enumeration');
+  if AValue <> -1 then
+    for i := 0 to itemIndex-1 do
+      if EnumDefinitions[AEnum].Items[i].Value = AValue then
+        raise exception.Create('Value already used in enumeration');
+  setlength(EnumDefinitions[AEnum].Items, itemIndex+1);
+  with EnumDefinitions[AEnum].Items[itemIndex] do
+  begin
+    Identifier:= AIdentifier;
+    Value := AValue;
+  end;
+end;
+
+function EnumIndexOf(AScope: integer; AName: string; ACheckGlobal: boolean = true): integer;
+var
+  i: Integer;
+begin
+  while AScope <> -1 do
+  begin
+    for i := 0 to EnumCount-1 do
+      if (EnumDefinitions[i].Scope = AScope) and
+        (CompareText(EnumDefinitions[i].Name, AName)=0) then
+        exit(i);
+    if not ACheckGlobal then break;
+    AScope := GetWiderScope(AScope);
+  end;
+  result := -1;
+end;
+
+procedure AutoEnumValues(AEnum: integer);
+var
+  count, i, j, maxVal: Integer;
+  val: PInteger;
+  usedValues: array of boolean;
+begin
+  count := length(EnumDefinitions[AEnum].Items);
+  setlength(usedValues, count);
+  maxVal := 0;
+  for i := 0 to count-1 do
+  begin
+    val := @EnumDefinitions[AEnum].Items[i].Value;
+    if val^ = -1 then
+    begin
+      for j := 0 to high(usedValues) do
+        if not usedValues[j] then
+        begin
+          val^ := j;
+          usedValues[j] := true;
+          break;
+        end;
+    end else
+    if (val^ >= 0) and (val^ < length(usedValues)) then
+      usedValues[val^] := true;
+    if val^ > maxVal then maxVal := val^;
+  end;
+  EnumDefinitions[AEnum].BitCount:= GetExponentOf2(maxVal, true);
 end;
 
 function CreateSound(AScope: integer; AName: string; AFilename: string;

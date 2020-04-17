@@ -232,7 +232,7 @@ var
       begin
         if TryUnsignedIntegerType(line,index,varType) then
         begin
-          bitCount := GetBitCountOfType(varType);
+          bitCount := GetBitCountOfIntType(varType);
           if bitCount = 0 then bitCount := 24;
         end else
         if not AAcceptBool and PeekToken(line,index,'Boolean') then
@@ -624,7 +624,7 @@ var
   end;
 
 var
-  inSub, inEvent, i, refClass: integer;
+  inSub, inEvent, inEnum, i, refClass: integer;
   done: boolean;
   curClassPlayers: TPlayers;
   str: string;
@@ -632,6 +632,7 @@ var
   pl: TPlayer;
   warning: string;
   fileScope, tempIndex: integer;
+  enumVal: integer;
 begin
   if not (ADefaultMainThread in[plPlayer1..plPlayer8]) then
     raise exception.Create('This player can''t be used as a main thread');
@@ -678,6 +679,7 @@ begin
   inSubMain := false;
   subMainDeclared := false;
   inClass := -1;
+  inEnum := -1;
   curClassPlayers := [];
 
   try
@@ -687,6 +689,27 @@ begin
         ClearParseCompletionList;
         ReadNextLine;
 
+        if inEnum <> -1 then
+        begin
+           if TryToken(line,index,'End') then
+           begin
+             AutoEnumValues(inEnum);
+             inEnum := -1;
+             ExpectToken(line,index,'Enum');
+           end else
+           begin
+             if TryIdentifier(line,index,str,false) then
+             begin
+               if TryToken(line, index, '=') then
+                 enumVal:= ExpectIntegerConstant(curClassPlayers, ALastScope, line, index, false)
+               else
+                 enumVal := -1;
+               AddEnumItem(inEnum, str, enumVal);
+             end else
+               raise exception.Create('Expecting item of enumeration');
+           end;
+           CheckEndOfLine;
+        end else
         if TryToken(line,index,'Class') then
         begin
           if inClass <> -1 then
@@ -730,6 +753,15 @@ begin
               ProcessDim([], ALastScope, line, MainProg, false, false, warning);
             if warning <> '' then AddWarning(lineNumber, warning);
           end;
+        end
+        else if TryToken(line,index,'Enum') then
+        begin
+          if TryIdentifier(line, index, str, false) then
+          begin
+            inEnum := CreateEnum(ALastScope, str);
+            CheckEndOfLine;
+          end else
+            raise exception.Create('Expecting identifier');
         end
         else if (inSub = -1) and (inEvent = -1) and not inSubMain and
          (TryToken(line,index, 'Sub') or TryToken(line,index,'Function')) then
@@ -867,6 +899,14 @@ begin
       end;
     end;
     line.Free;
+
+    if inEnum <> -1 then
+    begin
+      if ReadProgErrors.Count < MAX_ERRORS then
+        AddError(lineNumber, 'Enum not finished');
+      AutoEnumValues(inEnum);
+      inEnum := -1;
+    end;
 
     if ReadProgErrors.Count < MAX_ERRORS then
       try

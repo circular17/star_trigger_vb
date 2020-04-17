@@ -15,8 +15,6 @@ function CompareAccumulator(AMode: TIntegerConditionMode; AValue: integer): TCon
 function IsAccumulatorVariable({%H-}APlayer: TPlayer; AUnit: TStarcraftUnit): boolean;
 procedure InitArithmetic;
 procedure WriteArithmeticTriggers;
-function GetExponentOf2(AValue: integer): integer;
-function IsPowerOf2(ANumber: integer): boolean;
 
 var
   TempBools: array[0..MaxTempBools-1] of record
@@ -166,27 +164,6 @@ begin
       TempBools[i].Used := false;
       exit;
     end;
-end;
-
-function GetExponentOf2(AValue: integer): integer;
-begin
-  result := 0;
-  while AValue > 1 do
-  begin
-    AValue := AValue shr 1;
-    inc(result);
-  end;
-end;
-
-function IsPowerOf2(ANumber: integer): boolean;
-begin
-  if ANumber <= 0 then exit(false);
-  while ANumber > 1 do
-  begin
-    if (ANumber and 1) <> 0 then exit(false);
-    ANumber := ANumber shr 1;
-  end;
-  exit(ANumber = 1);
 end;
 
 var

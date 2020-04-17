@@ -105,7 +105,7 @@ var
 
 implementation
 
-uses uparsevb, utriggerinstructions, uvariables, uparseconditions, utriggerconditions;
+uses uparsevb, uparsescalar, utriggerinstructions, uvariables, uparseconditions, utriggerconditions;
 
 function CreateClass(AWiderScope: integer; AThreads: TPlayers; AName: string): integer;
 begin
@@ -224,7 +224,7 @@ begin
     Code := TCodeLineList.Create;
     StartIP := -1;
     ReturnType := AReturnType;
-    ReturnBitCount:= GetBitCountOfType(AReturnType);
+    ReturnBitCount:= GetBitCountOfScalarType(WiderScope, AReturnType);
     Expanded := false;
     StackChecked := false;
     Calls := TIntegerList.Create;
@@ -291,7 +291,7 @@ end;
 
 function ProcessSubStatement(AScope: integer; ALineNumber: integer; ALine: TStringList; APlayers: TPlayers): integer;
 var
-  index, i: Integer;
+  index, i, idxEnum: Integer;
   name: String;
   isFunc: boolean;
   returnType, varName, varType: string;
@@ -322,6 +322,9 @@ begin
         ExpectToken(ALine,index,'As');
         if not TryUnsignedIntegerType(ALine, index, varType) then
         begin
+          idxEnum := TryEnumType(AScope, ALine, index);
+          if idxEnum <> -1 then varType := EnumDefinitions[idxEnum].Name
+          else
           if TryToken(ALine, index, 'Boolean') then
             varType := 'Boolean'
           else
@@ -354,7 +357,8 @@ begin
         inc(index);
       end;
 
-      if not IsIntegerType(returnType) then
+      if not IsIntegerType(returnType) and
+          (EnumIndexOf(AScope, returnType) = -1) then
         raise exception.Create('Expecting return type (Byte, UInt16, UInt24, Boolean)');
     end;
   end else
@@ -381,13 +385,13 @@ begin
           CreateBoolVar(Procedures[result].InnerScope, params[i].Name, svClear)
         else
           CreateIntVar(Procedures[result].InnerScope, params[i].Name,
-                       0, GetBitCountOfType(params[i].VarType));
+                       0, GetBitCountOfScalarType(AScope, params[i].VarType));
       end;
     end else
       for i := 0 to high(params) do
         CreateMultithreadIntVar(Procedures[result].Players,
                                 Procedures[result].InnerScope,
-                                params[i].Name, GetBitCountOfType(params[i].VarType));
+                                params[i].Name, GetBitCountOfScalarType(AScope, params[i].VarType));
   end;
 end;
 

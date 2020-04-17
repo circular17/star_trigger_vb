@@ -512,12 +512,12 @@ var
   varName, varType, text: String;
   arraySize, bitCount: integer;
   isArray: boolean;
-  intVal: integer;
+  intVal, idxEnum: integer;
   arrValues: ArrayOfInteger;
   boolVal: boolean;
   prop: TUnitProperties;
   arrBoolValues: ArrayOfSwitchValue;
-  Constant, multiThreadVar, hasNew: boolean;
+  Constant, multiThreadVar, hasNew, isEnum: boolean;
   strValues: ArrayOfString;
   su: TStarcraftUnit;
 
@@ -703,6 +703,7 @@ begin
     varName := ALine[index];
     arraySize := 0;
     bitCount := 0;
+    isEnum := false;
     hasNew := false;
     if not IsValidVariableName(varName) then
       raise exception.Create('Invalid variable name');
@@ -725,11 +726,17 @@ begin
         raise exception.Create('Please specify the bit count of the integer by using Byte, UInt16 or UInt24');
 
       if TryUnsignedIntegerType(ALine,index,varType) then
-        bitCount := GetBitCountOfType(varType)
-      else
+        bitCount := GetBitCountOfIntType(varType) else
       begin
-        bitCount := 0;
         if not Constant and TryToken(ALine,index,'New') then hasNew := true;
+        bitCount := 0;
+        idxEnum := TryEnumType(AScope, ALine, index);
+        if idxEnum <> -1 then
+        begin
+          varType := EnumDefinitions[idxEnum].Name;
+          bitCount := EnumDefinitions[idxEnum].BitCount;
+          isEnum := true;
+        end else
         if TryToken(ALine,index,'Boolean') then varType := 'Boolean'
         else if TryToken(ALine,index,'String') then varType := 'String'
         else if TryToken(ALine,index,'UnitProperties') then varType := 'UnitProperties'
@@ -792,7 +799,7 @@ begin
         begin
           raise exception.Create('Array type not specified');
         end else
-        if IsIntegerType(varType) or (varType = 'Timer') then
+        if IsIntegerType(varType) or (varType = 'Timer') or isEnum then
         begin
           arrValues := ParseIntArray(AThreads, AScope, ALine, index);
           if (arraySize <> 0) and (length(arrValues) <> arraySize) then
@@ -884,7 +891,7 @@ begin
           SetupBoolVar(varName, BoolToSwitch[boolVal], Constant);
         end;
       end else
-      if IsIntegerType(varType) or (varType = 'Timer') then
+      if IsIntegerType(varType) or (varType = 'Timer') or isEnum then
       begin
         SetupIntVar(varName, 0, bitCount, Constant,
                     TryExpression(AThreads, AScope, ALine, index, true));
@@ -935,7 +942,7 @@ begin
       begin
         if varType = 'Boolean' then
           SetupBoolVar(varName, svClear, Constant)
-        else if IsIntegerType(varType) or (varType = 'Timer') then
+        else if IsIntegerType(varType) or (varType = 'Timer') or IsEnum then
           SetupIntVar(varName, 0, bitCount, Constant)
         else raise exception.Create('Initial value needed for '+varType);
       end;

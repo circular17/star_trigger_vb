@@ -57,9 +57,46 @@ var
   ExpectMultiStringConstant: TExpectMultiStringConstantFunc;
   ParseProcedureParameterValues: TParseProcedureParameterValuesFunc;
 
+function ExpectLocationString(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): string;
+function ExpectLocationMultiString(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): TMultistring;
+
 implementation
 
 uses uparsevb, uvariables, uprocedures, umapinfo;
+
+function ExpectLocationString(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): string;
+var
+  i: Integer;
+  s: String;
+begin
+  if AIndex >= ALine.Count then
+  begin
+    for i := LocationMinIndex to LocationMaxIndex do
+    begin
+      s := MapInfo.LocationName[i];
+      if (s <> '') and (s <> MapInfo.AnywhereLocationName) then
+        AddToCompletionList(StrToBasic(s));
+    end;
+  end;
+  result := ExpectStringConstant(AThreads, AScope, ALine, AIndex, AConvertToString);
+end;
+
+function ExpectLocationMultiString(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; AConvertToString: boolean = false): TMultistring;
+var
+  i: Integer;
+  s: String;
+begin
+  if AIndex >= ALine.Count then
+  begin
+    for i := LocationMinIndex to LocationMaxIndex do
+    begin
+      s := MapInfo.LocationName[i];
+      if (s <> '') and (s <> MapInfo.AnywhereLocationName) then
+        AddToCompletionList(StrToBasic(s));
+    end;
+  end;
+  result := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex, AConvertToString);
+end;
 
 function TryUnitType(AThreads: TPlayers; AScope: integer; ALine: TStringList; var AIndex: integer; out AUnit: TStarcraftUnit): boolean;
 var

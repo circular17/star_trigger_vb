@@ -77,20 +77,20 @@ begin
   if TryToken(ALine,AIndex,'Location') then
   begin
     ExpectToken(ALine,AIndex,'(');
-    locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+    locStr := ExpectLocationMultiString(AThreads, AScope, ALine, AIndex);
     ExpectToken(ALine,AIndex,')');
     ExpectToken(ALine,AIndex,'.');
     if TryToken(ALine,AIndex,'Attract') then
     begin
        ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+       destLocStr := ExpectLocationMultiString(AThreads, AScope, ALine, AIndex);
        ExpectToken(ALine,AIndex,')');
        AProg.Add(TMoveLocationInstruction.Create(AThreads, plCurrentPlayer, suUnusedCaveIn, locStr, destLocStr));
     end else
     if TryToken(ALine,AIndex,'CenterOn') then
     begin
        ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+       destLocStr := ExpectLocationMultiString(AThreads, AScope, ALine, AIndex);
        ExpectToken(ALine,AIndex,')');
        AProg.Add(TMoveLocationInstruction.Create(AThreads, plCurrentPlayer, suUnusedCaveIn, destLocStr, locStr));
     end else
@@ -201,7 +201,7 @@ begin
       ExpectToken(ALine,AIndex,',');
       unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
       if TryToken(ALine,AIndex,',') then
-        locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex)
+        locStr := ExpectLocationMultiString(AThreads, AScope, ALine, AIndex)
       else
         locStr := MultiString(AThreads, MapInfo.AnywhereLocationName);
       if TryToken(ALine,AIndex,',') then
@@ -250,7 +250,7 @@ begin
     if not TryToken(ALine,AIndex,',') then
       locStr := Multistring(AThreads, MapInfo.AnywhereLocationName)
     else
-      locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+      locStr := ExpectLocationMultiString(AThreads, AScope, ALine, AIndex);
     ExpectToken(ALine,AIndex,')');
     ExpectToken(ALine,AIndex,'.');
 
@@ -301,14 +301,14 @@ begin
     if TryToken(ALine,AIndex,'Location') then
     begin
        ExpectToken(ALine,AIndex,'=');
-       destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+       destLocStr := ExpectLocationMultiString(AThreads, AScope, ALine, AIndex);
 
        AProg.Add(TTeleportUnitInstruction.Create(AThreads, APlayer, intVal, unitType, locStr, destLocStr));
     end else
     if TryToken(ALine,AIndex,'Teleport') then
     begin
        ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+       destLocStr := ExpectLocationMultiString(AThreads, AScope, ALine, AIndex);
        ExpectToken(ALine,AIndex,')');
 
        AProg.Add(TTeleportUnitInstruction.Create(AThreads, APlayer, intVal, unitType, locStr, destLocStr));
@@ -352,7 +352,7 @@ begin
     if TryToken(ALine,AIndex,'AttractLocation') then
     begin
        ExpectToken(ALine,AIndex,'(');
-       destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+       destLocStr := ExpectLocationMultiString(AThreads, AScope, ALine, AIndex);
        ExpectToken(ALine,AIndex,')');
        if intVal <> -1 then raise exception.Create('Cannot specify quantity for this action (use All quantity instead)');
        AProg.Add(TMoveLocationInstruction.Create(AThreads, APlayer, unitType, locStr, destLocStr));
@@ -367,7 +367,7 @@ begin
       if intVal <> -1 then
         raise exception.Create('Cannot specify quantity for an order (use All quantity instead)');
       ExpectToken(ALine,AIndex,'(');
-      destLocStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+      destLocStr := ExpectLocationMultiString(AThreads, AScope, ALine, AIndex);
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TOrderUnitInstruction.Create(AThreads, APlayer, unitType, locStr, destLocStr, unitOrder));
     end else
@@ -492,7 +492,7 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+      locStr := ExpectLocationMultiString(AThreads, AScope, ALine, AIndex);
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TCenterViewInstruction.Create(AThreads, locStr));
     end else
@@ -500,7 +500,7 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+      locStr := ExpectLocationMultiString(AThreads, AScope, ALine, AIndex);
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TCenterViewInstruction.Create(AThreads, locStr));
     end else
@@ -508,7 +508,7 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'(');
-      multiText := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex, true);
+      multiText := ExpectLocationMultiString(AThreads, AScope, ALine, AIndex, true);
       ExpectToken(ALine,AIndex,')');
       AProg.Add(TDisplayTextMessageInstruction.Create(AThreads, true, multiText));
     end else
@@ -526,7 +526,7 @@ begin
     begin
       CheckCurrentPlayer;
       ExpectToken(ALine,AIndex,'=');
-      multiText := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex);
+      multiText := ExpectLocationMultiString(AThreads, AScope, ALine, AIndex);
       AProg.Add(TSetMissionObjectivesInstruction.Create(AThreads, multiText));
     end else
     if TryToken(ALine,AIndex,'Leaderboard') then
@@ -632,7 +632,7 @@ begin
           begin
             unitType := ExpectUnitType(AThreads, AScope, ALine, AIndex);
             if TryToken(ALine,AIndex,',') then
-              locStrUnique := ExpectStringConstant(AThreads, AScope, ALine, AIndex)
+              locStrUnique := ExpectLocationString(AThreads, AScope, ALine, AIndex)
             else
               locStrUnique := MapInfo.AnywhereLocationName;
             ExpectToken(ALine,AIndex,')');
@@ -701,7 +701,7 @@ begin
       ExpectToken(ALine,AIndex,'(');
       filename := ExpectStringConstant(AThreads, AScope, ALine, AIndex);
       if TryToken(ALine,AIndex,',') then
-        locStr := ExpectMultiStringConstant(AThreads, AScope, ALine, AIndex)
+        locStr := ExpectLocationMultiString(AThreads, AScope, ALine, AIndex)
       else
         locStr := Multistring(AThreads, MapInfo.AnywhereLocationName);
       ExpectToken(ALine,AIndex,')');

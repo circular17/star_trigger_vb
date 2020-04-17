@@ -101,7 +101,7 @@ begin
     begin
       unitType := ExpectUnitType(AThreads, AScope, ALine,AIndex);
       if TryToken(ALine,AIndex,',') then
-        locStr := ExpectStringConstant(AThreads, AScope, ALine,AIndex)
+        locStr := ExpectLocationString(AThreads, AScope, ALine,AIndex)
       else
         locStr := '';
       ExpectToken(ALine,AIndex,')');

@@ -933,7 +933,7 @@ begin
           raise exception.Create('Array size not specified');
         if varType = 'Boolean' then
           SetupBoolArray(CreateBoolArray(AScope,varName, arraySize, [], Constant))
-        else if IsIntegerType(varType) or (varType = 'Timer') then
+        else if IsIntegerType(varType) or (varType = 'Timer') or IsEnum then
           SetupIntArray(CreateIntArray(AScope,varName, arraySize, [], bitCount, Constant))
         else if varType = 'String' then
           CreateStringArray(AScope,varName, arraySize, [], Constant)

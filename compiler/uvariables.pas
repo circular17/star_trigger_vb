@@ -1062,7 +1062,7 @@ begin
       usedValues[val^] := true;
     if val^ > maxVal then maxVal := val^;
   end;
-  EnumDefinitions[AEnum].BitCount:= GetExponentOf2(maxVal, true);
+  EnumDefinitions[AEnum].BitCount:= GetExponentOf2(maxVal)+1;
 end;
 
 function CreateSound(AScope: integer; AName: string; AFilename: string;
